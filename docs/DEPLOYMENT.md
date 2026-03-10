@@ -59,7 +59,7 @@ cp /Users/nick/git/FirebaseOpenBrain/functions/.env.example /Users/nick/git/Fire
 Minimum required values:
 
 ```dotenv
-OPENAI_API_KEY=...
+GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
 ```
 
@@ -74,21 +74,31 @@ Recommended layout:
 
 Supported variables in this codebase:
 
-- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
 - `MCP_AUTH_TOKEN`
-- `OPENAI_EMBEDDING_MODEL`
-- `OPENAI_EMBEDDING_DIMENSIONS`
+- `GEMINI_EMBEDDING_MODEL`
+- `GEMINI_MULTIMODAL_MODEL`
+- `GEMINI_EMBEDDING_DIMENSIONS`
 - `MEMORY_COLLECTION`
 - `SEARCH_RESULT_LIMIT`
 - `DEFAULT_FILTER_STATE`
 - `SERVICE_NAME`
 - `SERVICE_VERSION`
-- `OPENAI_BASE_URL`
 
 Important implementation detail:
 
-- `OPENAI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-- The repo is currently configured for `text-embedding-3-small` with dimension `1536`.
+- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
+- The repo is currently configured for `gemini-embedding-001` with dimension `1536`.
+- Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
+
+## Provider migration note
+
+This repo previously used OpenAI embeddings. If your deployed Firestore collection already contains OpenAI vectors, do not mix them with the new Gemini vectors in the same search corpus.
+
+Use one of these approaches before switching production traffic:
+
+- delete and repopulate the existing `memory_vectors` collection
+- or point `MEMORY_COLLECTION` at a fresh collection name and deploy new indexes for that collection
 
 ## Firestore indexes
 
@@ -189,15 +199,17 @@ Expected result:
 - `listTools` returns `store_context` and `search_context`
 - `store_context` stores a sample Ktor networking decision
 - `search_context` returns that stored document
+- if you pass `--image-base64`, the stored memory is first normalized from image+text into searchable text
 
 ## Failure modes to check first
 
 If deploy succeeds but search fails:
 
 - confirm Firestore vector indexes finished building
-- confirm `OPENAI_EMBEDDING_DIMENSIONS=1536`
-- confirm the deployed model is still `text-embedding-3-small`
+- confirm `GEMINI_EMBEDDING_DIMENSIONS=1536`
+- confirm the deployed embedding model is still `gemini-embedding-001`
 - confirm the Firestore database is in Native mode
+- confirm old OpenAI vectors were not left mixed into the same collection
 
 If requests return `401`:
 

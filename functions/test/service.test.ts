@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { formatSearchResults, OpenBrainService } from "../src/service.js";
 import { createTestConfig } from "./support/fakes.js";
 import {
+  FakeMemoryContentPreparer,
   InMemoryMemoryRepository,
   KeywordEmbeddingClient
 } from "./support/fakes.js";
@@ -13,6 +14,7 @@ describe("OpenBrainService", () => {
 
     const repository = new InMemoryMemoryRepository();
     const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
       new KeywordEmbeddingClient(),
       repository,
       createTestConfig()
@@ -38,6 +40,7 @@ describe("OpenBrainService", () => {
   it("searches with the default active filter and formats results", async () => {
     const repository = new InMemoryMemoryRepository();
     const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
       new KeywordEmbeddingClient(),
       repository,
       createTestConfig()
@@ -65,5 +68,30 @@ describe("OpenBrainService", () => {
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0]?.metadata.module_name).toBe("kmp-networking");
     expect(formatSearchResults(result)).toContain("Ktor");
+  });
+
+  it("stores image-backed memories as multimodal retrieval text", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const result = await service.storeContext({
+      content: "Compose settings screen screenshot",
+      artifact_type: "PATTERN",
+      module_name: "jetpack-compose-ui",
+      branch_state: "active",
+      image_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
+      image_mime_type: "image/png"
+    });
+
+    const storedRecord = repository.listRecords()[0];
+
+    expect(result.metadata.modality).toBe("text_image");
+    expect(result.media?.mime_type).toBe("image/png");
+    expect(storedRecord?.content).toContain("Visual memory summary");
   });
 });

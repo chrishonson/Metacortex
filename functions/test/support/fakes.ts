@@ -1,7 +1,14 @@
 import type { AppConfig } from "../../src/config.js";
-import type { EmbeddingClient } from "../../src/embeddings.js";
+import type {
+  EmbeddingClient,
+  EmbeddingRequest,
+  MemoryContentPreparer,
+  MemoryPreparationInput,
+  PreparedMemoryContent
+} from "../../src/embeddings.js";
 import type {
   MemoryDocument,
+  MemoryMedia,
   MemoryMetadata
 } from "../../src/types.js";
 import {
@@ -18,11 +25,12 @@ interface StoredRecord {
   content: string;
   embedding: number[];
   metadata: MemoryMetadata;
+  media?: MemoryMedia;
 }
 
 export class KeywordEmbeddingClient implements EmbeddingClient {
-  async embed(text: string): Promise<number[]> {
-    const normalized = text.toLowerCase();
+  async embed(request: EmbeddingRequest): Promise<number[]> {
+    const normalized = request.text.toLowerCase();
 
     return [
       includesAny(normalized, ["ktor", "network", "networking"]) ? 1 : 0,
@@ -30,8 +38,50 @@ export class KeywordEmbeddingClient implements EmbeddingClient {
       includesAny(normalized, ["android"]) ? 1 : 0,
       includesAny(normalized, ["ios", "swift"]) ? 1 : 0,
       includesAny(normalized, ["firebase", "firestore"]) ? 1 : 0,
-      includesAny(normalized, ["decision", "architecture"]) ? 1 : 0
+      includesAny(normalized, ["decision", "architecture", "diagram", "screenshot"])
+        ? 1
+        : 0
     ];
+  }
+}
+
+export class FakeMemoryContentPreparer implements MemoryContentPreparer {
+  async prepare(input: MemoryPreparationInput): Promise<PreparedMemoryContent> {
+    const normalizedContent = input.content?.trim();
+
+    if (!normalizedContent && !input.imageBase64) {
+      throw new Error(
+        "Either content or image_base64 must be provided to store_context"
+      );
+    }
+
+    if (input.imageBase64 && !input.imageMimeType) {
+      throw new Error(
+        "image_mime_type is required when image_base64 is provided"
+      );
+    }
+
+    if (!input.imageBase64) {
+      return {
+        content: normalizedContent!,
+        modality: "text"
+      };
+    }
+
+    return {
+      content: [
+        normalizedContent,
+        `Visual memory summary:
+Architecture screenshot for ${input.moduleName} with labels relevant to ${input.artifactType}.`
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      modality: "text_image",
+      media: {
+        kind: "inline_image",
+        mime_type: input.imageMimeType!
+      }
+    };
   }
 }
 
@@ -46,7 +96,8 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       id,
       content: params.content,
       embedding: [...params.embedding],
-      metadata: params.metadata
+      metadata: params.metadata,
+      media: params.media
     });
 
     return { id };
@@ -64,6 +115,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
         id: record.id,
         content: record.content,
         metadata: record.metadata,
+        media: record.media,
         distance: cosineDistance(record.embedding, params.queryVector)
       }))
       .sort((left, right) => (left.distance ?? 1) - (right.distance ?? 1))
@@ -80,8 +132,9 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     serviceName: "firebase-open-brain",
     serviceVersion: "0.1.0-test",
     authToken: "test-token",
-    openAiApiKey: "test-openai-key",
-    embeddingModel: "text-embedding-3-small",
+    geminiApiKey: "test-gemini-key",
+    embeddingModel: "gemini-embedding-001",
+    multimodalModel: "gemini-2.5-flash",
     embeddingDimensions: 1536,
     memoryCollection: "memory_vectors",
     topK: 5,
@@ -93,8 +146,14 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
 export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
   const config = createTestConfig(overrides);
   const repository = new InMemoryMemoryRepository();
+  const contentPreparer = new FakeMemoryContentPreparer();
   const embeddings = new KeywordEmbeddingClient();
-  const service = new OpenBrainService(embeddings, repository, config);
+  const service = new OpenBrainService(
+    contentPreparer,
+    embeddings,
+    repository,
+    config
+  );
 
   return {
     config,

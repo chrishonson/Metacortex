@@ -37,7 +37,7 @@ describe("createOpenBrainApp", () => {
   it("surfaces configuration failures as 500s", async () => {
     const app = createOpenBrainApp({
       getAuthToken: () => {
-        throw new MissingConfigurationError("OPENAI_API_KEY is missing");
+        throw new MissingConfigurationError("GEMINI_API_KEY is missing");
       },
       getRuntime: () => {
         throw new MissingConfigurationError("should not be called");
@@ -54,6 +54,6 @@ describe("createOpenBrainApp", () => {
       });
 
     expect(response.status).toBe(500);
-    expect(response.body.error).toContain("OPENAI_API_KEY");
+    expect(response.body.error).toContain("GEMINI_API_KEY");
   });
 });

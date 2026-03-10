@@ -2,6 +2,7 @@ import { FieldValue, Firestore } from "firebase-admin/firestore";
 
 import type {
   MemoryDocument,
+  MemoryMedia,
   MemoryMetadata
 } from "./types.js";
 
@@ -9,6 +10,7 @@ export interface StoreMemoryParams {
   content: string;
   embedding: number[];
   metadata: MemoryMetadata;
+  media?: MemoryMedia;
 }
 
 export interface SearchMemoryParams {
@@ -27,6 +29,7 @@ interface FirestoreMemoryDocument {
   content: string;
   embedding: unknown;
   metadata: MemoryMetadata;
+  media?: MemoryMedia;
   distance?: number;
 }
 
@@ -40,7 +43,8 @@ export class FirestoreMemoryRepository implements MemoryRepository {
     const docRef = await this.firestore.collection(this.collectionName).add({
       content: params.content,
       embedding: FieldValue.vector(params.embedding),
-      metadata: params.metadata
+      metadata: params.metadata,
+      media: params.media
     });
 
     return { id: docRef.id };
@@ -72,6 +76,7 @@ export class FirestoreMemoryRepository implements MemoryRepository {
         id: doc.id,
         content: data.content,
         metadata: data.metadata,
+        media: data.media,
         distance: typeof data.distance === "number" ? data.distance : undefined
       };
     });

@@ -25,7 +25,8 @@ What this covers:
 - MCP transport wiring over Streamable HTTP
 - MCP transport wiring over legacy SSE
 
-The end-to-end MCP tests use real MCP client transports against a local in-process HTTP server. They do not hit Firestore or OpenAI.
+The end-to-end MCP tests use real MCP client transports against a local in-process HTTP server. They do not hit Firestore or the live Gemini APIs.
+The multimodal path is covered with a mocked image-backed `store_context` call, but it still does not hit the live Gemini APIs.
 
 ## Build verification
 
@@ -55,7 +56,7 @@ cp /Users/nick/git/FirebaseOpenBrain/functions/.env.example /Users/nick/git/Fire
 Fill in at least:
 
 ```dotenv
-OPENAI_API_KEY=...
+GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
 ```
 
@@ -136,6 +137,23 @@ Expected result:
 - `store_context` succeeds
 - `search_context` returns the stored Ktor document
 
+Optional multimodal smoke test:
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
+MCP_AUTH_TOKEN="replace-me" \
+MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
+MCP_IMAGE_MIME_TYPE="image/png" \
+npm run smoke -- --content "Settings screen screenshot for the Compose UI"
+```
+
+Expected result:
+
+- `store_context` accepts the image-backed memory
+- the returned metadata includes `modality=text_image`
+- `search_context` returns the normalized memory text
+
 ## Production smoke testing
 
 After deployment, re-run the same script against the real endpoint:
@@ -157,7 +175,8 @@ curl -i "<FUNCTION_BASE_URL>/healthz"
 
 The local test suite does not prove:
 
-- real OpenAI embedding API connectivity
+- real Gemini embedding API connectivity
+- real Gemini multimodal normalization output quality
 - real Firestore write permissions in your deployed project
 - vector index build completion in Firestore
 - production latency or cold-start behavior
@@ -172,6 +191,7 @@ Before deploy:
 - `npm --prefix functions run build`
 - confirm `functions/.env.<alias>` values are correct
 - confirm [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json) still matches embedding dimensions
+- if migrating from OpenAI, confirm the target Firestore collection is clean or re-embedded
 
 After deploy:
 

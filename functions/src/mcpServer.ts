@@ -26,9 +26,12 @@ export function createOpenBrainMcpServer(
     {
       title: "Store Context",
       description:
-        "Generate an embedding for a specification or decision and store it in Firestore-backed long-term memory.",
+        "Normalize text or image-backed memories with Gemini, embed the resulting retrieval text, and store it in Firestore-backed long-term memory.",
       inputSchema: {
-        content: z.string().min(1).describe("The raw markdown or text to store."),
+        content: z
+          .string()
+          .optional()
+          .describe("Optional raw markdown or text to store. Required unless image_base64 is provided."),
         artifact_type: z
           .enum(ARTIFACT_TYPES)
           .describe("The type of artifact being stored."),
@@ -38,7 +41,15 @@ export function createOpenBrainMcpServer(
           .describe("The codebase or subsystem name associated with the content."),
         branch_state: z
           .enum(BRANCH_STATES)
-          .describe("The branch lifecycle state for the stored content.")
+          .describe("The branch lifecycle state for the stored content."),
+        image_base64: z
+          .string()
+          .optional()
+          .describe("Optional base64-encoded image bytes for multimodal memories."),
+        image_mime_type: z
+          .string()
+          .optional()
+          .describe("Required when image_base64 is provided, for example image/png.")
       }
     },
     async args => {
@@ -53,8 +64,14 @@ export function createOpenBrainMcpServer(
               `artifact_type=${result.metadata.artifact_type}`,
               `module_name=${result.metadata.module_name}`,
               `branch_state=${result.metadata.branch_state}`,
+              `modality=${result.metadata.modality}`,
+              result.media
+                ? `media=${result.media.kind}:${result.media.mime_type}`
+                : undefined,
               `timestamp=${new Date(result.metadata.timestamp).toISOString()}`
-            ].join("\n")
+            ]
+              .filter(Boolean)
+              .join("\n")
           }
         ]
       };
@@ -66,7 +83,7 @@ export function createOpenBrainMcpServer(
     {
       title: "Search Context",
       description:
-        "Embed a query, pre-filter Firestore documents by relational metadata, and return the nearest context matches.",
+        "Embed a text query with Gemini, pre-filter Firestore documents by relational metadata, and return the nearest text or image-backed context matches.",
       inputSchema: {
         query: z.string().min(1).describe("The natural-language search query."),
         filter_module: z

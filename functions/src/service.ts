@@ -1,5 +1,8 @@
 import type { AppConfig } from "./config.js";
-import type { EmbeddingClient } from "./embeddings.js";
+import type {
+  EmbeddingClient,
+  MemoryContentPreparer
+} from "./embeddings.js";
 import type {
   MemoryDocument,
   SearchContextInput,
@@ -11,32 +14,46 @@ import type { MemoryRepository } from "./memoryRepository.js";
 
 export class OpenBrainService {
   constructor(
+    private readonly contentPreparer: MemoryContentPreparer,
     private readonly embeddings: EmbeddingClient,
     private readonly repository: MemoryRepository,
     private readonly config: Pick<AppConfig, "defaultFilterState" | "topK">
   ) {}
 
   async storeContext(input: StoreContextInput): Promise<StoreContextResult> {
-    const normalizedContent = normalizeRequiredText(input.content, "content");
     const normalizedModule = normalizeRequiredText(input.module_name, "module_name");
-    const embedding = await this.embeddings.embed(normalizedContent);
+    const preparedContent = await this.contentPreparer.prepare({
+      content: normalizeOptionalText(input.content),
+      artifactType: input.artifact_type,
+      moduleName: normalizedModule,
+      imageBase64: normalizeOptionalText(input.image_base64),
+      imageMimeType: normalizeOptionalText(input.image_mime_type)
+    });
+    const embedding = await this.embeddings.embed({
+      text: preparedContent.content,
+      taskType: "RETRIEVAL_DOCUMENT",
+      title: `${input.artifact_type} ${normalizedModule}`
+    });
 
     const metadata = {
       artifact_type: input.artifact_type,
       module_name: normalizedModule,
       branch_state: input.branch_state,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      modality: preparedContent.modality
     } as const;
 
     const result = await this.repository.store({
-      content: normalizedContent,
+      content: preparedContent.content,
       embedding,
-      metadata
+      metadata,
+      media: preparedContent.media
     });
 
     return {
       id: result.id,
-      metadata
+      metadata,
+      media: preparedContent.media
     };
   }
 
@@ -44,7 +61,10 @@ export class OpenBrainService {
     const normalizedQuery = normalizeRequiredText(input.query, "query");
     const filterModule = normalizeOptionalText(input.filter_module);
     const filterState = input.filter_state ?? this.config.defaultFilterState;
-    const queryVector = await this.embeddings.embed(normalizedQuery);
+    const queryVector = await this.embeddings.embed({
+      text: normalizedQuery,
+      taskType: "RETRIEVAL_QUERY"
+    });
     const matches = await this.repository.search({
       queryVector,
       limit: this.config.topK,
@@ -89,10 +109,15 @@ export function formatSearchResults(result: SearchContextResult): string {
         match.metadata.artifact_type,
         match.metadata.module_name,
         match.metadata.branch_state,
+        match.metadata.modality,
         new Date(match.metadata.timestamp).toISOString()
       ].join(" | ");
 
-      return `${header}\n${match.content}`;
+      const mediaLine = match.media
+        ? `media=${match.media.kind}:${match.media.mime_type}\n`
+        : "";
+
+      return `${header}\n${mediaLine}${match.content}`;
     })
     .join("\n\n");
 }

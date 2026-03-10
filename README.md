@@ -17,6 +17,8 @@ The MCP server registers two tools:
 - `store_context`
 - `search_context`
 
+`store_context` now supports multimodal memories by accepting text plus an optional inline image. Image-backed memories are normalized into retrieval text with Gemini before they are embedded and stored.
+
 ## Docs
 
 - Deployment runbook: [docs/DEPLOYMENT.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT.md)
@@ -62,7 +64,7 @@ The MCP server registers two tools:
 
 - Firestore vector indexes live in `firestore.indexes.json`
 - Firestore rules live in `firestore.rules`
-- The embedding index is configured for `1536` dimensions to match `text-embedding-3-small`
+- The embedding index is configured for `1536` dimensions to match `gemini-embedding-001`
 
 Deploy indexes and functions with:
 

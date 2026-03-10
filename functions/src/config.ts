@@ -4,9 +4,9 @@ export interface AppConfig {
   serviceName: string;
   serviceVersion: string;
   authToken: string;
-  openAiApiKey: string;
-  openAiBaseUrl?: string;
+  geminiApiKey: string;
   embeddingModel: string;
+  multimodalModel: string;
   embeddingDimensions: number;
   memoryCollection: string;
   topK: number;
@@ -65,13 +65,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     serviceName: env.SERVICE_NAME ?? "firebase-open-brain",
     serviceVersion: env.SERVICE_VERSION ?? "0.1.0",
     authToken: requireEnv(env, "MCP_AUTH_TOKEN"),
-    openAiApiKey: requireEnv(env, "OPENAI_API_KEY"),
-    openAiBaseUrl: env.OPENAI_BASE_URL?.trim() || undefined,
-    embeddingModel: env.OPENAI_EMBEDDING_MODEL?.trim() || "text-embedding-3-small",
+    geminiApiKey: requireEnv(env, "GEMINI_API_KEY"),
+    embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "gemini-embedding-001",
+    multimodalModel: env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-2.5-flash",
     embeddingDimensions: parsePositiveInteger(
-      env.OPENAI_EMBEDDING_DIMENSIONS,
+      env.GEMINI_EMBEDDING_DIMENSIONS,
       1536,
-      "OPENAI_EMBEDDING_DIMENSIONS"
+      "GEMINI_EMBEDDING_DIMENSIONS"
     ),
     memoryCollection: env.MEMORY_COLLECTION?.trim() || "memory_vectors",
     topK: parsePositiveInteger(env.SEARCH_RESULT_LIMIT, 5, "SEARCH_RESULT_LIMIT"),

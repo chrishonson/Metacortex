@@ -5,11 +5,12 @@ import { loadConfig, MissingConfigurationError } from "../src/config.js";
 describe("loadConfig", () => {
   it("loads required values and defaults", () => {
     const config = loadConfig({
-      OPENAI_API_KEY: "openai-key",
+      GEMINI_API_KEY: "gemini-key",
       MCP_AUTH_TOKEN: "secret-token"
     });
 
-    expect(config.embeddingModel).toBe("text-embedding-3-small");
+    expect(config.embeddingModel).toBe("gemini-embedding-001");
+    expect(config.multimodalModel).toBe("gemini-2.5-flash");
     expect(config.defaultFilterState).toBe("active");
     expect(config.topK).toBe(5);
   });
@@ -17,7 +18,7 @@ describe("loadConfig", () => {
   it("rejects invalid branch state defaults", () => {
     expect(() =>
       loadConfig({
-        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
         MCP_AUTH_TOKEN: "secret-token",
         DEFAULT_FILTER_STATE: "unknown"
       })

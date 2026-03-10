@@ -122,22 +122,25 @@ describe("MCP integration", () => {
     await client.callTool({
       name: "store_context",
       arguments: {
-        content: "Jetpack Compose is our UI framework for Android.",
+        content: "Jetpack Compose settings screen screenshot.",
         artifact_type: "PATTERN",
         module_name: "jetpack-compose-ui",
-        branch_state: "active"
+        branch_state: "active",
+        image_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
+        image_mime_type: "image/png"
       }
     });
 
     const searchResult = await client.callTool({
       name: "search_context",
       arguments: {
-        query: "android ui pattern",
+        query: "android compose screenshot",
         filter_state: "active"
       }
     });
 
     expect(textContent(searchResult)).toContain("Jetpack Compose");
+    expect(textContent(searchResult)).toContain("media=inline_image:image/png");
   });
 });
 

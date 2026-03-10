@@ -14,9 +14,18 @@ function readArg(name, fallback) {
 
 const url = readArg("url", process.env.MCP_BASE_URL);
 const token = readArg("token", process.env.MCP_AUTH_TOKEN);
+const content = readArg(
+  "content",
+  "We are using Ktor for the Android/iOS networking layer in the main branch."
+);
 const query = readArg(
   "query",
   "networking layer for Android and iOS"
+);
+const imageBase64 = readArg("image-base64", process.env.MCP_IMAGE_BASE64);
+const imageMimeType = readArg(
+  "image-mime-type",
+  process.env.MCP_IMAGE_MIME_TYPE
 );
 
 if (!url) {
@@ -55,10 +64,16 @@ try {
     name: "store_context",
     arguments: {
       content:
-        "We are using Ktor for the Android/iOS networking layer in the main branch.",
+        content,
       artifact_type: "DECISION",
       module_name: "kmp-networking",
-      branch_state: "active"
+      branch_state: "active",
+      ...(imageBase64
+        ? {
+            image_base64: imageBase64,
+            image_mime_type: imageMimeType ?? "image/png"
+          }
+        : {})
     }
   });
 
