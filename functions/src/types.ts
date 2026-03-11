@@ -32,6 +32,8 @@ export interface MemoryMetadata {
   branch_state: BranchState;
   timestamp: number;
   modality: MemoryModality;
+  artifact_refs?: string[];
+  superseded_by?: string;
 }
 
 export interface MemoryDocument {
@@ -47,6 +49,7 @@ export interface StoreContextInput {
   artifact_type: ArtifactType;
   module_name: string;
   branch_state: BranchState;
+  artifact_refs?: string[];
   image_base64?: string;
   image_mime_type?: string;
 }
@@ -55,6 +58,7 @@ export interface SearchContextInput {
   query: string;
   filter_module?: string;
   filter_state?: BranchState;
+  limit?: number;
 }
 
 export interface StoreContextResult {
@@ -69,4 +73,30 @@ export interface SearchContextResult {
     filter_module?: string;
     filter_state: BranchState;
   };
+}
+
+export interface DeprecateContextInput {
+  document_id: string;
+  superseding_document_id: string;
+}
+
+export interface DeprecateContextResult {
+  document_id: string;
+  superseding_document_id: string;
+  previous_state: BranchState;
+}
+
+export interface ConsolidationQueueInput {
+  module_name?: string;
+}
+
+export interface ConsolidationQueueItem {
+  id: string;
+  content: string;
+  metadata: MemoryMetadata;
+}
+
+export interface ConsolidationQueueResult {
+  items: ConsolidationQueueItem[];
+  filter_module?: string;
 }

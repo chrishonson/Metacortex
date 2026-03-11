@@ -1,6 +1,7 @@
 import { FieldValue, Firestore } from "firebase-admin/firestore";
 
 import type {
+  BranchState,
   MemoryDocument,
   MemoryMedia,
   MemoryMetadata
@@ -23,6 +24,8 @@ export interface SearchMemoryParams {
 export interface MemoryRepository {
   store(params: StoreMemoryParams): Promise<{ id: string }>;
   search(params: SearchMemoryParams): Promise<MemoryDocument[]>;
+  deprecate(documentId: string, supersedingDocumentId: string): Promise<{ previousState: BranchState }>;
+  getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]>;
 }
 
 interface FirestoreMemoryDocument {
@@ -78,6 +81,54 @@ export class FirestoreMemoryRepository implements MemoryRepository {
         metadata: data.metadata,
         media: data.media,
         distance: typeof data.distance === "number" ? data.distance : undefined
+      };
+    });
+  }
+
+  async deprecate(
+    documentId: string,
+    supersedingDocumentId: string
+  ): Promise<{ previousState: BranchState }> {
+    const docRef = this.firestore
+      .collection(this.collectionName)
+      .doc(documentId);
+
+    const snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      throw new Error(`Document ${documentId} not found`);
+    }
+
+    const data = snapshot.data() as FirestoreMemoryDocument;
+    const previousState = data.metadata.branch_state;
+
+    await docRef.update({
+      "metadata.branch_state": "deprecated",
+      "metadata.superseded_by": supersedingDocumentId
+    });
+
+    return { previousState };
+  }
+
+  async getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]> {
+    let query = this.firestore
+      .collection(this.collectionName)
+      .where("metadata.branch_state", "==", "wip");
+
+    if (moduleName) {
+      query = query.where("metadata.module_name", "==", moduleName);
+    }
+
+    const snapshot = await query.get();
+
+    return snapshot.docs.map(doc => {
+      const data = doc.data() as FirestoreMemoryDocument;
+
+      return {
+        id: doc.id,
+        content: data.content,
+        metadata: data.metadata,
+        media: data.media
       };
     });
   }

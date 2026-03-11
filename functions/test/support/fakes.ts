@@ -7,6 +7,7 @@ import type {
   PreparedMemoryContent
 } from "../../src/embeddings.js";
 import type {
+  BranchState,
   MemoryDocument,
   MemoryMedia,
   MemoryMetadata
@@ -125,6 +126,38 @@ export class InMemoryMemoryRepository implements MemoryRepository {
   listRecords(): StoredRecord[] {
     return [...this.records];
   }
+
+  async deprecate(
+    documentId: string,
+    supersedingDocumentId: string
+  ): Promise<{ previousState: BranchState }> {
+    const record = this.records.find(r => r.id === documentId);
+
+    if (!record) {
+      throw new Error(`Document ${documentId} not found`);
+    }
+
+    const previousState = record.metadata.branch_state;
+    record.metadata = {
+      ...record.metadata,
+      branch_state: "deprecated",
+      superseded_by: supersedingDocumentId
+    };
+
+    return { previousState };
+  }
+
+  async getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]> {
+    return this.records
+      .filter(r => r.metadata.branch_state === "wip")
+      .filter(r => (moduleName ? r.metadata.module_name === moduleName : true))
+      .map(r => ({
+        id: r.id,
+        content: r.content,
+        metadata: r.metadata,
+        media: r.media
+      }));
+  }
 }
 
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -135,7 +168,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     geminiApiKey: "test-gemini-key",
     embeddingModel: "gemini-embedding-001",
     multimodalModel: "gemini-2.5-flash",
-    embeddingDimensions: 1536,
+    embeddingDimensions: 768,
     memoryCollection: "memory_vectors",
     topK: 5,
     defaultFilterState: "active",

@@ -56,6 +56,8 @@ describe("MCP integration", () => {
 
     const tools = await client.listTools();
     expect(tools.tools.map(tool => tool.name).sort()).toEqual([
+      "deprecate_context",
+      "get_consolidation_queue",
       "search_context",
       "store_context"
     ]);
@@ -83,6 +85,27 @@ describe("MCP integration", () => {
 
     expect(textContent(searchResult)).toContain("Ktor");
     expect(textContent(searchResult)).toContain("kmp-networking");
+
+    // Store a WIP context and verify consolidation queue
+    await client.callTool({
+      name: "store_context",
+      arguments: {
+        content: "Draft thoughts on error handling in networking.",
+        artifact_type: "PATTERN",
+        module_name: "kmp-networking",
+        branch_state: "wip"
+      }
+    });
+
+    const queueResult = await client.callTool({
+      name: "get_consolidation_queue",
+      arguments: {
+        module_name: "kmp-networking"
+      }
+    });
+
+    expect(textContent(queueResult)).toContain("WIP item");
+    expect(textContent(queueResult)).toContain("Draft thoughts on error handling");
   });
 
   it("serves the legacy SSE transport", async () => {

@@ -49,7 +49,11 @@ export function createOpenBrainMcpServer(
         image_mime_type: z
           .string()
           .optional()
-          .describe("Required when image_base64 is provided, for example image/png.")
+          .describe("Required when image_base64 is provided, for example image/png."),
+        artifact_refs: z
+          .array(z.string())
+          .optional()
+          .describe("Optional array of Firebase Storage URIs (gs://...) linking to multimodal evidence.")
       }
     },
     async args => {
@@ -93,7 +97,14 @@ export function createOpenBrainMcpServer(
         filter_state: z
           .enum(BRANCH_STATES)
           .default(config.defaultFilterState)
-          .describe("Optional branch state filter. Defaults to active.")
+          .describe("Optional branch state filter. Defaults to active."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .optional()
+          .describe("Max results to return. Defaults to 5.")
       }
     },
     async args => {
@@ -104,6 +115,97 @@ export function createOpenBrainMcpServer(
           {
             type: "text",
             text: formatSearchResults(result)
+          }
+        ]
+      };
+    }
+  );
+
+  server.registerTool(
+    "deprecate_context",
+    {
+      title: "Deprecate Context",
+      description:
+        "Soft-delete an obsolete memory by setting its state to deprecated and recording which document supersedes it. The document remains in the database for historical audits but vanishes from default active searches.",
+      inputSchema: {
+        document_id: z
+          .string()
+          .min(1)
+          .describe("The Firestore document ID of the obsolete memory."),
+        superseding_document_id: z
+          .string()
+          .min(1)
+          .describe("The Firestore document ID of the new memory that replaces it.")
+      }
+    },
+    async args => {
+      const result = await service.deprecateContext(args);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `Deprecated memory ${result.document_id}.`,
+              `previous_state=${result.previous_state}`,
+              `superseded_by=${result.superseding_document_id}`
+            ].join("\n")
+          }
+        ]
+      };
+    }
+  );
+
+  server.registerTool(
+    "get_consolidation_queue",
+    {
+      title: "Get Consolidation Queue",
+      description:
+        "Fetch all WIP (work-in-progress) memories that need to be synthesized into official specs. Used by the local Nanobot cron job. Returns document IDs and raw content without performing vector search.",
+      inputSchema: {
+        module_name: z
+          .string()
+          .optional()
+          .describe("Optional module name to filter the queue. Returns all modules if omitted.")
+      }
+    },
+    async args => {
+      const result = await service.getConsolidationQueue(args);
+
+      if (result.items.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: result.filter_module
+                ? `No WIP items found for module ${result.filter_module}.`
+                : "No WIP items found."
+            }
+          ]
+        };
+      }
+
+      const lines = result.items.map(
+        (item, index) =>
+          [
+            `Item ${index + 1}`,
+            `id=${item.id}`,
+            `artifact_type=${item.metadata.artifact_type}`,
+            `module_name=${item.metadata.module_name}`,
+            `timestamp=${new Date(item.metadata.timestamp).toISOString()}`,
+            item.content
+          ].join(" | ")
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `Found ${result.items.length} WIP item(s)${result.filter_module ? ` for module ${result.filter_module}` : ""}.`,
+              "",
+              ...lines
+            ].join("\n")
           }
         ]
       };

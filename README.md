@@ -64,7 +64,7 @@ The MCP server registers two tools:
 
 - Firestore vector indexes live in `firestore.indexes.json`
 - Firestore rules live in `firestore.rules`
-- The embedding index is configured for `1536` dimensions to match `gemini-embedding-001`
+- The embedding index is configured for `768` dimensions to match the natural output size of `gemini-embedding-001`
 
 Deploy indexes and functions with:
 

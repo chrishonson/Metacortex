@@ -192,6 +192,7 @@ Before deploy:
 - confirm `functions/.env.<alias>` values are correct
 - confirm [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json) still matches embedding dimensions
 - if migrating from OpenAI, confirm the target Firestore collection is clean or re-embedded
+- if migrating from the earlier `1536`-dimension Gemini config, confirm all stored vectors were re-embedded to `768`
 
 After deploy:
 

@@ -4,6 +4,10 @@ import type {
   MemoryContentPreparer
 } from "./embeddings.js";
 import type {
+  ConsolidationQueueInput,
+  ConsolidationQueueResult,
+  DeprecateContextInput,
+  DeprecateContextResult,
   MemoryDocument,
   SearchContextInput,
   SearchContextResult,
@@ -40,7 +44,10 @@ export class OpenBrainService {
       module_name: normalizedModule,
       branch_state: input.branch_state,
       timestamp: Date.now(),
-      modality: preparedContent.modality
+      modality: preparedContent.modality,
+      ...(input.artifact_refs && input.artifact_refs.length > 0
+        ? { artifact_refs: input.artifact_refs }
+        : {})
     } as const;
 
     const result = await this.repository.store({
@@ -67,7 +74,7 @@ export class OpenBrainService {
     });
     const matches = await this.repository.search({
       queryVector,
-      limit: this.config.topK,
+      limit: input.limit ?? this.config.topK,
       filterModule,
       filterState
     });
@@ -78,6 +85,35 @@ export class OpenBrainService {
         filter_module: filterModule,
         filter_state: filterState
       }
+    };
+  }
+
+  async deprecateContext(input: DeprecateContextInput): Promise<DeprecateContextResult> {
+    const { previousState } = await this.repository.deprecate(
+      input.document_id,
+      input.superseding_document_id
+    );
+
+    return {
+      document_id: input.document_id,
+      superseding_document_id: input.superseding_document_id,
+      previous_state: previousState
+    };
+  }
+
+  async getConsolidationQueue(
+    input: ConsolidationQueueInput
+  ): Promise<ConsolidationQueueResult> {
+    const filterModule = normalizeOptionalText(input.module_name);
+    const items = await this.repository.getConsolidationQueue(filterModule);
+
+    return {
+      items: items.map(doc => ({
+        id: doc.id,
+        content: doc.content,
+        metadata: doc.metadata
+      })),
+      filter_module: filterModule
     };
   }
 }

@@ -94,4 +94,104 @@ describe("OpenBrainService", () => {
     expect(result.media?.mime_type).toBe("image/png");
     expect(storedRecord?.content).toContain("Visual memory summary");
   });
+
+  it("stores artifact_refs when provided", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const result = await service.storeContext({
+      content: "Architecture diagram for auth module",
+      artifact_type: "SPEC",
+      module_name: "ui-auth",
+      branch_state: "active",
+      artifact_refs: ["gs://bucket/arch-diagram.png"]
+    });
+
+    const storedRecord = repository.listRecords()[0];
+    expect(result.metadata.artifact_refs).toEqual(["gs://bucket/arch-diagram.png"]);
+    expect(storedRecord?.metadata.artifact_refs).toEqual(["gs://bucket/arch-diagram.png"]);
+  });
+
+  it("deprecates a document and records superseding ID", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    await service.storeContext({
+      content: "Old networking approach using URLSession.",
+      artifact_type: "DECISION",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    const newDoc = await service.storeContext({
+      content: "Switched to Ktor for cross-platform networking.",
+      artifact_type: "DECISION",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    const result = await service.deprecateContext({
+      document_id: "memory-1",
+      superseding_document_id: newDoc.id
+    });
+
+    expect(result.previous_state).toBe("active");
+    expect(result.document_id).toBe("memory-1");
+    expect(result.superseding_document_id).toBe(newDoc.id);
+
+    const storedRecord = repository.listRecords()[0];
+    expect(storedRecord?.metadata.branch_state).toBe("deprecated");
+    expect(storedRecord?.metadata.superseded_by).toBe(newDoc.id);
+  });
+
+  it("returns WIP items from consolidation queue", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    await service.storeContext({
+      content: "Active spec that should not appear.",
+      artifact_type: "SPEC",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    await service.storeContext({
+      content: "Rough notes about auth flow.",
+      artifact_type: "DECISION",
+      module_name: "ui-auth",
+      branch_state: "wip"
+    });
+
+    await service.storeContext({
+      content: "Draft networking pattern.",
+      artifact_type: "PATTERN",
+      module_name: "kmp-networking",
+      branch_state: "wip"
+    });
+
+    const allWip = await service.getConsolidationQueue({});
+    expect(allWip.items).toHaveLength(2);
+
+    const networkingWip = await service.getConsolidationQueue({
+      module_name: "kmp-networking"
+    });
+    expect(networkingWip.items).toHaveLength(1);
+    expect(networkingWip.items[0]?.content).toContain("Draft networking pattern");
+    expect(networkingWip.filter_module).toBe("kmp-networking");
+  });
 });

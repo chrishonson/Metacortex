@@ -88,7 +88,7 @@ Supported variables in this codebase:
 Important implementation detail:
 
 - `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-- The repo is currently configured for `gemini-embedding-001` with dimension `1536`.
+- The repo is currently configured for `gemini-embedding-001` with dimension `768`.
 - Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
 
 ## Provider migration note
@@ -99,6 +99,8 @@ Use one of these approaches before switching production traffic:
 
 - delete and repopulate the existing `memory_vectors` collection
 - or point `MEMORY_COLLECTION` at a fresh collection name and deploy new indexes for that collection
+
+Because this repo also changed its default embedding dimension from `1536` to `768`, any existing `1536`-dimension vectors must be re-embedded before they can participate in the new index.
 
 ## Firestore indexes
 
@@ -206,7 +208,7 @@ Expected result:
 If deploy succeeds but search fails:
 
 - confirm Firestore vector indexes finished building
-- confirm `GEMINI_EMBEDDING_DIMENSIONS=1536`
+- confirm `GEMINI_EMBEDDING_DIMENSIONS=768`
 - confirm the deployed embedding model is still `gemini-embedding-001`
 - confirm the Firestore database is in Native mode
 - confirm old OpenAI vectors were not left mixed into the same collection

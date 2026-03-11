@@ -70,7 +70,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     multimodalModel: env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-2.5-flash",
     embeddingDimensions: parsePositiveInteger(
       env.GEMINI_EMBEDDING_DIMENSIONS,
-      1536,
+      768,
       "GEMINI_EMBEDDING_DIMENSIONS"
     ),
     memoryCollection: env.MEMORY_COLLECTION?.trim() || "memory_vectors",

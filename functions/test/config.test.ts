@@ -11,6 +11,7 @@ describe("loadConfig", () => {
 
     expect(config.embeddingModel).toBe("gemini-embedding-001");
     expect(config.multimodalModel).toBe("gemini-2.5-flash");
+    expect(config.embeddingDimensions).toBe(768);
     expect(config.defaultFilterState).toBe("active");
     expect(config.topK).toBe(5);
   });
