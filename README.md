@@ -23,6 +23,8 @@ The MCP server registers two tools:
 
 - Deployment runbook: [docs/DEPLOYMENT.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT.md)
 - Testing runbook: [docs/TESTING.md](/Users/nick/git/FirebaseOpenBrain/docs/TESTING.md)
+- Deployment session runbook: [docs/DEPLOYMENT-SESSION-RUNBOOK.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT-SESSION-RUNBOOK.md)
+- Prod rollout and seeding plan: [docs/PROD-ROLLOUT-AND-SEEDING.md](/Users/nick/git/FirebaseOpenBrain/docs/PROD-ROLLOUT-AND-SEEDING.md)
 
 ## Quick start
 
@@ -70,6 +72,12 @@ Deploy indexes and functions with:
 
 ```bash
 firebase deploy --only firestore:indexes,functions
+```
+
+For the next production deployment session, start with:
+
+```bash
+./scripts/deploy-session-preflight.sh
 ```
 
 If you want Firebase project selection in the repo, add your own `.firebaserc` or run:
