@@ -47,7 +47,7 @@ export class FirestoreMemoryRepository implements MemoryRepository {
       content: params.content,
       embedding: FieldValue.vector(params.embedding),
       metadata: params.metadata,
-      media: params.media
+      ...(params.media ? { media: params.media } : {})
     });
 
     return { id: docRef.id };
