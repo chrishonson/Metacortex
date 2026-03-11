@@ -14,6 +14,9 @@ describe("loadConfig", () => {
     expect(config.embeddingDimensions).toBe(768);
     expect(config.defaultFilterState).toBe("active");
     expect(config.topK).toBe(5);
+    expect(config.defaultClientProfile.allowedTools).toContain("search_context");
+    expect(config.clientProfiles).toEqual([]);
+    expect(config.maxSseSessions).toBe(25);
   });
 
   it("rejects invalid branch state defaults", () => {
@@ -24,5 +27,41 @@ describe("loadConfig", () => {
         DEFAULT_FILTER_STATE: "unknown"
       })
     ).toThrowError(MissingConfigurationError);
+  });
+
+  it("loads scoped client profiles", () => {
+    const config = loadConfig({
+      GEMINI_API_KEY: "gemini-key",
+      MCP_AUTH_TOKEN: "admin-token",
+      MCP_ALLOWED_ORIGINS: "https://admin.example",
+      MCP_ALLOWED_TOOLS: "store_context,search_context",
+      MCP_CLIENT_PROFILES_JSON: JSON.stringify([
+        {
+          id: "nanobot",
+          token: "nano-token",
+          allowedTools: ["search_context"]
+        },
+        {
+          id: "browser",
+          token: "browser-token",
+          allowedTools: ["search_context"],
+          allowedOrigins: ["https://claude.ai"]
+        }
+      ]),
+      MAX_SSE_SESSIONS: "8"
+    });
+
+    expect(config.defaultClientProfile.allowedOrigins).toEqual([
+      "https://admin.example"
+    ]);
+    expect(config.defaultClientProfile.allowedTools).toEqual([
+      "store_context",
+      "search_context"
+    ]);
+    expect(config.clientProfiles.map(profile => profile.id)).toEqual([
+      "nanobot",
+      "browser"
+    ]);
+    expect(config.maxSseSessions).toBe(8);
   });
 });

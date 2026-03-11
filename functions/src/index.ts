@@ -10,7 +10,7 @@ export const openBrainMcp = onRequest(
     memory: "512MiB"
   },
   createOpenBrainApp({
-    getAuthToken: () => getConfig().authToken,
+    getConfig,
     getRuntime
   })
 );

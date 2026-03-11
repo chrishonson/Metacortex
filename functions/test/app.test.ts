@@ -7,9 +7,10 @@ import { createTestRuntime } from "./support/fakes.js";
 
 describe("createOpenBrainApp", () => {
   it("exposes a public health endpoint", async () => {
+    const runtime = createTestRuntime();
     const app = createOpenBrainApp({
-      getAuthToken: () => "test-token",
-      getRuntime: () => createTestRuntime()
+      getConfig: () => runtime.config,
+      getRuntime: () => runtime
     });
 
     const response = await request(app).get("/healthz");
@@ -19,9 +20,10 @@ describe("createOpenBrainApp", () => {
   });
 
   it("rejects unauthorized MCP requests before runtime work continues", async () => {
+    const runtime = createTestRuntime();
     const app = createOpenBrainApp({
-      getAuthToken: () => "test-token",
-      getRuntime: () => createTestRuntime()
+      getConfig: () => runtime.config,
+      getRuntime: () => runtime
     });
 
     const response = await request(app).post("/mcp").send({
@@ -36,7 +38,7 @@ describe("createOpenBrainApp", () => {
 
   it("surfaces configuration failures as 500s", async () => {
     const app = createOpenBrainApp({
-      getAuthToken: () => {
+      getConfig: () => {
         throw new MissingConfigurationError("GEMINI_API_KEY is missing");
       },
       getRuntime: () => {
@@ -53,7 +55,55 @@ describe("createOpenBrainApp", () => {
         method: "ping"
       });
 
-    expect(response.status).toBe(500);
-    expect(response.body.error).toContain("GEMINI_API_KEY");
+    expect(response.status).toBe(503);
+    expect(response.body.error).toBe("Service unavailable");
+    expect(response.body.requestId).toEqual(expect.any(String));
+  });
+
+  it("blocks browser origins that are not allowlisted", async () => {
+    const runtime = createTestRuntime();
+    const app = createOpenBrainApp({
+      getConfig: () => runtime.config,
+      getRuntime: () => runtime
+    });
+
+    const response = await request(app)
+      .post("/mcp")
+      .set("Authorization", "Bearer test-token")
+      .set("Origin", "https://evil.example")
+      .send({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ping"
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Origin not allowed");
+  });
+
+  it("allows preflight for explicitly allowlisted browser clients", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "browser",
+          authToken: "browser-token",
+          allowedOrigins: ["https://claude.ai"],
+          allowedTools: ["search_context"]
+        }
+      ]
+    });
+    const app = createOpenBrainApp({
+      getConfig: () => runtime.config,
+      getRuntime: () => runtime
+    });
+
+    const response = await request(app)
+      .options("/clients/browser/mcp")
+      .set("Origin", "https://claude.ai");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "https://claude.ai"
+    );
   });
 });

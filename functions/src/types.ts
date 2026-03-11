@@ -5,6 +5,13 @@ export const ARTIFACT_TYPES = [
   "REQUIREMENT"
 ] as const;
 
+export const MCP_TOOL_NAMES = [
+  "store_context",
+  "search_context",
+  "deprecate_context",
+  "get_consolidation_queue"
+] as const;
+
 export const BRANCH_STATES = [
   "active",
   "merged",
@@ -20,6 +27,7 @@ export const MEMORY_MODALITIES = [
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 export type BranchState = (typeof BRANCH_STATES)[number];
 export type MemoryModality = (typeof MEMORY_MODALITIES)[number];
+export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 
 export interface MemoryMedia {
   kind: "inline_image";

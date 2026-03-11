@@ -12,6 +12,7 @@ import type {
   MemoryMedia,
   MemoryMetadata
 } from "../../src/types.js";
+import { MCP_TOOL_NAMES } from "../../src/types.js";
 import {
   OpenBrainService
 } from "../../src/service.js";
@@ -161,10 +162,18 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 }
 
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
+  const authToken = overrides.authToken ?? "test-token";
+  const defaultClientProfile = {
+    id: "default",
+    authToken,
+    allowedOrigins: [],
+    allowedTools: [...MCP_TOOL_NAMES]
+  };
+
   return {
     serviceName: "firebase-open-brain",
     serviceVersion: "0.1.0-test",
-    authToken: "test-token",
+    authToken,
     geminiApiKey: "test-gemini-key",
     embeddingModel: "gemini-embedding-001",
     multimodalModel: "gemini-2.5-flash",
@@ -172,6 +181,9 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     memoryCollection: "memory_vectors",
     topK: 5,
     defaultFilterState: "active",
+    defaultClientProfile: overrides.defaultClientProfile ?? defaultClientProfile,
+    clientProfiles: [],
+    maxSseSessions: 25,
     ...overrides
   };
 }

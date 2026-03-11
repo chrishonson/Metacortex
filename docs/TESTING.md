@@ -21,6 +21,8 @@ What this covers:
 
 - config loading and validation
 - bearer auth behavior
+- per-client tool scoping
+- browser-origin allowlisting
 - service-layer store/search behavior
 - MCP transport wiring over Streamable HTTP
 - MCP transport wiring over legacy SSE
@@ -58,6 +60,12 @@ Fill in at least:
 ```dotenv
 GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
+```
+
+If you want to test scoped clients locally, also set:
+
+```dotenv
+MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"nano-token","allowedTools":["search_context"]},{"id":"browser","token":"browser-token","allowedTools":["search_context"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
 ### Start emulators
@@ -137,6 +145,39 @@ Expected result:
 - `store_context` succeeds
 - `search_context` returns the stored Ktor document
 
+### Scoped client smoke test
+
+For a search-only client profile:
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/nanobot/mcp" \
+MCP_AUTH_TOKEN="nano-token" \
+MCP_SMOKE_MODE="search-only" \
+npm run smoke
+```
+
+Expected result:
+
+- tool listing only shows `search_context`
+- the smoke script does not attempt a write
+- `search_context` returns results if the corpus already contains matching data
+
+### Browser origin check
+
+For a browser client profile, verify preflight manually:
+
+```bash
+curl -i \
+  -X OPTIONS "http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/browser/mcp" \
+  -H "Origin: https://claude.ai"
+```
+
+Expected result:
+
+- HTTP `204`
+- `Access-Control-Allow-Origin: https://claude.ai`
+
 Optional multimodal smoke test:
 
 ```bash
@@ -198,6 +239,7 @@ After deploy:
 
 - `curl <FUNCTION_BASE_URL>/healthz`
 - `npm --prefix functions run smoke` with production URL/token
+- `npm --prefix functions run smoke` with `MCP_SMOKE_MODE=search-only` for restricted clients
 - confirm one document appears in Firestore collection `memory_vectors`
 - confirm a subsequent `search_context` request returns it
 

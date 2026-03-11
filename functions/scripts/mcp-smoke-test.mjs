@@ -14,6 +14,7 @@ function readArg(name, fallback) {
 
 const url = readArg("url", process.env.MCP_BASE_URL);
 const token = readArg("token", process.env.MCP_AUTH_TOKEN);
+const mode = readArg("mode", process.env.MCP_SMOKE_MODE ?? "read-write");
 const content = readArg(
   "content",
   "We are using Ktor for the Android/iOS networking layer in the main branch."
@@ -55,30 +56,42 @@ try {
   await client.connect(transport);
 
   const tools = await client.listTools();
+  const toolNames = tools.tools.map(tool => tool.name).sort();
   console.log("Available tools:");
-  for (const tool of tools.tools) {
-    console.log(`- ${tool.name}`);
+  for (const toolName of toolNames) {
+    console.log(`- ${toolName}`);
   }
 
-  const storeResult = await client.callTool({
-    name: "store_context",
-    arguments: {
-      content:
-        content,
-      artifact_type: "DECISION",
-      module_name: "kmp-networking",
-      branch_state: "active",
-      ...(imageBase64
-        ? {
-            image_base64: imageBase64,
-            image_mime_type: imageMimeType ?? "image/png"
-          }
-        : {})
-    }
-  });
+  if (mode === "read-write") {
+    ensureTools(toolNames, ["store_context", "search_context"]);
 
-  console.log("\nstore_context:");
-  console.log(textContent(storeResult));
+    const storeResult = await client.callTool({
+      name: "store_context",
+      arguments: {
+        content,
+        artifact_type: "DECISION",
+        module_name: "kmp-networking",
+        branch_state: "active",
+        ...(imageBase64
+          ? {
+              image_base64: imageBase64,
+              image_mime_type: imageMimeType ?? "image/png"
+            }
+          : {})
+      }
+    });
+
+    console.log("\nstore_context:");
+    console.log(textContent(storeResult));
+  } else if (mode === "search-only") {
+    ensureTools(toolNames, ["search_context"]);
+
+    if (toolNames.includes("store_context")) {
+      throw new Error("search-only mode expected store_context to be unavailable");
+    }
+  } else {
+    throw new Error(`Unsupported smoke mode: ${mode}`);
+  }
 
   const searchResult = await client.callTool({
     name: "search_context",
@@ -101,4 +114,12 @@ function textContent(result) {
     .filter(item => item.type === "text")
     .map(item => item.text)
     .join("\n");
+}
+
+function ensureTools(toolNames, required) {
+  for (const toolName of required) {
+    if (!toolNames.includes(toolName)) {
+      throw new Error(`Expected tool ${toolName} to be available`);
+    }
+  }
 }

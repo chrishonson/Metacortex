@@ -1,5 +1,6 @@
 import { GoogleGenAI, type Part } from "@google/genai";
 
+import { HttpError } from "./errors.js";
 import type {
   ArtifactType,
   MemoryMedia,
@@ -95,13 +96,15 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
     const hasImage = Boolean(input.imageBase64);
 
     if (!normalizedContent && !hasImage) {
-      throw new Error(
+      throw new HttpError(
+        400,
         "Either content or image_base64 must be provided to store_context"
       );
     }
 
     if (hasImage !== Boolean(input.imageMimeType)) {
-      throw new Error(
+      throw new HttpError(
+        400,
         "image_mime_type is required when image_base64 is provided"
       );
     }

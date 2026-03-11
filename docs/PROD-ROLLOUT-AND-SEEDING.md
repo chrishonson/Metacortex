@@ -198,6 +198,16 @@ After you have roughly 10 to 20 useful memories, allow Nanobot to call:
 
 At this stage, memory helps retrieval, but the bot is not yet shaping the corpus.
 
+Use a dedicated client-scoped endpoint for this stage:
+
+- `/clients/nanobot/mcp`
+
+with:
+
+- its own bearer token
+- `allowedTools=["search_context"]`
+- no browser origins
+
 ### Stage 3: Controlled writes
 
 After search quality looks good, allow Nanobot to call:
@@ -217,6 +227,22 @@ Once the corpus is non-trivial, allow use of:
 
 - `deprecate_context`
 - `get_consolidation_queue`
+
+## When to test browser-hosted clients
+
+Right after Nanobot search-only is working.
+
+Use a separate client-scoped endpoint for browser clients, for example:
+
+- `/clients/browser/mcp`
+
+with:
+
+- its own bearer token
+- a minimal tool set, usually `search_context`
+- explicit `allowedOrigins` such as `https://claude.ai`
+
+Do not reuse the admin endpoint for browser-hosted clients.
 
 ## What to do with Gemini, ChatGPT, and Claude exports
 

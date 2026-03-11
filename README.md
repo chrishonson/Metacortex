@@ -8,16 +8,27 @@ As of March 10, 2026, Cloud Functions production deployment requires the Firebas
 
 ## What it exposes
 
-- Streamable HTTP MCP endpoint: `/openBrainMcp/mcp`
-- Legacy SSE MCP endpoint: `/openBrainMcp/mcp/sse`
-- Legacy SSE message endpoint: `/openBrainMcp/mcp/messages`
+- Default Streamable HTTP MCP endpoint: `/openBrainMcp/mcp`
+- Default legacy SSE MCP endpoint: `/openBrainMcp/mcp/sse`
+- Default legacy SSE message endpoint: `/openBrainMcp/mcp/messages`
+- Client-scoped Streamable HTTP MCP endpoint: `/openBrainMcp/clients/<clientId>/mcp`
+- Client-scoped legacy SSE endpoint: `/openBrainMcp/clients/<clientId>/mcp/sse`
+- Client-scoped legacy SSE message endpoint: `/openBrainMcp/clients/<clientId>/mcp/messages`
 
-The MCP server registers two tools:
+The server can register four tools, but each endpoint can expose a different subset:
 
 - `store_context`
 - `search_context`
+- `deprecate_context`
+- `get_consolidation_queue`
 
 `store_context` now supports multimodal memories by accepting text plus an optional inline image. Image-backed memories are normalized into retrieval text with Gemini before they are embedded and stored.
+
+Security model:
+
+- the default `/mcp` endpoint is your general-purpose admin endpoint
+- `clients/<clientId>` endpoints let you assign different bearer tokens, origin allowlists, and tool allowlists to Nanobot, browser clients, or other consumers
+- browser CORS is deny-by-default unless a client profile explicitly allowlists origins
 
 ## Docs
 
@@ -62,11 +73,22 @@ The MCP server registers two tools:
    npm run smoke
    ```
 
+6. Optional search-only smoke test for a scoped client endpoint:
+
+   ```bash
+   cd functions
+   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/nanobot/mcp" \
+   MCP_AUTH_TOKEN="replace-me" \
+   MCP_SMOKE_MODE="search-only" \
+   npm run smoke
+   ```
+
 ## Firebase configuration
 
 - Firestore vector indexes live in `firestore.indexes.json`
 - Firestore rules live in `firestore.rules`
 - The embedding index is configured for `768` dimensions to match the natural output size of `gemini-embedding-001`
+- Client profiles are configured with `MCP_ALLOWED_TOOLS`, `MCP_ALLOWED_ORIGINS`, and `MCP_CLIENT_PROFILES_JSON`
 
 Deploy indexes and functions with:
 

@@ -1,4 +1,16 @@
-import { BRANCH_STATES, type BranchState } from "./types.js";
+import {
+  BRANCH_STATES,
+  MCP_TOOL_NAMES,
+  type BranchState,
+  type McpToolName
+} from "./types.js";
+
+export interface ClientProfile {
+  id: string;
+  authToken: string;
+  allowedOrigins: string[];
+  allowedTools: McpToolName[];
+}
 
 export interface AppConfig {
   serviceName: string;
@@ -11,6 +23,9 @@ export interface AppConfig {
   memoryCollection: string;
   topK: number;
   defaultFilterState: BranchState;
+  defaultClientProfile: ClientProfile;
+  clientProfiles: ClientProfile[];
+  maxSseSessions: number;
 }
 
 export class MissingConfigurationError extends Error {
@@ -52,6 +67,126 @@ function parsePositiveInteger(
   return parsed;
 }
 
+function parseStringList(value: string | undefined): string[] {
+  return value
+    ?.split(",")
+    .map(item => item.trim())
+    .filter(Boolean) ?? [];
+}
+
+function parseToolList(
+  value: string[] | undefined,
+  key: string,
+  fallback: readonly McpToolName[] = MCP_TOOL_NAMES
+): McpToolName[] {
+  const items = value && value.length > 0 ? value : [...fallback];
+
+  if (items.length === 0) {
+    throw new MissingConfigurationError(`${key} must include at least one tool`);
+  }
+
+  const normalized = items.map(item => item.trim()).filter(Boolean);
+
+  for (const item of normalized) {
+    if (!MCP_TOOL_NAMES.includes(item as McpToolName)) {
+      throw new MissingConfigurationError(
+        `${key} contains unsupported tool: ${item}`
+      );
+    }
+  }
+
+  return [...new Set(normalized as McpToolName[])];
+}
+
+function parseClientProfiles(
+  value: string | undefined
+): ClientProfile[] {
+  if (!value?.trim()) {
+    return [];
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new MissingConfigurationError(
+      "MCP_CLIENT_PROFILES_JSON must be valid JSON"
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new MissingConfigurationError(
+      "MCP_CLIENT_PROFILES_JSON must be a JSON array"
+    );
+  }
+
+  const ids = new Set<string>();
+
+  return parsed.map((profile, index) => {
+    if (!profile || typeof profile !== "object") {
+      throw new MissingConfigurationError(
+        `MCP_CLIENT_PROFILES_JSON[${index}] must be an object`
+      );
+    }
+
+    const candidate = profile as Record<string, unknown>;
+    const id =
+      typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const authToken =
+      typeof candidate.token === "string" ? candidate.token.trim() : "";
+
+    if (!id) {
+      throw new MissingConfigurationError(
+        `MCP_CLIENT_PROFILES_JSON[${index}].id is required`
+      );
+    }
+
+    if (id === "default") {
+      throw new MissingConfigurationError(
+        "MCP_CLIENT_PROFILES_JSON cannot reuse the reserved id 'default'"
+      );
+    }
+
+    if (ids.has(id)) {
+      throw new MissingConfigurationError(
+        `MCP_CLIENT_PROFILES_JSON contains duplicate id: ${id}`
+      );
+    }
+
+    if (!authToken) {
+      throw new MissingConfigurationError(
+        `MCP_CLIENT_PROFILES_JSON[${index}].token is required`
+      );
+    }
+
+    ids.add(id);
+
+    const allowedOrigins = Array.isArray(candidate.allowedOrigins)
+      ? candidate.allowedOrigins
+          .filter((origin): origin is string => typeof origin === "string")
+          .map(origin => origin.trim())
+          .filter(Boolean)
+      : [];
+
+    const allowedTools = parseToolList(
+      Array.isArray(candidate.allowedTools)
+        ? candidate.allowedTools.filter(
+            (tool): tool is string => typeof tool === "string"
+          )
+        : undefined,
+      `MCP_CLIENT_PROFILES_JSON[${index}].allowedTools`
+    );
+
+    return {
+      id,
+      authToken,
+      allowedOrigins: [...new Set(allowedOrigins)],
+      allowedTools
+    };
+  });
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const defaultFilterState = env.DEFAULT_FILTER_STATE ?? "active";
 
@@ -61,10 +196,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     );
   }
 
+  const authToken = requireEnv(env, "MCP_AUTH_TOKEN");
+  const defaultClientProfile: ClientProfile = {
+    id: "default",
+    authToken,
+    allowedOrigins: parseStringList(env.MCP_ALLOWED_ORIGINS),
+    allowedTools: parseToolList(
+      parseStringList(env.MCP_ALLOWED_TOOLS),
+      "MCP_ALLOWED_TOOLS"
+    )
+  };
+  const clientProfiles = parseClientProfiles(env.MCP_CLIENT_PROFILES_JSON);
+
   return {
     serviceName: env.SERVICE_NAME ?? "firebase-open-brain",
     serviceVersion: env.SERVICE_VERSION ?? "0.1.0",
-    authToken: requireEnv(env, "MCP_AUTH_TOKEN"),
+    authToken,
     geminiApiKey: requireEnv(env, "GEMINI_API_KEY"),
     embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "gemini-embedding-001",
     multimodalModel: env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-2.5-flash",
@@ -75,6 +222,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ),
     memoryCollection: env.MEMORY_COLLECTION?.trim() || "memory_vectors",
     topK: parsePositiveInteger(env.SEARCH_RESULT_LIMIT, 5, "SEARCH_RESULT_LIMIT"),
-    defaultFilterState: defaultFilterState as BranchState
+    defaultFilterState: defaultFilterState as BranchState,
+    defaultClientProfile,
+    clientProfiles,
+    maxSseSessions: parsePositiveInteger(
+      env.MAX_SSE_SESSIONS,
+      25,
+      "MAX_SSE_SESSIONS"
+    )
   };
 }

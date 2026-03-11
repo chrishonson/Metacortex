@@ -63,6 +63,14 @@ GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
 ```
 
+Security-related values you will usually want to set explicitly:
+
+```dotenv
+MCP_ALLOWED_TOOLS=store_context,search_context,deprecate_context,get_consolidation_queue
+MCP_ALLOWED_ORIGINS=
+MAX_SSE_SESSIONS=25
+```
+
 Recommended layout:
 
 - `functions/.env`
@@ -76,6 +84,10 @@ Supported variables in this codebase:
 
 - `GEMINI_API_KEY`
 - `MCP_AUTH_TOKEN`
+- `MCP_ALLOWED_TOOLS`
+- `MCP_ALLOWED_ORIGINS`
+- `MCP_CLIENT_PROFILES_JSON`
+- `MAX_SSE_SESSIONS`
 - `GEMINI_EMBEDDING_MODEL`
 - `GEMINI_MULTIMODAL_MODEL`
 - `GEMINI_EMBEDDING_DIMENSIONS`
@@ -90,6 +102,42 @@ Important implementation detail:
 - `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
 - The repo is currently configured for `gemini-embedding-001` with dimension `768`.
 - Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
+
+## Endpoint scoping
+
+The function now supports both a default endpoint and client-scoped endpoints.
+
+Default admin endpoint:
+
+- `<FUNCTION_BASE_URL>/mcp`
+- `<FUNCTION_BASE_URL>/mcp/sse`
+- `<FUNCTION_BASE_URL>/mcp/messages`
+
+Client-scoped endpoints:
+
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
+
+Use client-scoped endpoints when different consumers should get different capabilities.
+
+Typical pattern:
+
+- default `/mcp`: full admin tools
+- `/clients/nanobot/mcp`: `search_context` only
+- `/clients/browser/mcp`: `search_context` only plus explicit browser origins
+
+Example `MCP_CLIENT_PROFILES_JSON`:
+
+```dotenv
+MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"replace-nanobot","allowedTools":["search_context"]},{"id":"browser","token":"replace-browser","allowedTools":["search_context"],"allowedOrigins":["https://claude.ai","https://gemini.google.com"]}]
+```
+
+Notes:
+
+- `MCP_ALLOWED_TOOLS` and `MCP_ALLOWED_ORIGINS` apply to the default `/mcp` endpoint.
+- browser access is deny-by-default unless `allowedOrigins` is populated for that profile.
+- `MAX_SSE_SESSIONS` caps concurrent SSE sessions per instance.
 
 ## Provider migration note
 
@@ -174,10 +222,14 @@ Once you have the base URL for `openBrainMcp`, the useful routes are:
 - `<FUNCTION_BASE_URL>/mcp`
 - `<FUNCTION_BASE_URL>/mcp/sse`
 - `<FUNCTION_BASE_URL>/mcp/messages`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
 
 Auth requirement:
 
-- Every MCP request must include `Authorization: Bearer <MCP_AUTH_TOKEN>`
+- The default `/mcp` endpoint requires `Authorization: Bearer <MCP_AUTH_TOKEN>`
+- Each client-scoped endpoint requires that client profile's own bearer token
 
 ## Post-deploy smoke test
 
@@ -198,10 +250,20 @@ npm run smoke
 
 Expected result:
 
-- `listTools` returns `store_context` and `search_context`
+- `listTools` returns the tools exposed by that endpoint
 - `store_context` stores a sample Ktor networking decision
 - `search_context` returns that stored document
 - if you pass `--image-base64`, the stored memory is first normalized from image+text into searchable text
+
+Search-only smoke test for a scoped client:
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/nanobot/mcp" \
+MCP_AUTH_TOKEN="<NANOBOT_TOKEN>" \
+MCP_SMOKE_MODE="search-only" \
+npm run smoke
+```
 
 ## Failure modes to check first
 
@@ -217,6 +279,7 @@ If requests return `401`:
 
 - verify the caller is sending `Authorization: Bearer <MCP_AUTH_TOKEN>`
 - verify the deployed `.env` alias loaded the token you expect
+- verify you are using the correct token for the correct endpoint
 
 If deploy fails before upload:
 
@@ -228,3 +291,8 @@ If the function deploys but cannot store documents:
 
 - verify the runtime service account has Firestore access
 - verify the Firestore API is enabled in the backing Google Cloud project
+
+If browser clients get `403 Origin not allowed`:
+
+- verify the request origin is listed in that client profile's `allowedOrigins`
+- verify you are calling the client-scoped endpoint, not the default admin endpoint

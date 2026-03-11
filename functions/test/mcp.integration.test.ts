@@ -30,7 +30,7 @@ describe("MCP integration", () => {
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
       createOpenBrainApp({
-        getAuthToken: () => runtime.config.authToken,
+        getConfig: () => runtime.config,
         getRuntime: () => runtime
       }),
       cleanup
@@ -112,7 +112,7 @@ describe("MCP integration", () => {
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
       createOpenBrainApp({
-        getAuthToken: () => runtime.config.authToken,
+        getConfig: () => runtime.config,
         getRuntime: () => runtime
       }),
       cleanup
@@ -164,6 +164,80 @@ describe("MCP integration", () => {
 
     expect(textContent(searchResult)).toContain("Jetpack Compose");
     expect(textContent(searchResult)).toContain("media=inline_image:image/png");
+  });
+
+  it("enforces tool scoping on client-specific endpoints", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "nanobot",
+          authToken: "nano-token",
+          allowedOrigins: [],
+          allowedTools: ["search_context"]
+        }
+      ]
+    });
+
+    await runtime.service.storeContext({
+      content: "We are using Ktor for the Android/iOS networking layer in the main branch.",
+      artifact_type: "DECISION",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    const baseUrl = await startServer(
+      createOpenBrainApp({
+        getConfig: () => runtime.config,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "nanobot-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/clients/nanobot/mcp`),
+      {
+        requestInit: {
+          headers: {
+            Authorization: "Bearer nano-token"
+          }
+        }
+      }
+    );
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const tools = await client.listTools();
+    expect(tools.tools.map(tool => tool.name)).toEqual(["search_context"]);
+
+    const searchResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking layer for Android and iOS",
+        filter_module: "kmp-networking"
+      }
+    });
+
+    expect(textContent(searchResult)).toContain("Ktor");
+    const disallowedResult = await client.callTool({
+      name: "store_context",
+      arguments: {
+        content: "should fail",
+        artifact_type: "DECISION",
+        module_name: "kmp-networking",
+        branch_state: "active"
+      }
+    });
+
+    expect(disallowedResult.isError).toBe(true);
+    expect(textContent(disallowedResult)).toContain("Tool store_context not found");
   });
 });
 

@@ -1,5 +1,6 @@
 import { FieldValue, Firestore } from "firebase-admin/firestore";
 
+import { HttpError } from "./errors.js";
 import type {
   BranchState,
   MemoryDocument,
@@ -96,7 +97,7 @@ export class FirestoreMemoryRepository implements MemoryRepository {
     const snapshot = await docRef.get();
 
     if (!snapshot.exists) {
-      throw new Error(`Document ${documentId} not found`);
+      throw new HttpError(404, "Document not found");
     }
 
     const data = snapshot.data() as FirestoreMemoryDocument;

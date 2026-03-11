@@ -105,8 +105,15 @@ Also verify:
 
 - `GEMINI_EMBEDDING_MODEL=gemini-embedding-001` unless intentionally changed
 - `MEMORY_COLLECTION=memory_vectors` unless intentionally changed
+- `MCP_ALLOWED_TOOLS` matches what you want on the default admin endpoint
+- `MCP_ALLOWED_ORIGINS` is empty unless you intentionally want browser access on the default endpoint
 
 Stop here if env values are missing or inconsistent.
+
+For the first production deploy session, keep it simple:
+
+- deploy and test the default `/mcp` admin endpoint first
+- add `MCP_CLIENT_PROFILES_JSON` later when you are ready to expose Nanobot and browser-specific endpoints
 
 ## Step 3: Verify index and code alignment
 
@@ -180,6 +187,9 @@ The useful production routes are:
 - `<FUNCTION_BASE_URL>/mcp`
 - `<FUNCTION_BASE_URL>/mcp/sse`
 - `<FUNCTION_BASE_URL>/mcp/messages`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
 
 Stop here if function deployment fails.
 
@@ -310,6 +320,7 @@ Do not:
 
 - bulk-seed from provider exports
 - attach Nanobot yet
+- configure browser-hosted clients yet
 - add automatic writes
 - change embedding dimensions
 - change the collection name unless forced by a deployment issue

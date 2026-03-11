@@ -3,6 +3,7 @@ import type {
   EmbeddingClient,
   MemoryContentPreparer
 } from "./embeddings.js";
+import { HttpError } from "./errors.js";
 import type {
   ConsolidationQueueInput,
   ConsolidationQueueResult,
@@ -122,7 +123,7 @@ function normalizeRequiredText(value: string, fieldName: string): string {
   const normalized = value.trim();
 
   if (!normalized) {
-    throw new Error(`${fieldName} must not be empty`);
+    throw new HttpError(400, `${fieldName} must not be empty`);
   }
 
   return normalized;
