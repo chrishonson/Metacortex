@@ -102,7 +102,7 @@ Supported variables in this codebase:
 Important implementation detail:
 
 - `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-- The repo currently defaults to `gemini-embedding-001` and pins embedding output to `768` dimensions.
+- The repo currently defaults to `text-multimodal-embedding-002` and pins embedding output to `768` dimensions.
 - `gemini-embedding-2-preview` can also run at `768` dimensions, but changing embedding models still requires a corpus migration.
 - Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
 
@@ -156,7 +156,7 @@ Use one of these approaches before switching production traffic:
 - delete and repopulate the existing `memory_vectors` collection
 - or point `MEMORY_COLLECTION` at a fresh collection name and deploy new indexes for that collection
 
-Treat a switch from `gemini-embedding-001` to `gemini-embedding-2-preview` the same way, even if `GEMINI_EMBEDDING_DIMENSIONS` stays at `768`.
+Treat a switch from any previous embedding model to `text-multimodal-embedding-002` the same way, even if `GEMINI_EMBEDDING_DIMENSIONS` stays at `768`.
 
 Different embedding models produce different vector spaces. Reusing the same collection without re-embedding will silently degrade or break retrieval quality.
 

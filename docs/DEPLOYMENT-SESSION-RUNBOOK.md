@@ -28,7 +28,7 @@ By the end of the session, all of this should be true:
 This repo is currently set up for:
 
 - Gemini embeddings
-- `gemini-embedding-001`
+- `text-multimodal-embedding-002`
 - `768` dimensions
 - Firestore collection `memory_vectors`
 - Firebase Functions 2nd Gen in `us-central1`
@@ -108,7 +108,7 @@ GEMINI_EMBEDDING_DIMENSIONS=768
 Also verify:
 
 - `GEMINI_EMBEDDING_MODEL` is explicitly pinned in `functions/.env.prod`
-- `GEMINI_EMBEDDING_MODEL=gemini-embedding-001` unless intentionally changed
+- `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002` unless intentionally changed
 - `MEMORY_COLLECTION=memory_vectors` unless intentionally changed
 - `MCP_ALLOWED_TOOLS` matches what you want on the default admin endpoint
 - `MCP_ALLOWED_ORIGINS` is empty unless you intentionally want browser access on the default endpoint
