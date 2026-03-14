@@ -153,8 +153,12 @@ export function formatSearchResults(result: SearchContextResult): string {
       const mediaLine = match.media
         ? `media=${match.media.kind}:${match.media.mime_type}\n`
         : "";
+      const artifactRefsLine =
+        match.metadata.artifact_refs && match.metadata.artifact_refs.length > 0
+          ? `artifact_refs=${match.metadata.artifact_refs.join(",")}\n`
+          : "";
 
-      return `${header}\n${mediaLine}${match.content}`;
+      return `${header}\n${mediaLine}${artifactRefsLine}${match.content}`;
     })
     .join("\n\n");
 }

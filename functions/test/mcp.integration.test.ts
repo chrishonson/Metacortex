@@ -150,7 +150,8 @@ describe("MCP integration", () => {
         module_name: "jetpack-compose-ui",
         branch_state: "active",
         image_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
-        image_mime_type: "image/png"
+        image_mime_type: "image/png",
+        artifact_refs: ["gs://bucket/settings-screen.png"]
       }
     });
 
@@ -164,6 +165,9 @@ describe("MCP integration", () => {
 
     expect(textContent(searchResult)).toContain("Jetpack Compose");
     expect(textContent(searchResult)).toContain("media=inline_image:image/png");
+    expect(textContent(searchResult)).toContain(
+      "artifact_refs=gs://bucket/settings-screen.png"
+    );
   });
 
   it("enforces tool scoping on client-specific endpoints", async () => {

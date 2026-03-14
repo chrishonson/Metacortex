@@ -117,6 +117,32 @@ describe("OpenBrainService", () => {
     expect(storedRecord?.metadata.artifact_refs).toEqual(["gs://bucket/arch-diagram.png"]);
   });
 
+  it("includes artifact_refs in formatted search results", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    await service.storeContext({
+      content: "Compose settings screen screenshot",
+      artifact_type: "PATTERN",
+      module_name: "jetpack-compose-ui",
+      branch_state: "active",
+      artifact_refs: ["gs://bucket/settings-screen.png"]
+    });
+
+    const result = await service.searchContext({
+      query: "compose settings screenshot"
+    });
+
+    expect(formatSearchResults(result)).toContain(
+      "artifact_refs=gs://bucket/settings-screen.png"
+    );
+  });
+
   it("deprecates a document and records superseding ID", async () => {
     const repository = new InMemoryMemoryRepository();
     const service = new OpenBrainService(
