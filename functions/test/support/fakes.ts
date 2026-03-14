@@ -176,7 +176,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     serviceVersion: "0.1.0-test",
     authToken,
     geminiApiKey: "test-gemini-key",
-    embeddingModel: "gemini-embedding-001",
+    embeddingModel: "text-multimodal-embedding-002",
     multimodalModel: "gemini-2.5-flash",
     embeddingDimensions: 768,
     memoryCollection: "memory_vectors",

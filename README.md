@@ -32,10 +32,7 @@ Security model:
 
 ## Docs
 
-- Deployment runbook: [docs/DEPLOYMENT.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT.md)
-- Testing runbook: [docs/TESTING.md](/Users/nick/git/FirebaseOpenBrain/docs/TESTING.md)
-- Deployment session runbook: [docs/DEPLOYMENT-SESSION-RUNBOOK.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT-SESSION-RUNBOOK.md)
-- Prod rollout and seeding plan: [docs/PROD-ROLLOUT-AND-SEEDING.md](/Users/nick/git/FirebaseOpenBrain/docs/PROD-ROLLOUT-AND-SEEDING.md)
+- Deployment playbook: [docs/DEPLOYMENT.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT.md)
 
 ## Quick start
 

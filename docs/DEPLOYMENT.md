@@ -1,18 +1,28 @@
-# Deployment Guide
+# Deployment Playbook
 
-## Reality check
+This is the single deploy guide for Firebase Open Brain.
 
-This project is implemented as a Firebase Cloud Functions 2nd Gen HTTP function plus Firestore vector indexes.
+Use it for:
 
-As of March 10, 2026, Cloud Functions production deployment requires the Firebase Blaze plan. That means the original Spark-only constraint in the initial spec is no longer achievable for production deployment with this architecture, even if your monthly usage stays inside the no-cost quotas.
+- local verification before release
+- the first production deployment
+- the first production smoke test
+- the first weeks of rollout after launch
 
-What still keeps costs low:
+## Current release contract
 
-- Firestore still has no-cost usage quotas on Blaze.
-- Cloud Functions still has no-cost usage quotas on Blaze.
-- A low-traffic MCP server like this one can often stay near zero cost if usage is modest.
+The deploy path in this repo currently assumes:
 
-## Prerequisites
+- Firebase Cloud Functions 2nd Gen in `us-central1`
+- Firestore in Native mode
+- Firebase Blaze plan for production deploys
+- Firestore collection `memory_vectors`
+- embedding output pinned to `768` dimensions
+- embedding model pinned to `text-multimodal-embedding-002`
+
+For the first production release, if `memory_vectors` is empty, no embedding migration is required.
+
+## Before you start
 
 Install and verify:
 
@@ -23,32 +33,33 @@ firebase --version
 java -version
 ```
 
-Expected project/runtime assumptions:
+You need:
 
-- Firebase CLI installed and authenticated with `firebase login`
-- Node.js 20 available for Firebase Functions deployment
-- Java 11+ available for the local Firestore emulator
-- A Firebase project already created
-- Firestore database created in Native mode
-- Billing upgraded to Blaze for production deployment
+- Firebase CLI authenticated with `firebase login`
+- a Firebase project with Blaze enabled
+- Firestore created in Native mode
+- access to the correct Firebase project alias
+- a valid `GEMINI_API_KEY`
+- a production `MCP_AUTH_TOKEN`
 
-## One-time Firebase project setup
-
-1. Select or create the Firebase project in the console.
-2. Enable Firestore in Native mode.
-3. Upgrade the project to Blaze before attempting production deploys.
-4. Bind this repo to the project:
+If the repo is not bound to the right Firebase project yet:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain
 firebase use --add
 ```
 
-That command creates `.firebaserc` locally and lets you assign an alias such as `dev` or `prod`.
+## Runtime config
 
-## Runtime configuration
+Firebase Functions loads dotenv files from `functions/`.
 
-This code reads runtime configuration from environment variables. For Firebase Functions, the CLI loads values from dotenv files in `functions/`.
+Recommended layout:
+
+- `functions/.env`: local development values
+- `functions/.env.dev`: development project values
+- `functions/.env.prod`: production project values
+
+`functions/.env.prod` is local deployment config and should stay out of Git.
 
 Start from the template:
 
@@ -56,138 +67,80 @@ Start from the template:
 cp /Users/nick/git/FirebaseOpenBrain/functions/.env.example /Users/nick/git/FirebaseOpenBrain/functions/.env
 ```
 
-Minimum required values:
+Minimum required production values:
 
 ```dotenv
 GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
+GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002
+GEMINI_EMBEDDING_DIMENSIONS=768
+MEMORY_COLLECTION=memory_vectors
 ```
 
-Security-related values you will usually want to set explicitly:
+Recommended security and access defaults for the first release:
 
 ```dotenv
 MCP_ALLOWED_TOOLS=store_context,search_context,deprecate_context,get_consolidation_queue
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 MAX_SSE_SESSIONS=25
+SEARCH_RESULT_LIMIT=5
+DEFAULT_FILTER_STATE=active
 ```
 
-Recommended layout:
+Important constraints:
 
-- `functions/.env`
-  Common non-secret defaults
-- `functions/.env.dev`
-  Development project values
-- `functions/.env.prod`
-  Production project values
+- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json)
+- if you change embedding models or dimensions after seeding data, do not mix vector spaces in the same collection
+- this codebase embeds text; image-backed memories are normalized into text before embedding
 
-Supported variables in this codebase:
-
-- `GEMINI_API_KEY`
-- `MCP_AUTH_TOKEN`
-- `MCP_ALLOWED_TOOLS`
-- `MCP_ALLOWED_ORIGINS`
-- `MCP_ALLOWED_FILTER_STATES`
-- `MCP_CLIENT_PROFILES_JSON`
-- `MAX_SSE_SESSIONS`
-- `GEMINI_EMBEDDING_MODEL`
-- `GEMINI_MULTIMODAL_MODEL`
-- `GEMINI_EMBEDDING_DIMENSIONS`
-- `MEMORY_COLLECTION`
-- `SEARCH_RESULT_LIMIT`
-- `DEFAULT_FILTER_STATE`
-- `SERVICE_NAME`
-- `SERVICE_VERSION`
-
-Important implementation detail:
-
-- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-- The repo currently defaults to `text-multimodal-embedding-002` and pins embedding output to `768` dimensions.
-- `gemini-embedding-2-preview` can also run at `768` dimensions, but changing embedding models still requires a corpus migration.
-- Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
-
-## Endpoint scoping
-
-The function now supports both a default endpoint and client-scoped endpoints.
-
-Default admin endpoint:
+Client-scoped endpoints are available, but for the first production release keep it simple and start with the default admin endpoint:
 
 - `<FUNCTION_BASE_URL>/mcp`
 - `<FUNCTION_BASE_URL>/mcp/sse`
 - `<FUNCTION_BASE_URL>/mcp/messages`
 
-Client-scoped endpoints:
+Add client profiles later through `MCP_CLIENT_PROFILES_JSON` when you are ready to expose search-only clients such as Nanobot or browser-hosted consumers.
 
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
+## Local verification
 
-Use client-scoped endpoints when different consumers should get different capabilities.
-
-Typical pattern:
-
-- default `/mcp`: full admin tools
-- `/clients/nanobot/mcp`: `search_context` only
-- `/clients/browser/mcp`: `search_context` only plus explicit browser origins
-
-Example `MCP_CLIENT_PROFILES_JSON`:
-
-```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"replace-nanobot","allowedTools":["search_context"],"allowedFilterStates":["active"]},{"id":"browser","token":"replace-browser","allowedTools":["search_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai","https://gemini.google.com"]}]
-```
-
-Notes:
-
-- `MCP_ALLOWED_TOOLS` and `MCP_ALLOWED_ORIGINS` apply to the default `/mcp` endpoint.
-- `MCP_ALLOWED_FILTER_STATES` applies to the default `/mcp` endpoint.
-- client profiles must declare `allowedTools` explicitly; they no longer default to full access.
-- if a client profile omits `allowedFilterStates`, it defaults to the app's `DEFAULT_FILTER_STATE`, which is usually `active`.
-- browser access is deny-by-default unless `allowedOrigins` is populated for that profile.
-- `MAX_SSE_SESSIONS` caps concurrent SSE sessions per instance.
-
-## Embedding migration note
-
-If this is the first production release and the target Firestore collection is empty, no embedding migration is required. Pick one embedding model, deploy it consistently, and seed the new corpus after release.
-
-This repo previously used OpenAI embeddings. If your deployed Firestore collection already contains OpenAI vectors, do not mix them with the new Gemini vectors in the same search corpus.
-
-Use one of these approaches before switching production traffic:
-
-- delete and repopulate the existing `memory_vectors` collection
-- or point `MEMORY_COLLECTION` at a fresh collection name and deploy new indexes for that collection
-
-Treat a switch from any previous embedding model to `text-multimodal-embedding-002` the same way, even if `GEMINI_EMBEDDING_DIMENSIONS` stays at `768`.
-
-Different embedding models produce different vector spaces. Reusing the same collection without re-embedding will silently degrade or break retrieval quality.
-
-Because this repo also changed its default embedding dimension from `1536` to `768`, any existing `1536`-dimension vectors must be re-embedded before they can participate in the new index.
-
-## Firestore indexes
-
-This app depends on vector indexes in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-
-The important indexes are:
-
-- `metadata.module_name ASC + embedding VECTOR`
-- `metadata.branch_state ASC + embedding VECTOR`
-
-Deploy indexes first:
+Run the preflight first:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain
-firebase deploy --only firestore:indexes
+./scripts/deploy-session-preflight.sh
 ```
 
-Notes:
+That script checks:
 
-- Index creation can take time after the deploy command returns.
-- `search_context` will fail until the required vector indexes are fully built.
-- If you change embedding dimension or metadata filters, update both the code and the index file together.
-- If you change embedding models while keeping `768` dimensions, the indexes can stay the same, but the stored corpus still must be re-embedded or moved to a fresh collection.
+- git status
+- expected env file presence
+- effective production embedding config versus Firestore index dimensions
+- current Firebase project selection
+- full test suite
+- TypeScript build
 
-## Functions deployment
+If you want a manual local round-trip before production:
 
-Build locally first:
+```bash
+cd /Users/nick/git/FirebaseOpenBrain
+npm --prefix functions run serve
+```
+
+Then in another shell:
+
+```bash
+curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/healthz"
+```
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
+MCP_AUTH_TOKEN="replace-me" \
+npm run smoke
+```
+
+The automated tests and build can also be run directly:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain
@@ -195,41 +148,63 @@ npm --prefix functions test
 npm --prefix functions run build
 ```
 
-Deploy:
+## Deploy
+
+### 1. Confirm the target project
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain
+firebase use
+firebase projects:list
+```
+
+Do not deploy while unsure which alias is active.
+
+### 2. Confirm production env values
+
+Verify that `functions/.env.prod` or the dotenv file you plan to deploy with includes the intended values, especially:
+
+- `GEMINI_API_KEY`
+- `MCP_AUTH_TOKEN`
+- `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002`
+- `GEMINI_EMBEDDING_DIMENSIONS=768`
+- `MEMORY_COLLECTION=memory_vectors`
+
+For the first release, an empty production collection means there is no migration work to do.
+
+If you later switch embedding models or dimensions and want to keep old memories, re-embed them or start with a fresh collection.
+
+### 3. Deploy Firestore indexes
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain
+firebase deploy --only firestore:indexes
+```
+
+Required vector indexes:
+
+- `metadata.module_name ASC + embedding VECTOR`
+- `metadata.branch_state ASC + embedding VECTOR`
+
+Wait until those indexes are fully built before trusting search results.
+
+### 4. Deploy the function
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain
 firebase deploy --only functions
 ```
 
-Or deploy both functions and indexes together:
+Or deploy both together:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain
 firebase deploy --only firestore:indexes,functions
 ```
 
-## What gets deployed
+Capture the deployed base URL for `openBrainMcp`.
 
-The deployed function is exported from [functions/src/index.ts](/Users/nick/git/FirebaseOpenBrain/functions/src/index.ts) as `openBrainMcp`.
-
-Runtime options currently set in code:
-
-- Region: `us-central1`
-- Timeout: `300` seconds
-- Memory: `512MiB`
-
-If you need a different region, change [functions/src/index.ts](/Users/nick/git/FirebaseOpenBrain/functions/src/index.ts) and redeploy.
-
-## Production endpoints
-
-After deploy, get the live HTTPS base URL from:
-
-- the `firebase deploy` output
-- or `firebase functions:list`
-- or the Firebase console
-
-Once you have the base URL for `openBrainMcp`, the useful routes are:
+The useful production routes are:
 
 - `<FUNCTION_BASE_URL>/healthz`
 - `<FUNCTION_BASE_URL>/mcp`
@@ -239,36 +214,86 @@ Once you have the base URL for `openBrainMcp`, the useful routes are:
 - `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
 - `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
 
-Auth requirement:
+## Post-deploy verification
 
-- The default `/mcp` endpoint requires `Authorization: Bearer <MCP_AUTH_TOKEN>`
-- Each client-scoped endpoint requires that client profile's own bearer token
-
-## Post-deploy smoke test
-
-Health check:
+### 1. Health check
 
 ```bash
 curl -i "<FUNCTION_BASE_URL>/healthz"
 ```
 
-MCP smoke test with the included script:
+Expected:
+
+- HTTP `200`
+- response includes `ok: true`
+
+### 2. Unauthorized request check
+
+```bash
+curl -i \
+  -X POST "<FUNCTION_BASE_URL>/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'
+```
+
+Expected:
+
+- HTTP `401`
+
+### 3. Authenticated MCP smoke test
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
-MCP_AUTH_TOKEN="<YOUR_BEARER_TOKEN>" \
+MCP_AUTH_TOKEN="<YOUR_PRODUCTION_TOKEN>" \
 npm run smoke
 ```
 
-Expected result:
+Expected:
 
-- `listTools` returns the tools exposed by that endpoint
-- `store_context` stores a sample Ktor networking decision
-- `search_context` returns that stored document
-- if you pass `--image-base64`, the stored memory is first normalized from image+text into searchable text
+- tool listing succeeds
+- `store_context` succeeds
+- `search_context` returns the stored sample
 
-Search-only smoke test for a scoped client:
+This is the first proof that:
+
+- auth works
+- the live Gemini call works
+- Firestore writes work
+- Firestore vector search works
+
+### 4. Verify the written document
+
+Open Firestore and inspect `memory_vectors`.
+
+Confirm:
+
+- one document was written
+- `metadata.branch_state` is `active`
+- the stored content is searchable through `search_context`
+
+### 5. Optional multimodal smoke test
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
+MCP_AUTH_TOKEN="<YOUR_PRODUCTION_TOKEN>" \
+MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
+MCP_IMAGE_MIME_TYPE="image/png" \
+npm run smoke -- --content "Settings screen screenshot for the Compose UI"
+```
+
+Expected:
+
+- `store_context` accepts the image-backed memory
+- returned metadata includes `modality=text_image`
+- `search_context` returns the normalized memory
+
+### 6. Optional scoped-client smoke test
+
+Do this after the admin endpoint is working.
+
+Search-only client example:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
@@ -278,27 +303,50 @@ MCP_SMOKE_MODE="search-only" \
 npm run smoke
 ```
 
-## Failure modes to check first
+## First-release rollout
+
+Do not bulk-seed the corpus before launch.
+
+For the first release:
+
+- deploy the hosted MCP server
+- prove the hosted round trip works
+- let the first memories come from real work
+- watch retrieval quality before expanding automation
+
+Early target:
+
+- 5 to 20 durable memories
+
+Good early memories:
+
+- stable architecture decisions
+- durable project constraints
+- reusable workflows
+- canonical requirements
+- meaningful screenshots with lasting retrieval value
+
+Recommended rollout order:
+
+1. Manual admin use only
+2. Nanobot or other clients in `search_context`-only mode
+3. Controlled writes for clearly durable events
+4. Later use of `deprecate_context` and `get_consolidation_queue`
+
+## Failure checks
 
 If deploy succeeds but search fails:
 
-- confirm Firestore vector indexes finished building
-- confirm `GEMINI_EMBEDDING_DIMENSIONS=768`
-- confirm the deployed embedding model matches the vectors already stored in Firestore
-- confirm the Firestore database is in Native mode
-- confirm old OpenAI vectors were not left mixed into the same collection
+- confirm vector indexes finished building
+- confirm `GEMINI_EMBEDDING_MODEL` and `GEMINI_EMBEDDING_DIMENSIONS` match what you deployed
+- confirm Firestore is in Native mode
+- confirm the production collection does not mix vectors from different models or dimensions
 
 If requests return `401`:
 
-- verify the caller is sending `Authorization: Bearer <MCP_AUTH_TOKEN>`
-- verify the deployed `.env` alias loaded the token you expect
-- verify you are using the correct token for the correct endpoint
-
-If deploy fails before upload:
-
-- verify `firebase --version`
-- verify project is on Blaze
-- verify `npm --prefix functions run build` passes locally
+- verify `Authorization: Bearer <TOKEN>`
+- verify the token belongs to the endpoint you are calling
+- verify the deployed dotenv alias loaded the values you expect
 
 If the function deploys but cannot store documents:
 
@@ -307,5 +355,17 @@ If the function deploys but cannot store documents:
 
 If browser clients get `403 Origin not allowed`:
 
-- verify the request origin is listed in that client profile's `allowedOrigins`
-- verify you are calling the client-scoped endpoint, not the default admin endpoint
+- verify the request is using a client-scoped endpoint
+- verify that client profile has the expected `allowedOrigins`
+- do not use the admin endpoint for browser-hosted clients
+
+## Debugging
+
+Useful commands:
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain
+firebase functions:list
+```
+
+Use Firebase console logs or Cloud Logging for failed production requests.

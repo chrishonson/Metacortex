@@ -183,4 +183,4 @@ npm --prefix functions run build
 
 echo
 echo "Preflight passed."
-echo "Next step: follow docs/DEPLOYMENT-SESSION-RUNBOOK.md"
+echo "Next step: follow docs/DEPLOYMENT.md"

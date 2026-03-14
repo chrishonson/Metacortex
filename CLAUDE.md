@@ -157,7 +157,7 @@ Template: `functions/.env.example` → copy to `functions/.env`
 3. Deploy function: `firebase deploy --only functions`
 4. Smoke test: `npm --prefix functions run smoke` with production URL and token
 
-See `docs/DEPLOYMENT-SESSION-RUNBOOK.md` for the full runbook.
+See `docs/DEPLOYMENT.md` for the deployment playbook.
 
 ## Firebase Configuration
 
