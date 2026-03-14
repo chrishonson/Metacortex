@@ -19,6 +19,7 @@ The deploy path in this repo currently assumes:
 - Firestore collection `memory_vectors`
 - embedding output pinned to `768` dimensions
 - embedding model pinned to `text-multimodal-embedding-002`
+- multimodal normalization model pinned to `gemini-3.1-flash-lite-preview`
 
 For the first production release, if `memory_vectors` is empty, no embedding migration is required.
 
@@ -73,6 +74,7 @@ Minimum required production values:
 GEMINI_API_KEY=...
 MCP_AUTH_TOKEN=...
 GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002
+GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite-preview
 GEMINI_EMBEDDING_DIMENSIONS=768
 MEMORY_COLLECTION=memory_vectors
 ```

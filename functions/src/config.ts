@@ -266,7 +266,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     authToken,
     geminiApiKey: requireEnv(env, "GEMINI_API_KEY"),
     embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "text-multimodal-embedding-002",
-    multimodalModel: env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-2.5-flash",
+    multimodalModel:
+      env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite-preview",
     embeddingDimensions: parsePositiveInteger(
       env.GEMINI_EMBEDDING_DIMENSIONS,
       768,

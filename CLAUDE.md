@@ -135,7 +135,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `GEMINI_EMBEDDING_MODEL` | `text-multimodal-embedding-002` | Embedding model name |
-| `GEMINI_MULTIMODAL_MODEL` | `gemini-2.5-flash` | Multimodal normalization model |
+| `GEMINI_MULTIMODAL_MODEL` | `gemini-3.1-flash-lite-preview` | Multimodal normalization model |
 | `GEMINI_EMBEDDING_DIMENSIONS` | `768` | Embedding vector dimensions |
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |

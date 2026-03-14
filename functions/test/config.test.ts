@@ -10,7 +10,7 @@ describe("loadConfig", () => {
     });
 
     expect(config.embeddingModel).toBe("text-multimodal-embedding-002");
-    expect(config.multimodalModel).toBe("gemini-2.5-flash");
+    expect(config.multimodalModel).toBe("gemini-3.1-flash-lite-preview");
     expect(config.embeddingDimensions).toBe(768);
     expect(config.defaultFilterState).toBe("active");
     expect(config.topK).toBe(5);
