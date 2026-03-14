@@ -173,7 +173,8 @@ describe("MCP integration", () => {
           id: "nanobot",
           authToken: "nano-token",
           allowedOrigins: [],
-          allowedTools: ["search_context"]
+          allowedTools: ["search_context"],
+          allowedFilterStates: ["active"]
         }
       ]
     });
@@ -238,6 +239,20 @@ describe("MCP integration", () => {
 
     expect(disallowedResult.isError).toBe(true);
     expect(textContent(disallowedResult)).toContain("Tool store_context not found");
+
+    const disallowedStateResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "old deprecated networking layer",
+        filter_module: "kmp-networking",
+        filter_state: "deprecated"
+      }
+    });
+
+    expect(disallowedStateResult.isError).toBe(true);
+    expect(textContent(disallowedStateResult)).toContain(
+      "filter_state 'deprecated' is not allowed"
+    );
   });
 });
 

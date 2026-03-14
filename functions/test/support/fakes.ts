@@ -167,7 +167,8 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     id: "default",
     authToken,
     allowedOrigins: [],
-    allowedTools: [...MCP_TOOL_NAMES]
+    allowedTools: [...MCP_TOOL_NAMES],
+    allowedFilterStates: ["active", "merged", "deprecated", "wip"] as const
   };
 
   return {

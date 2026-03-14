@@ -123,8 +123,9 @@ function registerMcpRoutes(
     const server = createOpenBrainMcpServer(runtime.service, {
       serviceName: runtime.config.serviceName,
       serviceVersion: runtime.config.serviceVersion,
-      defaultFilterState: runtime.config.defaultFilterState,
-      allowedTools: profile.allowedTools
+      defaultFilterState: selectDefaultFilterState(runtime.config, profile),
+      allowedTools: profile.allowedTools,
+      allowedFilterStates: profile.allowedFilterStates
     });
     let isClosing = false;
 
@@ -185,8 +186,9 @@ function registerMcpRoutes(
     const server = createOpenBrainMcpServer(runtime.service, {
       serviceName: runtime.config.serviceName,
       serviceVersion: runtime.config.serviceVersion,
-      defaultFilterState: runtime.config.defaultFilterState,
-      allowedTools: profile.allowedTools
+      defaultFilterState: selectDefaultFilterState(runtime.config, profile),
+      allowedTools: profile.allowedTools,
+      allowedFilterStates: profile.allowedFilterStates
     });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined
@@ -286,6 +288,15 @@ function jsonRpcError(message: string) {
 
 function buildSessionKey(profileId: string, sessionId: string): string {
   return `${profileId}:${sessionId}`;
+}
+
+function selectDefaultFilterState(
+  config: AppConfig,
+  profile: ClientProfile
+) {
+  return profile.allowedFilterStates.includes(config.defaultFilterState)
+    ? config.defaultFilterState
+    : profile.allowedFilterStates[0];
 }
 
 function handleAppError(req: Request, res: Response, error: unknown): void {

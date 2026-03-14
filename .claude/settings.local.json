@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --prefix functions test)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Bash(npm --version)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$PATH\")",
+      "Read(//Users/nick/.nvm/versions/**)",
+      "Bash(command -v fnm)",
+      "Bash(fnm list)",
+      "Bash(command -v volta)",
+      "Bash(volta list node)",
+      "Read(//opt/homebrew/opt/**)",
+      "Read(//usr/local/opt/**)",
+      "Bash(export PATH=\"/opt/homebrew/opt/node@20/bin:$PATH\")",
+      "Bash(npm --prefix functions run build)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(brew install fnm)",
+      "Bash(fnm install 20)"
+    ]
+  }
+}

@@ -65,7 +65,7 @@ MCP_AUTH_TOKEN=...
 If you want to test scoped clients locally, also set:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"nano-token","allowedTools":["search_context"]},{"id":"browser","token":"browser-token","allowedTools":["search_context"],"allowedOrigins":["https://claude.ai"]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"nano-token","allowedTools":["search_context"],"allowedFilterStates":["active"]},{"id":"browser","token":"browser-token","allowedTools":["search_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
 ### Start emulators
@@ -162,6 +162,7 @@ Expected result:
 - tool listing only shows `search_context`
 - the smoke script does not attempt a write
 - `search_context` returns results if the corpus already contains matching data
+- `search_context` rejects `filter_state=deprecated` or `filter_state=wip`
 
 ### Browser origin check
 

@@ -88,7 +88,8 @@ describe("createOpenBrainApp", () => {
           id: "browser",
           authToken: "browser-token",
           allowedOrigins: ["https://claude.ai"],
-          allowedTools: ["search_context"]
+          allowedTools: ["search_context"],
+          allowedFilterStates: ["active"]
         }
       ]
     });

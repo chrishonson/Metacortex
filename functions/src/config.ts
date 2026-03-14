@@ -10,6 +10,7 @@ export interface ClientProfile {
   authToken: string;
   allowedOrigins: string[];
   allowedTools: McpToolName[];
+  allowedFilterStates: BranchState[];
 }
 
 export interface AppConfig {
@@ -98,8 +99,35 @@ function parseToolList(
   return [...new Set(normalized as McpToolName[])];
 }
 
+function parseBranchStateList(
+  value: string[] | undefined,
+  key: string,
+  fallback: readonly BranchState[]
+): BranchState[] {
+  const items = value && value.length > 0 ? value : [...fallback];
+
+  if (items.length === 0) {
+    throw new MissingConfigurationError(
+      `${key} must include at least one branch state`
+    );
+  }
+
+  const normalized = items.map(item => item.trim()).filter(Boolean);
+
+  for (const item of normalized) {
+    if (!BRANCH_STATES.includes(item as BranchState)) {
+      throw new MissingConfigurationError(
+        `${key} contains unsupported branch state: ${item}`
+      );
+    }
+  }
+
+  return [...new Set(normalized as BranchState[])];
+}
+
 function parseClientProfiles(
-  value: string | undefined
+  value: string | undefined,
+  defaultFilterState: BranchState
 ): ClientProfile[] {
   if (!value?.trim()) {
     return [];
@@ -169,20 +197,36 @@ function parseClientProfiles(
           .filter(Boolean)
       : [];
 
+    if (!Array.isArray(candidate.allowedTools)) {
+      throw new MissingConfigurationError(
+        `MCP_CLIENT_PROFILES_JSON[${index}].allowedTools is required`
+      );
+    }
+
     const allowedTools = parseToolList(
-      Array.isArray(candidate.allowedTools)
-        ? candidate.allowedTools.filter(
-            (tool): tool is string => typeof tool === "string"
+      candidate.allowedTools.filter(
+        (tool): tool is string => typeof tool === "string"
+      ),
+      `MCP_CLIENT_PROFILES_JSON[${index}].allowedTools`
+    );
+    const allowedFilterStates = parseBranchStateList(
+      Array.isArray(candidate.allowedFilterStates)
+        ? candidate.allowedFilterStates.filter(
+            (state): state is string => typeof state === "string"
           )
         : undefined,
-      `MCP_CLIENT_PROFILES_JSON[${index}].allowedTools`
+      `MCP_CLIENT_PROFILES_JSON[${index}].allowedFilterStates`,
+      allowedTools.includes("search_context")
+        ? [defaultFilterState]
+        : [defaultFilterState]
     );
 
     return {
       id,
       authToken,
       allowedOrigins: [...new Set(allowedOrigins)],
-      allowedTools
+      allowedTools,
+      allowedFilterStates
     };
   });
 }
@@ -204,9 +248,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     allowedTools: parseToolList(
       parseStringList(env.MCP_ALLOWED_TOOLS),
       "MCP_ALLOWED_TOOLS"
+    ),
+    allowedFilterStates: parseBranchStateList(
+      parseStringList(env.MCP_ALLOWED_FILTER_STATES),
+      "MCP_ALLOWED_FILTER_STATES",
+      BRANCH_STATES
     )
   };
-  const clientProfiles = parseClientProfiles(env.MCP_CLIENT_PROFILES_JSON);
+  const clientProfiles = parseClientProfiles(
+    env.MCP_CLIENT_PROFILES_JSON,
+    defaultFilterState as BranchState
+  );
 
   return {
     serviceName: env.SERVICE_NAME ?? "firebase-open-brain",

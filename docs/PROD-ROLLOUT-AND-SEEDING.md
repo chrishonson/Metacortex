@@ -206,6 +206,7 @@ with:
 
 - its own bearer token
 - `allowedTools=["search_context"]`
+- `allowedFilterStates=["active"]`
 - no browser origins
 
 ### Stage 3: Controlled writes
@@ -240,6 +241,7 @@ with:
 
 - its own bearer token
 - a minimal tool set, usually `search_context`
+- `allowedFilterStates=["active"]`
 - explicit `allowedOrigins` such as `https://claude.ai`
 
 Do not reuse the admin endpoint for browser-hosted clients.

@@ -68,6 +68,7 @@ Security-related values you will usually want to set explicitly:
 ```dotenv
 MCP_ALLOWED_TOOLS=store_context,search_context,deprecate_context,get_consolidation_queue
 MCP_ALLOWED_ORIGINS=
+MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 MAX_SSE_SESSIONS=25
 ```
 
@@ -86,6 +87,7 @@ Supported variables in this codebase:
 - `MCP_AUTH_TOKEN`
 - `MCP_ALLOWED_TOOLS`
 - `MCP_ALLOWED_ORIGINS`
+- `MCP_ALLOWED_FILTER_STATES`
 - `MCP_CLIENT_PROFILES_JSON`
 - `MAX_SSE_SESSIONS`
 - `GEMINI_EMBEDDING_MODEL`
@@ -130,12 +132,15 @@ Typical pattern:
 Example `MCP_CLIENT_PROFILES_JSON`:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"replace-nanobot","allowedTools":["search_context"]},{"id":"browser","token":"replace-browser","allowedTools":["search_context"],"allowedOrigins":["https://claude.ai","https://gemini.google.com"]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"nanobot","token":"replace-nanobot","allowedTools":["search_context"],"allowedFilterStates":["active"]},{"id":"browser","token":"replace-browser","allowedTools":["search_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai","https://gemini.google.com"]}]
 ```
 
 Notes:
 
 - `MCP_ALLOWED_TOOLS` and `MCP_ALLOWED_ORIGINS` apply to the default `/mcp` endpoint.
+- `MCP_ALLOWED_FILTER_STATES` applies to the default `/mcp` endpoint.
+- client profiles must declare `allowedTools` explicitly; they no longer default to full access.
+- if a client profile omits `allowedFilterStates`, it defaults to the app's `DEFAULT_FILTER_STATE`, which is usually `active`.
 - browser access is deny-by-default unless `allowedOrigins` is populated for that profile.
 - `MAX_SSE_SESSIONS` caps concurrent SSE sessions per instance.
 

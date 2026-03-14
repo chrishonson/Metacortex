@@ -2,10 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 
 import type { AppConfig } from "./config.js";
+import { HttpError } from "./errors.js";
 import { formatSearchResults, OpenBrainService } from "./service.js";
 import {
   ARTIFACT_TYPES,
   BRANCH_STATES,
+  type BranchState,
   type McpToolName
 } from "./types.js";
 
@@ -13,6 +15,7 @@ export function createOpenBrainMcpServer(
   service: OpenBrainService,
   config: Pick<AppConfig, "serviceName" | "serviceVersion" | "defaultFilterState"> & {
     allowedTools: readonly McpToolName[];
+    allowedFilterStates: readonly BranchState[];
   }
 ): McpServer {
   const server = new McpServer(
@@ -119,6 +122,15 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
+        const requestedFilterState = args.filter_state ?? config.defaultFilterState;
+
+        if (!config.allowedFilterStates.includes(requestedFilterState)) {
+          throw new HttpError(
+            403,
+            `filter_state '${requestedFilterState}' is not allowed for this client`
+          );
+        }
+
         const result = await service.searchContext(args);
 
         return {
