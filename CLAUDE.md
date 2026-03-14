@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Firebase Open Brain is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes two MCP tools (`store_context` and `search_context`) for storing and retrieving vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
+Firebase Open Brain is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes four MCP tools for storing, searching, deprecating, and consolidating vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
 
 ## Common Commands
 
@@ -15,6 +15,7 @@ npm --prefix functions install          # Install dependencies
 npm --prefix functions test             # Run all tests with coverage (vitest)
 npm --prefix functions run test:watch   # Watch mode
 npm --prefix functions run build        # TypeScript compile → lib/
+npm --prefix functions run clean        # Remove lib/ and coverage/
 npm --prefix functions run serve        # Start Firebase emulators (functions + firestore)
 ```
 
@@ -25,6 +26,7 @@ npx --prefix functions vitest run test/config.test.ts
 
 Deploy:
 ```bash
+./scripts/deploy-session-preflight.sh       # Pre-deploy checks (git, env, dims, tests, build)
 firebase deploy --only firestore:indexes    # Deploy vector indexes first
 firebase deploy --only functions            # Deploy the function
 ```
@@ -37,58 +39,135 @@ MCP_AUTH_TOKEN="replace-me" \
 npm run smoke
 ```
 
+The smoke test supports `--mode read-write` (default, stores then searches) and `--mode search-only` (read-only client validation). It also accepts `--image-base64` and `--image-mime-type` for multimodal testing.
+
 ## Architecture
 
 ### Request Flow
 
 ```
-HTTP → Express app (app.ts) → Bearer auth middleware → MCP server (mcpServer.ts)
-                                                      → /healthz (public, no auth)
+HTTP → Express app (app.ts) → CORS check → Bearer auth → MCP server (mcpServer.ts)
+                                                         → /healthz (public, no auth)
 ```
 
-The Express app handles three MCP transport modes:
-- `/mcp` — Streamable HTTP (primary)
-- `/mcp/sse` + `/mcp/messages` — Legacy SSE
+### MCP Transport Modes
+
+Three transports, all available at both the default and per-client mount points:
+- `/mcp` (POST) — Streamable HTTP (primary, single request-reply)
+- `/mcp/sse` (GET) + `/mcp/messages` (POST) — Legacy SSE with session management
+
+### Client Profile Scoping
+
+Each client gets scoped access via bearer token + allowlists:
+- **Default client**: `/mcp` endpoint, configured via `MCP_AUTH_TOKEN` + `MCP_ALLOWED_TOOLS` + `MCP_ALLOWED_ORIGINS` + `MCP_ALLOWED_FILTER_STATES`
+- **Custom clients**: `/clients/<clientId>/mcp` endpoints, configured via `MCP_CLIENT_PROFILES_JSON` (array of `{id, token, allowedOrigins[], allowedTools[], allowedFilterStates[]}`)
+
+Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildcard; default is deny-all.
+
+### MCP Tools
+
+| Tool | Purpose |
+|------|---------|
+| `store_context` | Store text (+ optional image) → Gemini multimodal normalization → embedding → Firestore |
+| `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
+| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
+| `get_consolidation_queue` | Fetch WIP-state memories for synthesis into official specs |
 
 ### Key Source Files (all under `functions/src/`)
 
-- **index.ts** — Firebase Functions entry point, exports `openBrainMcp`
-- **app.ts** — Express app with CORS, auth middleware, MCP session management
-- **config.ts** — Environment variable loading with validation (`loadConfig`)
-- **runtime.ts** — Dependency injection: lazily creates and caches all collaborators (`createRuntime`)
-- **service.ts** — `OpenBrainService` with `store()` and `search()` business logic
-- **embeddings.ts** — Gemini API clients: `GeminiEmbeddingClient` + `GeminiMultimodalPreparer`
-- **memoryRepository.ts** — Firestore CRUD with vector similarity search
-- **types.ts** — Shared types and enums (`ArtifactType`, `BranchState`, `MemoryModality`)
-- **mcpServer.ts** — MCP tool registration with Zod input schemas
+| File | Lines | Purpose |
+|------|-------|---------|
+| `index.ts` | ~17 | Firebase Functions entry point, exports `openBrainMcp` (us-central1, 300s timeout, 512MiB) |
+| `app.ts` | ~344 | Express app: CORS, bearer auth, SSE session management, router for default + client-scoped endpoints |
+| `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
+| `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
+| `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
+| `service.ts` | ~161 | `OpenBrainService` — `storeContext()`, `searchContext()`, `deprecateContext()`, `getConsolidationQueue()` |
+| `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
+| `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
+| `types.ts` | ~111 | Enums (`ARTIFACT_TYPES`, `BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
+| `mcpServer.ts` | ~245 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates` |
 
 ### Data Flow
 
-**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (768-dim) → Firestore document with vector
+**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (768-dim) → Firestore document with vector + metadata
 
-**search_context**: Query text → Gemini embedding → Firestore vector similarity search (cosine distance, top-K) with metadata filters (`branch_state` required, `module_name` optional)
+**search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
+
+**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
+
+**get_consolidation_queue**: Query documents where `branch_state == "wip"`, optionally filtered by `module_name`
 
 ### Testing Approach
 
 Four test layers, all using vitest with in-memory fakes (no real Gemini/Firestore calls):
-- **config.test.ts** — Config validation
-- **service.test.ts** — Business logic with `InMemoryMemoryRepository` + `KeywordEmbeddingClient`
-- **app.test.ts** — HTTP auth/routing via supertest
-- **mcp.integration.test.ts** — End-to-end MCP protocol via real MCP SDK client transports
 
-Test fakes live in `functions/test/support/fakes.ts` — includes `KeywordEmbeddingClient` (keyword-based vectors), `FakeMemoryContentPreparer`, `InMemoryMemoryRepository`, and factory helpers `createTestConfig`/`createTestRuntime`.
+| Test | Scope |
+|------|-------|
+| `config.test.ts` | Config validation, env parsing, client profile JSON |
+| `service.test.ts` | Business logic with `InMemoryMemoryRepository` + `KeywordEmbeddingClient` |
+| `app.test.ts` | HTTP auth, CORS, bearer tokens, client profile routing (supertest) |
+| `mcp.integration.test.ts` | End-to-end MCP protocol via real MCP SDK client transports (StreamableHTTP + SSE) |
+
+Test fakes in `functions/test/support/fakes.ts`:
+- `KeywordEmbeddingClient` — 6-dimensional vectors keyed on keywords (ktor, compose, android, ios, firebase, architecture), enables deterministic cosine similarity
+- `FakeMemoryContentPreparer` — Mimics multimodal prep without Gemini
+- `InMemoryMemoryRepository` — In-memory storage with cosine distance search
+- `createTestConfig()` / `createTestRuntime()` — Factory helpers for test fixtures
 
 ## Critical Constraints
 
-- **Embedding dimensions must match everywhere**: `GEMINI_EMBEDDING_DIMENSIONS` env var (default 768) must equal the dimension in `firestore.indexes.json`
+- **Embedding dimensions must match everywhere**: `GEMINI_EMBEDDING_DIMENSIONS` env var (default 768) must equal the dimension in both Firestore indexes in `firestore.indexes.json`
 - **Firestore must be Native mode**, not Datastore mode
 - **Firebase Blaze plan required** for Cloud Functions deployment
 - **Provider migration**: If switching embedding providers or dimensions, either clear the collection or use a new `MEMORY_COLLECTION` name — never mix vectors from different models/dimensions
+- **Firestore rules deny all client access** to `memory_vectors` — access is server-only via the Cloud Function
+- **Config and runtime are cached** in `runtime.ts` — they initialize once per cold start, not per request
 
 ## Environment Variables
 
-Required: `GEMINI_API_KEY`, `MCP_AUTH_TOKEN`
+**Required:**
+- `GEMINI_API_KEY` — Gemini API key for embeddings and multimodal
+- `MCP_AUTH_TOKEN` — Bearer token for default client auth
 
-Optional (with defaults): `GEMINI_EMBEDDING_MODEL` (gemini-embedding-001), `GEMINI_MULTIMODAL_MODEL` (gemini-2.5-flash), `GEMINI_EMBEDDING_DIMENSIONS` (768), `MEMORY_COLLECTION` (memory_vectors), `SEARCH_RESULT_LIMIT` (5), `DEFAULT_FILTER_STATE` (active), `SERVICE_NAME`, `SERVICE_VERSION`
+**Optional (with defaults):**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model name |
+| `GEMINI_MULTIMODAL_MODEL` | `gemini-2.5-flash` | Multimodal normalization model |
+| `GEMINI_EMBEDDING_DIMENSIONS` | `768` | Embedding vector dimensions |
+| `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
+| `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
+| `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
+| `MCP_ALLOWED_TOOLS` | all four tools | Comma-separated tool allowlist for default client |
+| `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist |
+| `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
+| `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles |
+| `MAX_SSE_SESSIONS` | `25` | Max concurrent SSE sessions |
+| `SERVICE_NAME` | `firebase-open-brain` | Service identifier in responses |
+| `SERVICE_VERSION` | `0.1.0` | Service version in responses |
 
 Template: `functions/.env.example` → copy to `functions/.env`
+
+## Deployment Workflow
+
+1. Run preflight: `./scripts/deploy-session-preflight.sh` (checks git status, env vars, dimension alignment, tests, build)
+2. Deploy indexes: `firebase deploy --only firestore:indexes`
+3. Deploy function: `firebase deploy --only functions`
+4. Smoke test: `npm --prefix functions run smoke` with production URL and token
+
+See `docs/DEPLOYMENT-SESSION-RUNBOOK.md` for the full runbook.
+
+## Firebase Configuration
+
+- **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
+- **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
+- **Firestore indexes**: Two composite indexes on `memory_vectors` — one on `metadata.module_name` + `embedding` (768-dim FLAT), one on `metadata.branch_state` + `embedding` (768-dim FLAT)
+- **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
+
+## TypeScript Configuration
+
+- Target: ES2022, Module: NodeNext
+- Strict mode, no unused locals/parameters
+- Output: `functions/lib/`, source: `functions/src/`
