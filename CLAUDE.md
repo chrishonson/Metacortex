@@ -90,7 +90,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 ### Data Flow
 
-**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (768-dim) → Firestore document with vector + metadata
+**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
 
@@ -120,7 +120,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 - **Embedding dimensions must match everywhere**: `GEMINI_EMBEDDING_DIMENSIONS` env var (default 768) must equal the dimension in both Firestore indexes in `firestore.indexes.json`
 - **Firestore must be Native mode**, not Datastore mode
 - **Firebase Blaze plan required** for Cloud Functions deployment
-- **Provider migration**: If switching embedding providers or dimensions, either clear the collection or use a new `MEMORY_COLLECTION` name — never mix vectors from different models/dimensions
+- **Embedding migration**: If switching embedding providers, embedding models, or dimensions, either clear the collection or use a new `MEMORY_COLLECTION` name — never mix vectors from different vector spaces
 - **Firestore rules deny all client access** to `memory_vectors` — access is server-only via the Cloud Function
 - **Config and runtime are cached** in `runtime.ts` — they initialize once per cold start, not per request
 

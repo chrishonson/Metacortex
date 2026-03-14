@@ -87,7 +87,8 @@ Security model:
 
 - Firestore vector indexes live in `firestore.indexes.json`
 - Firestore rules live in `firestore.rules`
-- The embedding index is configured for `768` dimensions to match the natural output size of `gemini-embedding-001`
+- The deployment currently pins embedding output to `768` dimensions via `GEMINI_EMBEDDING_DIMENSIONS`
+- If you change embedding models, keep `GEMINI_EMBEDDING_DIMENSIONS` aligned with `firestore.indexes.json` and re-embed into a clean or fresh `MEMORY_COLLECTION`
 - Client profiles are configured with `MCP_ALLOWED_TOOLS`, `MCP_ALLOWED_ORIGINS`, and `MCP_CLIENT_PROFILES_JSON`
 - Read scope for each endpoint is configured with `MCP_ALLOWED_FILTER_STATES` and client-profile `allowedFilterStates`
 

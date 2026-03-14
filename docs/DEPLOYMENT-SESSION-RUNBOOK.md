@@ -35,6 +35,10 @@ This repo is currently set up for:
 
 You also do not have a real legacy OpenAI corpus to migrate. Treat production as a clean Gemini deployment.
 
+Because this has not been released yet, no production embedding migration is required for the first deploy.
+
+If you intentionally switch to `gemini-embedding-2-preview`, keep the index dimension aligned and start with a fresh production corpus. Only treat it as a re-embedding exercise if you decide to preserve pre-release data from an older embedding model.
+
 ## Before starting
 
 Have these ready before you begin:
@@ -65,7 +69,7 @@ That script checks:
 
 - git status
 - expected env file presence
-- `768`-dimension alignment between code and Firestore indexes
+- effective deployment embedding dimension alignment between `functions/.env.prod`, code defaults, and Firestore indexes
 - current Firebase project selection
 - local tests
 - local build
@@ -103,12 +107,15 @@ GEMINI_EMBEDDING_DIMENSIONS=768
 
 Also verify:
 
+- `GEMINI_EMBEDDING_MODEL` is explicitly pinned in `functions/.env.prod`
 - `GEMINI_EMBEDDING_MODEL=gemini-embedding-001` unless intentionally changed
 - `MEMORY_COLLECTION=memory_vectors` unless intentionally changed
 - `MCP_ALLOWED_TOOLS` matches what you want on the default admin endpoint
 - `MCP_ALLOWED_ORIGINS` is empty unless you intentionally want browser access on the default endpoint
 
 Stop here if env values are missing or inconsistent.
+
+If `GEMINI_EMBEDDING_MODEL` is intentionally changed to `gemini-embedding-2-preview`, that is fine for the first release as long as the target production collection is empty. If you intend to preserve pre-release data, stop here unless the collection is re-embedded or replaced with a fresh `MEMORY_COLLECTION`.
 
 For the first production deploy session, keep it simple:
 
@@ -124,8 +131,9 @@ Open and confirm:
 
 What must agree:
 
-- vector dimension is `768`
+- effective deployment vector dimension is `768`
 - the app still targets the same embedding dimension as the deployed index
+- the deployed embedding model matches the vector corpus already stored in Firestore
 
 Stop here if dimensions do not match.
 

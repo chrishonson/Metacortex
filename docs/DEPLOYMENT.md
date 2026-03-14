@@ -102,7 +102,8 @@ Supported variables in this codebase:
 Important implementation detail:
 
 - `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json).
-- The repo is currently configured for `gemini-embedding-001` with dimension `768`.
+- The repo currently defaults to `gemini-embedding-001` and pins embedding output to `768` dimensions.
+- `gemini-embedding-2-preview` can also run at `768` dimensions, but changing embedding models still requires a corpus migration.
 - Image-backed memories are converted into retrieval text with `gemini-2.5-flash` before they are embedded.
 
 ## Endpoint scoping
@@ -144,7 +145,9 @@ Notes:
 - browser access is deny-by-default unless `allowedOrigins` is populated for that profile.
 - `MAX_SSE_SESSIONS` caps concurrent SSE sessions per instance.
 
-## Provider migration note
+## Embedding migration note
+
+If this is the first production release and the target Firestore collection is empty, no embedding migration is required. Pick one embedding model, deploy it consistently, and seed the new corpus after release.
 
 This repo previously used OpenAI embeddings. If your deployed Firestore collection already contains OpenAI vectors, do not mix them with the new Gemini vectors in the same search corpus.
 
@@ -152,6 +155,10 @@ Use one of these approaches before switching production traffic:
 
 - delete and repopulate the existing `memory_vectors` collection
 - or point `MEMORY_COLLECTION` at a fresh collection name and deploy new indexes for that collection
+
+Treat a switch from `gemini-embedding-001` to `gemini-embedding-2-preview` the same way, even if `GEMINI_EMBEDDING_DIMENSIONS` stays at `768`.
+
+Different embedding models produce different vector spaces. Reusing the same collection without re-embedding will silently degrade or break retrieval quality.
 
 Because this repo also changed its default embedding dimension from `1536` to `768`, any existing `1536`-dimension vectors must be re-embedded before they can participate in the new index.
 
@@ -176,6 +183,7 @@ Notes:
 - Index creation can take time after the deploy command returns.
 - `search_context` will fail until the required vector indexes are fully built.
 - If you change embedding dimension or metadata filters, update both the code and the index file together.
+- If you change embedding models while keeping `768` dimensions, the indexes can stay the same, but the stored corpus still must be re-embedded or moved to a fresh collection.
 
 ## Functions deployment
 
@@ -276,7 +284,7 @@ If deploy succeeds but search fails:
 
 - confirm Firestore vector indexes finished building
 - confirm `GEMINI_EMBEDDING_DIMENSIONS=768`
-- confirm the deployed embedding model is still `gemini-embedding-001`
+- confirm the deployed embedding model matches the vectors already stored in Firestore
 - confirm the Firestore database is in Native mode
 - confirm old OpenAI vectors were not left mixed into the same collection
 

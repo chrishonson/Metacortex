@@ -10,4 +10,5 @@ functions/node_modules
 functions/lib
 functions/coverage
 functions/.env
+functions/.env.prod
 functions/.env.local
