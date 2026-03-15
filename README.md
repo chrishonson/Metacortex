@@ -142,13 +142,178 @@ Security model:
 
 - the default `/mcp` endpoint is the admin endpoint
 - `clients/<clientId>` endpoints let you expose smaller toolsets to specific consumers
-- browser CORS is deny-by-default unless a client profile explicitly allowlists origins
+- `MCP_ALLOWED_ORIGINS` applies only to the default admin endpoint
+- browser CORS should be configured per client profile through `MCP_CLIENT_PROFILES_JSON[].allowedOrigins`
+- leave `MCP_ALLOWED_ORIGINS` empty unless you intentionally want browser access to the admin endpoint
 
 Recommended browser read/write toolset:
 
 - `remember_context`
 - `search_context`
 - `fetch_context`
+
+## Browser Client Setup
+
+For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
+
+- remote MCP URL: `https://<FUNCTION_BASE_URL>/clients/browser/mcp`
+- bearer token: the `token` value from the `browser` entry in `MCP_CLIENT_PROFILES_JSON`
+- allowed browser origins: `MCP_CLIENT_PROFILES_JSON[].allowedOrigins`
+
+Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_AUTH_TOKEN`.
+
+If you want separate revocation and token rotation per consumer, create one client profile per browser client instead of sharing a single `browser` profile. For example:
+
+- `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
+- `claude-web` with `allowedOrigins=["https://claude.ai"]`
+
+## Tool Contract
+
+The MCP server returns plain text tool results, not structured JSON payloads.
+
+### `remember_context`
+
+Minimal text memory:
+
+```json
+{
+  "content": "We use Ktor for shared Android and iOS networking.",
+  "topic": "kmp-networking"
+}
+```
+
+Typical result:
+
+```text
+Stored memory vector abc123.
+artifact_type=DECISION
+module_name=kmp-networking
+branch_state=active
+modality=text
+timestamp=2026-03-14T12:00:00.000Z
+```
+
+Image-backed memory with an external asset reference:
+
+```json
+{
+  "content": "Settings screen screenshot for the Compose UI.",
+  "topic": "ui-settings",
+  "artifact_refs": ["gs://your-bucket/settings-screen.png"],
+  "image_base64": "<base64 image bytes>",
+  "image_mime_type": "image/png"
+}
+```
+
+### `search_context`
+
+Example input:
+
+```json
+{
+  "query": "shared networking for android and ios",
+  "filter_module": "kmp-networking",
+  "filter_state": "active"
+}
+```
+
+Typical result:
+
+```text
+Result 1 | DECISION | kmp-networking | active | text | 2026-03-14T12:00:00.000Z
+id=abc123
+We use Ktor for shared Android and iOS networking.
+```
+
+If an item has media metadata or external refs, those lines appear before the stored content:
+
+```text
+media=inline_image:image/png
+artifact_refs=gs://your-bucket/settings-screen.png
+```
+
+If nothing matches, the result is:
+
+```text
+No matching context found.
+```
+
+### `fetch_context`
+
+Example input:
+
+```json
+{
+  "document_id": "abc123"
+}
+```
+
+Typical result:
+
+```text
+id=abc123
+artifact_type=DECISION
+module_name=kmp-networking
+branch_state=active
+modality=text
+timestamp=2026-03-14T12:00:00.000Z
+
+We use Ktor for shared Android and iOS networking.
+```
+
+## Search Behavior
+
+`search_context` does one exact metadata filter step and one vector step:
+
+- `filter_state` is always applied before nearest-neighbor search
+- `filter_module`, when present, is an exact match on `module_name`
+- vector search then runs Firestore `findNearest()` with cosine distance
+- the result count is `limit` when provided, otherwise `SEARCH_RESULT_LIMIT`
+- the default state is `active` unless the client profile allows and requests another state
+
+`fetch_context` can still fail with `403` if the document exists but its `branch_state` is outside that client profile's `allowedFilterStates`.
+
+## Write Constraints
+
+Write behavior that matters in production:
+
+- request bodies are limited to `1mb`, including base64 image data
+- `content` or `image_base64` is required
+- `image_mime_type` is required whenever `image_base64` is provided
+- images are normalized into retrieval text and embedded as text; raw image bytes are not stored for download
+- if you want the real asset later, store it elsewhere and include `artifact_refs`
+
+`remember_context` defaults:
+
+- omitted `topic` becomes `general`
+- omitted `draft` becomes `false`, which stores `branch_state=active`
+- `draft=true` stores `branch_state=wip`
+- omitted `memory_type` is inferred heuristically
+
+Memory type inference is intentionally simple:
+
+- keywords like `must`, `should`, `required`, `need to` map toward `REQUIREMENT`
+- keywords like `pattern`, `workflow`, `playbook`, `screenshot` map toward `PATTERN`
+- keywords like `spec`, `schema`, `contract`, `interface` map toward `SPEC`
+- otherwise text memories fall back to `DECISION`
+- image-only memories with no text fall back to `PATTERN`
+
+If canonical classification matters, set `memory_type` explicitly instead of relying on inference.
+
+## Lifecycle And Maintenance
+
+Recommended usage:
+
+1. Browser clients save durable memories with `remember_context`.
+2. Use `draft=true` only for provisional notes that should not appear in normal active search.
+3. Admin clients review WIP material with `get_consolidation_queue`.
+4. After writing the canonical replacement, admins can mark obsolete records with `deprecate_context`.
+
+Current lifecycle behavior:
+
+- `remember_context` only creates `active` or `wip` records
+- `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
+- `merged` exists as a searchable historical state, but browser writes do not assign it automatically
 
 ## Quick start
 
@@ -162,6 +327,12 @@ Recommended browser read/write toolset:
 
    ```bash
    cp functions/.env.example functions/.env
+   ```
+
+   For browser-hosted clients, set a scoped client profile in `functions/.env` or `functions/.env.prod`:
+
+   ```dotenv
+   MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
    ```
 
 3. Run verification:
@@ -183,6 +354,17 @@ Recommended browser read/write toolset:
    cd functions
    MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
    MCP_AUTH_TOKEN="replace-me" \
+   MCP_SMOKE_MODE="admin-read-write" \
+   npm run smoke
+   ```
+
+   Browser-client flow:
+
+   ```bash
+   cd functions
+   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/browser/mcp" \
+   MCP_AUTH_TOKEN="replace-browser-token" \
+   MCP_SMOKE_MODE="browser-read-write" \
    npm run smoke
    ```
 

@@ -14,7 +14,10 @@ function readArg(name, fallback) {
 
 const url = readArg("url", process.env.MCP_BASE_URL);
 const token = readArg("token", process.env.MCP_AUTH_TOKEN);
-const mode = readArg("mode", process.env.MCP_SMOKE_MODE ?? "read-write");
+const mode = readArg(
+  "mode",
+  process.env.MCP_SMOKE_MODE ?? "admin-read-write"
+);
 const content = readArg(
   "content",
   "We are using Ktor for the Android/iOS networking layer in the main branch."
@@ -23,11 +26,13 @@ const query = readArg(
   "query",
   "networking layer for Android and iOS"
 );
+const topic = readArg("topic", process.env.MCP_TOPIC ?? "kmp-networking");
 const imageBase64 = readArg("image-base64", process.env.MCP_IMAGE_BASE64);
 const imageMimeType = readArg(
   "image-mime-type",
   process.env.MCP_IMAGE_MIME_TYPE
 );
+const artifactRef = readArg("artifact-ref", process.env.MCP_ARTIFACT_REF);
 
 if (!url) {
   console.error("Missing MCP base URL. Pass --url or set MCP_BASE_URL.");
@@ -62,7 +67,7 @@ try {
     console.log(`- ${toolName}`);
   }
 
-  if (mode === "read-write") {
+  if (mode === "admin-read-write" || mode === "read-write") {
     ensureTools(toolNames, ["store_context", "search_context"]);
 
     const storeResult = await client.callTool({
@@ -70,8 +75,13 @@ try {
       arguments: {
         content,
         artifact_type: "DECISION",
-        module_name: "kmp-networking",
+        module_name: topic,
         branch_state: "active",
+        ...(artifactRef
+          ? {
+              artifact_refs: [artifactRef]
+            }
+          : {}),
         ...(imageBase64
           ? {
               image_base64: imageBase64,
@@ -83,6 +93,30 @@ try {
 
     console.log("\nstore_context:");
     console.log(textContent(storeResult));
+  } else if (mode === "browser-read-write") {
+    ensureTools(toolNames, ["remember_context", "search_context", "fetch_context"]);
+
+    const rememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content,
+        topic,
+        ...(artifactRef
+          ? {
+              artifact_refs: [artifactRef]
+            }
+          : {}),
+        ...(imageBase64
+          ? {
+              image_base64: imageBase64,
+              image_mime_type: imageMimeType ?? "image/png"
+            }
+          : {})
+      }
+    });
+
+    console.log("\nremember_context:");
+    console.log(textContent(rememberResult));
   } else if (mode === "search-only") {
     ensureTools(toolNames, ["search_context"]);
 
@@ -97,13 +131,34 @@ try {
     name: "search_context",
     arguments: {
       query,
-      filter_module: "kmp-networking",
+      filter_module: topic,
       filter_state: "active"
     }
   });
 
   console.log("\nsearch_context:");
-  console.log(textContent(searchResult));
+  const searchText = textContent(searchResult);
+  console.log(searchText);
+
+  if (mode === "browser-read-write") {
+    const documentId = extractDocumentId(searchText);
+
+    if (!documentId) {
+      throw new Error(
+        "browser-read-write mode expected search_context to return a document id"
+      );
+    }
+
+    const fetchResult = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        document_id: documentId
+      }
+    });
+
+    console.log("\nfetch_context:");
+    console.log(textContent(fetchResult));
+  }
 } finally {
   await client.close().catch(() => undefined);
   await transport.close().catch(() => undefined);
@@ -122,4 +177,9 @@ function ensureTools(toolNames, required) {
       throw new Error(`Expected tool ${toolName} to be available`);
     }
   }
+}
+
+function extractDocumentId(searchText) {
+  const match = searchText.match(/^id=([^\s]+)$/m);
+  return match?.[1];
 }

@@ -50,8 +50,8 @@ describe("loadConfig", () => {
         {
           id: "browser",
           token: "browser-token",
-          allowedTools: ["search_context"],
-          allowedOrigins: ["https://claude.ai"],
+          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedOrigins: ["https://chatgpt.com", "https://claude.ai"],
           allowedFilterStates: ["active"]
         }
       ]),
@@ -72,6 +72,15 @@ describe("loadConfig", () => {
     ]);
     expect(config.clientProfiles[0]?.allowedFilterStates).toEqual(["active"]);
     expect(config.clientProfiles[1]?.allowedFilterStates).toEqual(["active"]);
+    expect(config.clientProfiles[1]?.allowedTools).toEqual([
+      "remember_context",
+      "search_context",
+      "fetch_context"
+    ]);
+    expect(config.clientProfiles[1]?.allowedOrigins).toEqual([
+      "https://chatgpt.com",
+      "https://claude.ai"
+    ]);
     expect(config.maxSseSessions).toBe(8);
   });
 

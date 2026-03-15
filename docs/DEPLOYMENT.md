@@ -90,19 +90,24 @@ SEARCH_RESULT_LIMIT=5
 DEFAULT_FILTER_STATE=active
 ```
 
+Origin config split:
+
+- `MCP_ALLOWED_ORIGINS` applies only to the default admin `/mcp` endpoint
+- browser-hosted clients should use `MCP_CLIENT_PROFILES_JSON[].allowedOrigins`
+- leave `MCP_ALLOWED_ORIGINS` empty unless you intentionally want browser access to the admin endpoint
+
 Important constraints:
 
 - `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json)
 - if you change embedding models or dimensions after seeding data, do not mix vector spaces in the same collection
 - this codebase embeds text; image-backed memories are normalized into text before embedding
 
-Client-scoped endpoints are available, but for the first production release keep it simple and start with the default admin endpoint:
+Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy a scoped browser profile from day one:
 
-- `<FUNCTION_BASE_URL>/mcp`
-- `<FUNCTION_BASE_URL>/mcp/sse`
-- `<FUNCTION_BASE_URL>/mcp/messages`
-
-Add client profiles later through `MCP_CLIENT_PROFILES_JSON` when you are ready to expose search-only clients such as Nanobot or browser-hosted consumers.
+- admin: `<FUNCTION_BASE_URL>/mcp`
+- admin SSE: `<FUNCTION_BASE_URL>/mcp/sse`
+- browser: `<FUNCTION_BASE_URL>/clients/browser/mcp`
+- browser SSE: `<FUNCTION_BASE_URL>/clients/browser/mcp/sse`
 
 Recommended browser read/write toolset:
 
@@ -113,8 +118,15 @@ Recommended browser read/write toolset:
 Recommended browser client profile shape:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
 ```
+
+Keep the browser token distinct from `MCP_AUTH_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
+
+If you want separate revocation and token rotation per consumer, create one profile per browser client instead of sharing `browser`. For example:
+
+- `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
+- `claude-web` with `allowedOrigins=["https://claude.ai"]`
 
 ## Local verification
 
@@ -151,6 +163,16 @@ curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/healthz"
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
 MCP_AUTH_TOKEN="replace-me" \
+npm run smoke -- --mode admin-read-write
+```
+
+Browser-client flow:
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/browser/mcp" \
+MCP_AUTH_TOKEN="replace-browser-token" \
+MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke
 ```
 
@@ -180,6 +202,8 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 
 - `GEMINI_API_KEY`
 - `MCP_AUTH_TOKEN`
+- `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
+- `MCP_CLIENT_PROFILES_JSON` with a `browser` profile
 - `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002`
 - `GEMINI_EMBEDDING_DIMENSIONS=768`
 - `MEMORY_COLLECTION=memory_vectors`
@@ -187,6 +211,12 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 For the first release, an empty production collection means there is no migration work to do.
 
 If you later switch embedding models or dimensions and want to keep old memories, re-embed them or start with a fresh collection.
+
+Also confirm the actual browser registration values you will use:
+
+- remote MCP URL: `<FUNCTION_BASE_URL>/clients/browser/mcp`
+- bearer token: the `token` from the browser client profile, not `MCP_AUTH_TOKEN`
+- browser origins: the `allowedOrigins` array on that profile
 
 ### 3. Deploy Firestore indexes
 
@@ -254,12 +284,28 @@ Expected:
 
 - HTTP `401`
 
-### 3. Authenticated MCP smoke test
+### 3. Browser CORS preflight
+
+```bash
+curl -i \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/browser/mcp" \
+  -H "Origin: https://chatgpt.com"
+```
+
+Expected:
+
+- HTTP `204`
+- `Access-Control-Allow-Origin: https://chatgpt.com`
+
+Repeat with `Origin: https://claude.ai` if Claude web is part of the first rollout.
+
+### 4. Authenticated admin MCP smoke test
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
-MCP_AUTH_TOKEN="<YOUR_PRODUCTION_TOKEN>" \
+MCP_AUTH_TOKEN="<ADMIN_MCP_TOKEN>" \
+MCP_SMOKE_MODE="admin-read-write" \
 npm run smoke
 ```
 
@@ -276,7 +322,25 @@ This is the first proof that:
 - Firestore writes work
 - Firestore vector search works
 
-### 4. Verify the written document
+### 5. Authenticated browser MCP smoke test
+
+```bash
+cd /Users/nick/git/FirebaseOpenBrain/functions
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/browser/mcp" \
+MCP_AUTH_TOKEN="<BROWSER_CLIENT_TOKEN>" \
+MCP_SMOKE_MODE="browser-read-write" \
+npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS networking." --query "shared networking for android and ios"
+```
+
+Expected:
+
+- `remember_context` succeeds
+- `search_context` returns a result with `id=...`
+- `fetch_context` returns the full stored record
+
+This is the first proof that the actual browser-facing toolset is usable end to end.
+
+### 6. Verify the written document
 
 Open Firestore and inspect `memory_vectors`.
 
@@ -286,36 +350,39 @@ Confirm:
 - `metadata.branch_state` is `active`
 - the stored content is searchable through `search_context`
 
-### 5. Optional multimodal smoke test
+### 7. Optional multimodal browser smoke test
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
-MCP_AUTH_TOKEN="<YOUR_PRODUCTION_TOKEN>" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/browser/mcp" \
+MCP_AUTH_TOKEN="<BROWSER_CLIENT_TOKEN>" \
+MCP_SMOKE_MODE="browser-read-write" \
 MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
 MCP_IMAGE_MIME_TYPE="image/png" \
-npm run smoke -- --content "Settings screen screenshot for the Compose UI"
+MCP_ARTIFACT_REF="gs://your-bucket/path/to/image.png" \
+npm run smoke -- --content "Settings screen screenshot for the Compose UI" --query "compose settings screenshot"
 ```
 
 Expected:
 
-- `store_context` accepts the image-backed memory
+- `remember_context` accepts the image-backed memory
 - returned metadata includes `modality=text_image`
 - `search_context` returns the normalized memory
+- `fetch_context` returns the same `artifact_refs`
 
-### 6. Optional scoped-client smoke test
+## Token Management
 
-Do this after the admin endpoint is working.
+Use separate tokens for separate trust boundaries:
 
-Search-only client example:
+- `MCP_AUTH_TOKEN` is the admin token for `/mcp`
+- `MCP_CLIENT_PROFILES_JSON[].token` is the scoped token for each client endpoint
 
-```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/nanobot/mcp" \
-MCP_AUTH_TOKEN="<NANOBOT_TOKEN>" \
-MCP_SMOKE_MODE="search-only" \
-npm run smoke
-```
+Rotation and revocation rules:
+
+- rotate a browser client token by changing that profile's `token` and redeploying functions
+- revoke a client by removing the profile or replacing its token and redeploying functions
+- do not reuse `MCP_AUTH_TOKEN` for browser-hosted clients
+- if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
 
 ## First-release rollout
 
@@ -342,10 +409,11 @@ Good early memories:
 
 Recommended rollout order:
 
-1. Manual admin use only
-2. Nanobot or other clients in `search_context`-only mode
-3. Controlled writes for clearly durable events
-4. Later use of `deprecate_context` and `get_consolidation_queue`
+1. Admin endpoint reserved for maintenance and smoke tests
+2. Browser client rollout on `remember_context`, `search_context`, and `fetch_context`
+3. Controlled writes only for clearly durable events
+4. Search-only downstream clients such as Nanobot
+5. Later use of `deprecate_context` and `get_consolidation_queue`
 
 ## Failure checks
 
@@ -371,6 +439,7 @@ If browser clients get `403 Origin not allowed`:
 
 - verify the request is using a client-scoped endpoint
 - verify that client profile has the expected `allowedOrigins`
+- verify the browser token matches the scoped client endpoint
 - do not use the admin endpoint for browser-hosted clients
 
 ## Debugging

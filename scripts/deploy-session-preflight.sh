@@ -79,6 +79,106 @@ if [[ -f functions/.env ]]; then
 fi
 
 echo
+echo "== Client profiles =="
+if [[ -f functions/.env.prod ]]; then
+  node - <<'NODE'
+const fs = require("fs");
+
+const envText = fs.readFileSync("functions/.env.prod", "utf8");
+const line = envText
+  .split(/\r?\n/)
+  .map(item => item.trim())
+  .find(item => item.startsWith("MCP_CLIENT_PROFILES_JSON="));
+
+if (!line) {
+  console.log(
+    "warning: functions/.env.prod does not define MCP_CLIENT_PROFILES_JSON; browser-hosted clients will not have a scoped endpoint"
+  );
+  process.exit(0);
+}
+
+const rawValue = line.slice("MCP_CLIENT_PROFILES_JSON=".length).trim();
+
+if (!rawValue) {
+  console.log(
+    "warning: MCP_CLIENT_PROFILES_JSON is empty; browser-hosted clients will not have a scoped endpoint"
+  );
+  process.exit(0);
+}
+
+let profiles;
+
+try {
+  profiles = JSON.parse(rawValue);
+} catch {
+  console.log("ERROR: MCP_CLIENT_PROFILES_JSON is not valid JSON");
+  process.exit(1);
+}
+
+if (!Array.isArray(profiles)) {
+  console.log("ERROR: MCP_CLIENT_PROFILES_JSON must be a JSON array");
+  process.exit(1);
+}
+
+const ids = profiles
+  .filter(profile => profile && typeof profile === "object")
+  .map(profile => profile.id)
+  .filter(id => typeof id === "string" && id.trim().length > 0);
+
+console.log(`client profiles: ${ids.join(", ") || "(none)"}`);
+
+const browser = profiles.find(
+  profile => profile && typeof profile === "object" && profile.id === "browser"
+);
+
+if (!browser) {
+  console.log(
+    "warning: browser profile missing; ChatGPT web / Claude web should use a scoped client endpoint"
+  );
+  process.exit(0);
+}
+
+const allowedTools = Array.isArray(browser.allowedTools)
+  ? browser.allowedTools.filter(tool => typeof tool === "string")
+  : [];
+const allowedOrigins = Array.isArray(browser.allowedOrigins)
+  ? browser.allowedOrigins.filter(origin => typeof origin === "string")
+  : [];
+const allowedFilterStates = Array.isArray(browser.allowedFilterStates)
+  ? browser.allowedFilterStates.filter(state => typeof state === "string")
+  : [];
+
+for (const requiredTool of ["remember_context", "search_context", "fetch_context"]) {
+  if (!allowedTools.includes(requiredTool)) {
+    console.log(
+      `warning: browser profile is missing recommended tool ${requiredTool}`
+    );
+  }
+}
+
+for (const requiredOrigin of ["https://chatgpt.com", "https://claude.ai"]) {
+  if (!allowedOrigins.includes(requiredOrigin)) {
+    console.log(
+      `warning: browser profile does not allow expected origin ${requiredOrigin}`
+    );
+  }
+}
+
+if (allowedFilterStates.length === 0) {
+  console.log(
+    "warning: browser profile does not declare allowedFilterStates; active-only is recommended for first rollout"
+  );
+} else {
+  console.log(
+    `browser allowedFilterStates: ${allowedFilterStates.join(", ")}`
+  );
+}
+NODE
+else
+  echo "warning: functions/.env.prod not found"
+fi
+
+echo
 echo "== Embedding config alignment =="
 INDEX_DIMS="$(node -e '
 const fs = require("fs");

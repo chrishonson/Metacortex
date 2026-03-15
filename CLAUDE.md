@@ -59,7 +59,7 @@ Three transports, all available at both the default and per-client mount points:
 ### Client Profile Scoping
 
 Each client gets scoped access via bearer token + allowlists:
-- **Default client**: `/mcp` endpoint, configured via `MCP_AUTH_TOKEN` + `MCP_ALLOWED_TOOLS` + `MCP_ALLOWED_ORIGINS` + `MCP_ALLOWED_FILTER_STATES`
+- **Default client**: `/mcp` endpoint, configured via `MCP_AUTH_TOKEN` + `MCP_ALLOWED_TOOLS` + `MCP_ALLOWED_ORIGINS` + `MCP_ALLOWED_FILTER_STATES`; `MCP_ALLOWED_ORIGINS` applies only to this admin endpoint
 - **Custom clients**: `/clients/<clientId>/mcp` endpoints, configured via `MCP_CLIENT_PROFILES_JSON` (array of `{id, token, allowedOrigins[], allowedTools[], allowedFilterStates[]}`)
 
 Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildcard; default is deny-all.
@@ -147,9 +147,9 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
 | `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
 | `MCP_ALLOWED_TOOLS` | all six tools | Comma-separated tool allowlist for default client |
-| `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist |
+| `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist for the default admin `/mcp` endpoint only |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
-| `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles |
+| `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
 | `MAX_SSE_SESSIONS` | `25` | Max concurrent SSE sessions |
 | `SERVICE_NAME` | `firebase-open-brain` | Service identifier in responses |
 | `SERVICE_VERSION` | `0.1.0` | Service version in responses |
