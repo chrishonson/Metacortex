@@ -9,6 +9,10 @@ import {
   type MemoryContentPreparer
 } from "./embeddings.js";
 import {
+  FirestoreToolCallObserver,
+  type ToolCallObserver
+} from "./observability.js";
+import {
   FirestoreMemoryRepository,
   type MemoryRepository
 } from "./memoryRepository.js";
@@ -17,6 +21,7 @@ import { OpenBrainService } from "./service.js";
 export interface RuntimeDependencies {
   config: AppConfig;
   service: OpenBrainService;
+  observer: ToolCallObserver;
 }
 
 let cachedConfig: AppConfig | undefined;
@@ -39,6 +44,7 @@ export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDepe
     firestore,
     config.memoryCollection
   );
+  const observer: ToolCallObserver = new FirestoreToolCallObserver(firestore);
   const service = new OpenBrainService(
     contentPreparer,
     embeddings,
@@ -48,7 +54,8 @@ export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDepe
 
   return {
     config,
-    service
+    service,
+    observer
   };
 }
 

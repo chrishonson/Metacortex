@@ -156,13 +156,14 @@ Recommended browser read/write toolset:
 
 For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
 
-- remote MCP URL: `https://<FUNCTION_BASE_URL>/clients/browser/mcp`
-- bearer token: the `token` value from the `browser` entry in `MCP_CLIENT_PROFILES_JSON`
-- allowed browser origins: `MCP_CLIENT_PROFILES_JSON[].allowedOrigins`
+- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- Claude web URL: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
+- bearer token: the `token` value from the matching client profile
+- allowed browser origins: the matching profile's `allowedOrigins`
 
 Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_AUTH_TOKEN`.
 
-If you want separate revocation and token rotation per consumer, create one client profile per browser client instead of sharing a single `browser` profile. For example:
+Use separate client profiles per browser client:
 
 - `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
 - `claude-web` with `allowedOrigins=["https://claude.ai"]`
@@ -315,6 +316,44 @@ Current lifecycle behavior:
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
 - `merged` exists as a searchable historical state, but browser writes do not assign it automatically
 
+## Observability
+
+After deployment, there are three places to look:
+
+- `memory_vectors` in Firestore shows the current memory corpus
+- `memory_events` in Firestore shows client-attributed tool usage over time
+- Cloud Logging shows request failures and structured tool-event logs
+
+`memory_events` records one document per tool call. Each event includes:
+
+- `client_id`
+- `tool_name`
+- `status`
+- `timestamp`
+- a compact `request` summary
+- either a compact `response` summary or an `error`
+
+Examples:
+
+- `remember_context` and `store_context` events record the written `document_id`, `module_name`, `branch_state`, and `modality`
+- `search_context` events record the requested filters, `result_count`, and returned `result_ids`
+- `fetch_context` events record which `document_id` was read
+- `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`
+
+Traceability is by client profile id, so:
+
+- admin endpoint traffic is attributed to `client_id=default`
+- ChatGPT web traffic is attributed to `client_id=chatgpt-web`
+- Claude web traffic is attributed to `client_id=claude-web`
+
+What is intentionally not stored in observability events:
+
+- full memory bodies
+- full image bytes
+- raw image downloads
+
+Search events do include a short `query_preview`, but the observability collection is designed to track behavior, not duplicate the corpus.
+
 ## Quick start
 
 1. Install dependencies:
@@ -332,7 +371,7 @@ Current lifecycle behavior:
    For browser-hosted clients, set a scoped client profile in `functions/.env` or `functions/.env.prod`:
 
    ```dotenv
-   MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
+   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
    ```
 
 3. Run verification:
@@ -362,11 +401,13 @@ Current lifecycle behavior:
 
    ```bash
    cd functions
-   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/browser/mcp" \
-   MCP_AUTH_TOKEN="replace-browser-token" \
+   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/chatgpt-web/mcp" \
+   MCP_AUTH_TOKEN="replace-chatgpt-token" \
    MCP_SMOKE_MODE="browser-read-write" \
    npm run smoke
    ```
+
+   Repeat with `/clients/claude-web/mcp` and the Claude token to verify Claude separately.
 
 ## Deployment
 

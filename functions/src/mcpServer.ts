@@ -3,6 +3,7 @@ import * as z from "zod/v4";
 
 import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
+import type { ToolCallObserver } from "./observability.js";
 import {
   formatFetchedContext,
   formatSearchResults,
@@ -19,6 +20,8 @@ import {
 export function createOpenBrainMcpServer(
   service: OpenBrainService,
   config: Pick<AppConfig, "serviceName" | "serviceVersion" | "defaultFilterState"> & {
+    observer: ToolCallObserver;
+    clientId: string;
     allowedTools: readonly McpToolName[];
     allowedFilterStates: readonly BranchState[];
   }
@@ -36,6 +39,36 @@ export function createOpenBrainMcpServer(
   );
 
   const allowedTools = new Set(config.allowedTools);
+  const observeToolCall = async <Result>(
+    toolName: McpToolName,
+    requestSummary: Record<string, unknown>,
+    run: () => Promise<Result>,
+    summarizeResult: (result: Result) => Record<string, unknown>
+  ): Promise<Result> => {
+    try {
+      const result = await run();
+
+      await config.observer.record({
+        client_id: config.clientId,
+        tool_name: toolName,
+        status: "success",
+        request: requestSummary,
+        response: summarizeResult(result)
+      });
+
+      return result;
+    } catch (error) {
+      await config.observer.record({
+        client_id: config.clientId,
+        tool_name: toolName,
+        status: "error",
+        request: requestSummary,
+        error: summarizeToolError(error)
+      });
+
+      throw error;
+    }
+  };
 
   if (allowedTools.has("remember_context")) {
     server.registerTool(
@@ -84,7 +117,27 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
-        const result = await service.rememberContext(args);
+        const requestSummary = {
+          topic: normalizeOptionalText(args.topic) ?? "general",
+          memory_type: args.memory_type,
+          draft: args.draft ?? false,
+          content_length: args.content?.trim().length ?? 0,
+          image_present: Boolean(args.image_base64),
+          artifact_ref_count: args.artifact_refs?.length ?? 0
+        };
+        const result = await observeToolCall(
+          "remember_context",
+          requestSummary,
+          () => service.rememberContext(args),
+          record => ({
+            document_id: record.id,
+            artifact_type: record.metadata.artifact_type,
+            module_name: record.metadata.module_name,
+            branch_state: record.metadata.branch_state,
+            modality: record.metadata.modality,
+            artifact_ref_count: record.metadata.artifact_refs?.length ?? 0
+          })
+        );
 
         return {
           content: [
@@ -152,7 +205,27 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
-        const result = await service.storeContext(args);
+        const requestSummary = {
+          artifact_type: args.artifact_type,
+          module_name: normalizeOptionalText(args.module_name),
+          branch_state: args.branch_state,
+          content_length: args.content?.trim().length ?? 0,
+          image_present: Boolean(args.image_base64),
+          artifact_ref_count: args.artifact_refs?.length ?? 0
+        };
+        const result = await observeToolCall(
+          "store_context",
+          requestSummary,
+          () => service.storeContext(args),
+          record => ({
+            document_id: record.id,
+            artifact_type: record.metadata.artifact_type,
+            module_name: record.metadata.module_name,
+            branch_state: record.metadata.branch_state,
+            modality: record.metadata.modality,
+            artifact_ref_count: record.metadata.artifact_refs?.length ?? 0
+          })
+        );
 
         return {
           content: [
@@ -211,15 +284,33 @@ export function createOpenBrainMcpServer(
       },
       async args => {
         const requestedFilterState = args.filter_state ?? config.defaultFilterState;
+        const requestSummary = {
+          query_preview: truncateText(args.query),
+          query_length: args.query.trim().length,
+          filter_module: normalizeOptionalText(args.filter_module),
+          filter_state: requestedFilterState,
+          limit: args.limit
+        };
+        const result = await observeToolCall(
+          "search_context",
+          requestSummary,
+          async () => {
+            if (!config.allowedFilterStates.includes(requestedFilterState)) {
+              throw new HttpError(
+                403,
+                `filter_state '${requestedFilterState}' is not allowed for this client`
+              );
+            }
 
-        if (!config.allowedFilterStates.includes(requestedFilterState)) {
-          throw new HttpError(
-            403,
-            `filter_state '${requestedFilterState}' is not allowed for this client`
-          );
-        }
-
-        const result = await service.searchContext(args);
+            return service.searchContext(args);
+          },
+          searchResult => ({
+            result_count: searchResult.matches.length,
+            result_ids: searchResult.matches.map(match => match.id),
+            filter_state: searchResult.appliedFilters.filter_state,
+            filter_module: searchResult.appliedFilters.filter_module
+          })
+        );
 
         return {
           content: [
@@ -248,14 +339,37 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
-        const result = await service.fetchContext(args);
+        const requestSummary = {
+          document_id: args.document_id
+        };
+        const result = await observeToolCall(
+          "fetch_context",
+          requestSummary,
+          async () => {
+            const fetched = await service.fetchContext(args);
 
-        if (!config.allowedFilterStates.includes(result.item.metadata.branch_state)) {
-          throw new HttpError(
-            403,
-            `branch_state '${result.item.metadata.branch_state}' is not allowed for this client`
-          );
-        }
+            if (
+              !config.allowedFilterStates.includes(
+                fetched.item.metadata.branch_state
+              )
+            ) {
+              throw new HttpError(
+                403,
+                `branch_state '${fetched.item.metadata.branch_state}' is not allowed for this client`
+              );
+            }
+
+            return fetched;
+          },
+          fetched => ({
+            document_id: fetched.item.id,
+            artifact_type: fetched.item.metadata.artifact_type,
+            module_name: fetched.item.metadata.module_name,
+            branch_state: fetched.item.metadata.branch_state,
+            modality: fetched.item.metadata.modality,
+            artifact_ref_count: fetched.item.metadata.artifact_refs?.length ?? 0
+          })
+        );
 
         return {
           content: [
@@ -288,7 +402,20 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
-        const result = await service.deprecateContext(args);
+        const requestSummary = {
+          document_id: args.document_id,
+          superseding_document_id: args.superseding_document_id
+        };
+        const result = await observeToolCall(
+          "deprecate_context",
+          requestSummary,
+          () => service.deprecateContext(args),
+          record => ({
+            document_id: record.document_id,
+            superseding_document_id: record.superseding_document_id,
+            previous_state: record.previous_state
+          })
+        );
 
         return {
           content: [
@@ -323,7 +450,19 @@ export function createOpenBrainMcpServer(
         }
       },
       async args => {
-        const result = await service.getConsolidationQueue(args);
+        const requestSummary = {
+          module_name: normalizeOptionalText(args.module_name)
+        };
+        const result = await observeToolCall(
+          "get_consolidation_queue",
+          requestSummary,
+          () => service.getConsolidationQueue(args),
+          queue => ({
+            filter_module: queue.filter_module,
+            result_count: queue.items.length,
+            result_ids: queue.items.map(item => item.id)
+          })
+        );
 
         if (result.items.length === 0) {
           return {
@@ -367,4 +506,45 @@ export function createOpenBrainMcpServer(
   }
 
   return server;
+}
+
+function summarizeToolError(error: unknown): {
+  name: string;
+  message: string;
+  status_code?: number;
+} {
+  if (error instanceof HttpError) {
+    return {
+      name: error.name,
+      message: error.message,
+      status_code: error.statusCode
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message
+    };
+  }
+
+  return {
+    name: "UnknownError",
+    message: String(error)
+  };
+}
+
+function truncateText(value: string, limit = 160): string {
+  const normalized = value.trim();
+
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, limit)}...`;
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
 }

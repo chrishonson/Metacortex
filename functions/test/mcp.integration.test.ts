@@ -260,15 +260,25 @@ describe("MCP integration", () => {
     expect(textContent(disallowedStateResult)).toContain(
       "filter_state 'deprecated' is not allowed"
     );
+
+    expect(runtime.observer.listEvents().at(-1)).toMatchObject({
+      client_id: "nanobot",
+      tool_name: "search_context",
+      status: "error",
+      error: {
+        message: "filter_state 'deprecated' is not allowed for this client",
+        status_code: 403
+      }
+    });
   });
 
-  it("supports browser-oriented remember, search, and fetch flows", async () => {
+  it("supports ChatGPT web remember, search, and fetch flows", async () => {
     const runtime = createTestRuntime({
       clientProfiles: [
         {
-          id: "browser",
-          authToken: "browser-token",
-          allowedOrigins: ["https://chatgpt.com", "https://claude.ai"],
+          id: "chatgpt-web",
+          authToken: "chatgpt-token",
+          allowedOrigins: ["https://chatgpt.com"],
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedFilterStates: ["active"]
         }
@@ -284,15 +294,15 @@ describe("MCP integration", () => {
     );
 
     const client = new Client({
-      name: "browser-client",
+      name: "chatgpt-client",
       version: "1.0.0"
     });
     const transport = new StreamableHTTPClientTransport(
-      new URL(`${baseUrl}/clients/browser/mcp`),
+      new URL(`${baseUrl}/clients/chatgpt-web/mcp`),
       {
         requestInit: {
           headers: {
-            Authorization: "Bearer browser-token"
+            Authorization: "Bearer chatgpt-token"
           }
         }
       }
@@ -344,6 +354,40 @@ describe("MCP integration", () => {
     expect(textContent(fetchResult)).toContain(
       "We use Ktor for shared Android and iOS networking."
     );
+
+    expect(runtime.observer.listEvents()).toMatchObject([
+      {
+        client_id: "chatgpt-web",
+        tool_name: "remember_context",
+        status: "success",
+        response: {
+          document_id: "memory-1",
+          module_name: "kmp-networking",
+          branch_state: "active"
+        }
+      },
+      {
+        client_id: "chatgpt-web",
+        tool_name: "search_context",
+        status: "success",
+        response: {
+          result_count: 1,
+          result_ids: ["memory-1"],
+          filter_module: "kmp-networking",
+          filter_state: "active"
+        }
+      },
+      {
+        client_id: "chatgpt-web",
+        tool_name: "fetch_context",
+        status: "success",
+        response: {
+          document_id: "memory-1",
+          module_name: "kmp-networking",
+          branch_state: "active"
+        }
+      }
+    ]);
   });
 });
 

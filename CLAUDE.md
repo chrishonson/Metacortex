@@ -85,6 +85,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
 | `service.ts` | ~161 | `OpenBrainService` — remember/store/search/fetch/deprecate/consolidation flows |
+| `observability.ts` | ~88 | Structured tool-event logging plus Firestore-backed `memory_events` audit trail |
 | `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
 | `types.ts` | ~111 | Enums (`ARTIFACT_TYPES`, `BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
@@ -170,6 +171,7 @@ See `docs/DEPLOYMENT.md` for the deployment playbook.
 - **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
 - **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
 - **Firestore indexes**: Two composite indexes on `memory_vectors` — one on `metadata.module_name` + `embedding` (768-dim FLAT), one on `metadata.branch_state` + `embedding` (768-dim FLAT)
+- **Observability collection**: `memory_events` stores one audit record per tool call with `client_id`, `tool_name`, `status`, and compact request/response metadata
 - **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
 
 ## TypeScript Configuration

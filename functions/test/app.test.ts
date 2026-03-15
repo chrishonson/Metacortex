@@ -85,8 +85,8 @@ describe("createOpenBrainApp", () => {
     const runtime = createTestRuntime({
       clientProfiles: [
         {
-          id: "browser",
-          authToken: "browser-token",
+          id: "claude-web",
+          authToken: "claude-token",
           allowedOrigins: ["https://claude.ai"],
           allowedTools: ["search_context"],
           allowedFilterStates: ["active"]
@@ -99,7 +99,7 @@ describe("createOpenBrainApp", () => {
     });
 
     const response = await request(app)
-      .options("/clients/browser/mcp")
+      .options("/clients/claude-web/mcp")
       .set("Origin", "https://claude.ai");
 
     expect(response.status).toBe(204);

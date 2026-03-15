@@ -7,6 +7,11 @@ import type {
   PreparedMemoryContent
 } from "../../src/embeddings.js";
 import type {
+  RecordToolCallEventInput,
+  ToolCallEvent,
+  ToolCallObserver
+} from "../../src/observability.js";
+import type {
   BranchState,
   MemoryDocument,
   MemoryMedia,
@@ -176,6 +181,28 @@ export class InMemoryMemoryRepository implements MemoryRepository {
   }
 }
 
+export class InMemoryToolCallObserver implements ToolCallObserver {
+  private nextId = 1;
+  private readonly events: ToolCallEvent[] = [];
+
+  async record(input: RecordToolCallEventInput): Promise<void> {
+    this.events.push({
+      event_id: `event-${this.nextId++}`,
+      timestamp: input.timestamp ?? Date.now(),
+      client_id: input.client_id,
+      tool_name: input.tool_name,
+      status: input.status,
+      request: input.request,
+      ...(input.response ? { response: input.response } : {}),
+      ...(input.error ? { error: input.error } : {})
+    });
+  }
+
+  listEvents(): ToolCallEvent[] {
+    return [...this.events];
+  }
+}
+
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   const authToken = overrides.authToken ?? "test-token";
   const defaultClientProfile = {
@@ -207,6 +234,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
 export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
   const config = createTestConfig(overrides);
   const repository = new InMemoryMemoryRepository();
+  const observer = new InMemoryToolCallObserver();
   const contentPreparer = new FakeMemoryContentPreparer();
   const embeddings = new KeywordEmbeddingClient();
   const service = new OpenBrainService(
@@ -219,7 +247,8 @@ export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
   return {
     config,
     service,
-    repository
+    repository,
+    observer
   };
 }
 

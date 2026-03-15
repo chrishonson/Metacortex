@@ -48,10 +48,17 @@ describe("loadConfig", () => {
           allowedTools: ["search_context"]
         },
         {
-          id: "browser",
-          token: "browser-token",
+          id: "chatgpt-web",
+          token: "chatgpt-token",
           allowedTools: ["remember_context", "search_context", "fetch_context"],
-          allowedOrigins: ["https://chatgpt.com", "https://claude.ai"],
+          allowedOrigins: ["https://chatgpt.com"],
+          allowedFilterStates: ["active"]
+        },
+        {
+          id: "claude-web",
+          token: "claude-token",
+          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
         }
       ]),
@@ -68,17 +75,26 @@ describe("loadConfig", () => {
     ]);
     expect(config.clientProfiles.map(profile => profile.id)).toEqual([
       "nanobot",
-      "browser"
+      "chatgpt-web",
+      "claude-web"
     ]);
     expect(config.clientProfiles[0]?.allowedFilterStates).toEqual(["active"]);
     expect(config.clientProfiles[1]?.allowedFilterStates).toEqual(["active"]);
+    expect(config.clientProfiles[2]?.allowedFilterStates).toEqual(["active"]);
     expect(config.clientProfiles[1]?.allowedTools).toEqual([
       "remember_context",
       "search_context",
       "fetch_context"
     ]);
     expect(config.clientProfiles[1]?.allowedOrigins).toEqual([
-      "https://chatgpt.com",
+      "https://chatgpt.com"
+    ]);
+    expect(config.clientProfiles[2]?.allowedTools).toEqual([
+      "remember_context",
+      "search_context",
+      "fetch_context"
+    ]);
+    expect(config.clientProfiles[2]?.allowedOrigins).toEqual([
       "https://claude.ai"
     ]);
     expect(config.maxSseSessions).toBe(8);

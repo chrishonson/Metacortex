@@ -17,6 +17,7 @@ The deploy path in this repo currently assumes:
 - Firestore in Native mode
 - Firebase Blaze plan for production deploys
 - Firestore collection `memory_vectors`
+- Firestore collection `memory_events` for audit and observability
 - embedding output pinned to `768` dimensions
 - embedding model pinned to `text-multimodal-embedding-002`
 - multimodal normalization model pinned to `gemini-3.1-flash-lite-preview`
@@ -102,12 +103,12 @@ Important constraints:
 - if you change embedding models or dimensions after seeding data, do not mix vector spaces in the same collection
 - this codebase embeds text; image-backed memories are normalized into text before embedding
 
-Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy a scoped browser profile from day one:
+Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy separate scoped client profiles from day one:
 
 - admin: `<FUNCTION_BASE_URL>/mcp`
 - admin SSE: `<FUNCTION_BASE_URL>/mcp/sse`
-- browser: `<FUNCTION_BASE_URL>/clients/browser/mcp`
-- browser SSE: `<FUNCTION_BASE_URL>/clients/browser/mcp/sse`
+- ChatGPT web: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- Claude web: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
 
 Recommended browser read/write toolset:
 
@@ -115,18 +116,13 @@ Recommended browser read/write toolset:
 - `search_context`
 - `fetch_context`
 
-Recommended browser client profile shape:
+Recommended web client profile shape:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
-Keep the browser token distinct from `MCP_AUTH_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
-
-If you want separate revocation and token rotation per consumer, create one profile per browser client instead of sharing `browser`. For example:
-
-- `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
-- `claude-web` with `allowedOrigins=["https://claude.ai"]`
+Keep each web-client token distinct from `MCP_AUTH_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
 
 ## Local verification
 
@@ -170,11 +166,13 @@ Browser-client flow:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/browser/mcp" \
-MCP_AUTH_TOKEN="replace-browser-token" \
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/chatgpt-web/mcp" \
+MCP_AUTH_TOKEN="replace-chatgpt-token" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke
 ```
+
+Repeat with `/clients/claude-web/mcp` and the Claude token to validate Claude separately.
 
 The automated tests and build can also be run directly:
 
@@ -203,7 +201,7 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 - `GEMINI_API_KEY`
 - `MCP_AUTH_TOKEN`
 - `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
-- `MCP_CLIENT_PROFILES_JSON` with a `browser` profile
+- `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
 - `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002`
 - `GEMINI_EMBEDDING_DIMENSIONS=768`
 - `MEMORY_COLLECTION=memory_vectors`
@@ -212,11 +210,12 @@ For the first release, an empty production collection means there is no migratio
 
 If you later switch embedding models or dimensions and want to keep old memories, re-embed them or start with a fresh collection.
 
-Also confirm the actual browser registration values you will use:
+Also confirm the actual web-client registration values you will use:
 
-- remote MCP URL: `<FUNCTION_BASE_URL>/clients/browser/mcp`
-- bearer token: the `token` from the browser client profile, not `MCP_AUTH_TOKEN`
-- browser origins: the `allowedOrigins` array on that profile
+- ChatGPT URL: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- Claude URL: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
+- each bearer token comes from the matching client profile, not `MCP_AUTH_TOKEN`
+- each web origin must match the profile's `allowedOrigins`
 
 ### 3. Deploy Firestore indexes
 
@@ -288,7 +287,7 @@ Expected:
 
 ```bash
 curl -i \
-  -X OPTIONS "<FUNCTION_BASE_URL>/clients/browser/mcp" \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
   -H "Origin: https://chatgpt.com"
 ```
 
@@ -297,7 +296,13 @@ Expected:
 - HTTP `204`
 - `Access-Control-Allow-Origin: https://chatgpt.com`
 
-Repeat with `Origin: https://claude.ai` if Claude web is part of the first rollout.
+Repeat with:
+
+```bash
+curl -i \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/claude-web/mcp" \
+  -H "Origin: https://claude.ai"
+```
 
 ### 4. Authenticated admin MCP smoke test
 
@@ -326,8 +331,8 @@ This is the first proof that:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/browser/mcp" \
-MCP_AUTH_TOKEN="<BROWSER_CLIENT_TOKEN>" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
+MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS networking." --query "shared networking for android and ios"
 ```
@@ -338,9 +343,25 @@ Expected:
 - `search_context` returns a result with `id=...`
 - `fetch_context` returns the full stored record
 
-This is the first proof that the actual browser-facing toolset is usable end to end.
+Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
 
-### 6. Verify the written document
+This is the first proof that each web-facing toolset is usable end to end.
+
+### 6. Verify observability events
+
+Open Firestore and inspect `memory_events`.
+
+Confirm:
+
+- at least one event exists for each successful smoke-test tool call
+- admin calls are recorded with `client_id=default`
+- ChatGPT web calls are recorded with `client_id=chatgpt-web`
+- Claude web calls are recorded with `client_id=claude-web`
+- each event includes `tool_name`, `status`, `timestamp`, and a compact `request` / `response` or `error`
+
+Cloud Logging should also contain structured `openBrainMcp tool event` entries for the same calls.
+
+### 7. Verify the written document
 
 Open Firestore and inspect `memory_vectors`.
 
@@ -350,18 +371,20 @@ Confirm:
 - `metadata.branch_state` is `active`
 - the stored content is searchable through `search_context`
 
-### 7. Optional multimodal browser smoke test
+### 8. Optional multimodal browser smoke test
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/browser/mcp" \
-MCP_AUTH_TOKEN="<BROWSER_CLIENT_TOKEN>" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
+MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
 MCP_IMAGE_MIME_TYPE="image/png" \
 MCP_ARTIFACT_REF="gs://your-bucket/path/to/image.png" \
 npm run smoke -- --content "Settings screen screenshot for the Compose UI" --query "compose settings screenshot"
 ```
+
+Repeat with `/clients/claude-web/mcp` and `<CLAUDE_WEB_TOKEN>` if Claude web will ingest images.
 
 Expected:
 
@@ -379,10 +402,28 @@ Use separate tokens for separate trust boundaries:
 
 Rotation and revocation rules:
 
-- rotate a browser client token by changing that profile's `token` and redeploying functions
+- rotate a web client token by changing that profile's `token` and redeploying functions
 - revoke a client by removing the profile or replacing its token and redeploying functions
 - do not reuse `MCP_AUTH_TOKEN` for browser-hosted clients
 - if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
+
+## Observability
+
+After deployment, use these views together:
+
+- `memory_vectors` for the current corpus
+- `memory_events` for client-attributed usage and audit history
+- Cloud Logging for request failures and structured tool-event logs
+
+`memory_events` is populated automatically by successful and failed tool calls. It is the easiest way to answer:
+
+- which client is writing memories
+- which client is searching or fetching most often
+- which memory ids are being returned or fetched repeatedly
+- how many searches return zero results
+- whether a specific client is generating repeated tool errors
+
+The event payload is intentionally compact. It records ids, filters, counts, states, and modality rather than duplicating full memory bodies.
 
 ## First-release rollout
 

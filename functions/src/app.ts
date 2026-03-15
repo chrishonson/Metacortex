@@ -121,6 +121,8 @@ function registerMcpRoutes(
     }
 
     const server = createOpenBrainMcpServer(runtime.service, {
+      observer: runtime.observer,
+      clientId: profile.id,
       serviceName: runtime.config.serviceName,
       serviceVersion: runtime.config.serviceVersion,
       defaultFilterState: selectDefaultFilterState(runtime.config, profile),
@@ -184,6 +186,8 @@ function registerMcpRoutes(
     const runtime = res.locals.runtime as RuntimeDependencies;
     const profile = res.locals.clientProfile as ClientProfile;
     const server = createOpenBrainMcpServer(runtime.service, {
+      observer: runtime.observer,
+      clientId: profile.id,
       serviceName: runtime.config.serviceName,
       serviceVersion: runtime.config.serviceVersion,
       defaultFilterState: selectDefaultFilterState(runtime.config, profile),

@@ -127,51 +127,65 @@ const ids = profiles
 
 console.log(`client profiles: ${ids.join(", ") || "(none)"}`);
 
-const browser = profiles.find(
-  profile => profile && typeof profile === "object" && profile.id === "browser"
-);
+const expectedProfiles = [
+  {
+    id: "chatgpt-web",
+    expectedOrigin: "https://chatgpt.com"
+  },
+  {
+    id: "claude-web",
+    expectedOrigin: "https://claude.ai"
+  }
+];
 
-if (!browser) {
-  console.log(
-    "warning: browser profile missing; ChatGPT web / Claude web should use a scoped client endpoint"
+for (const expectedProfile of expectedProfiles) {
+  const profile = profiles.find(
+    candidate =>
+      candidate &&
+      typeof candidate === "object" &&
+      candidate.id === expectedProfile.id
   );
-  process.exit(0);
-}
 
-const allowedTools = Array.isArray(browser.allowedTools)
-  ? browser.allowedTools.filter(tool => typeof tool === "string")
-  : [];
-const allowedOrigins = Array.isArray(browser.allowedOrigins)
-  ? browser.allowedOrigins.filter(origin => typeof origin === "string")
-  : [];
-const allowedFilterStates = Array.isArray(browser.allowedFilterStates)
-  ? browser.allowedFilterStates.filter(state => typeof state === "string")
-  : [];
-
-for (const requiredTool of ["remember_context", "search_context", "fetch_context"]) {
-  if (!allowedTools.includes(requiredTool)) {
+  if (!profile) {
     console.log(
-      `warning: browser profile is missing recommended tool ${requiredTool}`
+      `warning: ${expectedProfile.id} profile missing; deploy separate scoped client endpoints for ChatGPT web and Claude web`
+    );
+    continue;
+  }
+
+  const allowedTools = Array.isArray(profile.allowedTools)
+    ? profile.allowedTools.filter(tool => typeof tool === "string")
+    : [];
+  const allowedOrigins = Array.isArray(profile.allowedOrigins)
+    ? profile.allowedOrigins.filter(origin => typeof origin === "string")
+    : [];
+  const allowedFilterStates = Array.isArray(profile.allowedFilterStates)
+    ? profile.allowedFilterStates.filter(state => typeof state === "string")
+    : [];
+
+  for (const requiredTool of ["remember_context", "search_context", "fetch_context"]) {
+    if (!allowedTools.includes(requiredTool)) {
+      console.log(
+        `warning: ${expectedProfile.id} profile is missing recommended tool ${requiredTool}`
+      );
+    }
+  }
+
+  if (!allowedOrigins.includes(expectedProfile.expectedOrigin)) {
+    console.log(
+      `warning: ${expectedProfile.id} profile does not allow expected origin ${expectedProfile.expectedOrigin}`
     );
   }
-}
 
-for (const requiredOrigin of ["https://chatgpt.com", "https://claude.ai"]) {
-  if (!allowedOrigins.includes(requiredOrigin)) {
+  if (allowedFilterStates.length === 0) {
     console.log(
-      `warning: browser profile does not allow expected origin ${requiredOrigin}`
+      `warning: ${expectedProfile.id} profile does not declare allowedFilterStates; active-only is recommended for first rollout`
+    );
+  } else {
+    console.log(
+      `${expectedProfile.id} allowedFilterStates: ${allowedFilterStates.join(", ")}`
     );
   }
-}
-
-if (allowedFilterStates.length === 0) {
-  console.log(
-    "warning: browser profile does not declare allowedFilterStates; active-only is recommended for first rollout"
-  );
-} else {
-  console.log(
-    `browser allowedFilterStates: ${allowedFilterStates.join(", ")}`
-  );
 }
 NODE
 else
