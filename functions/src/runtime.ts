@@ -29,6 +29,10 @@ let cachedRuntime: RuntimeDependencies | undefined;
 
 export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDependencies {
   const config = loadConfig(env);
+  return createRuntimeFromConfig(config);
+}
+
+function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
   const app = getApps().length === 0 ? initializeApp() : getApp();
   const firestore = getFirestore(app);
   const embeddings: EmbeddingClient = new GeminiEmbeddingClient({
@@ -70,19 +74,7 @@ export function getConfig(): AppConfig {
 export function getRuntime(): RuntimeDependencies {
   if (!cachedRuntime) {
     const config = getConfig();
-    cachedRuntime = createRuntime({
-      ...process.env,
-      GEMINI_API_KEY: config.geminiApiKey,
-      MCP_AUTH_TOKEN: config.authToken,
-      GEMINI_EMBEDDING_MODEL: config.embeddingModel,
-      GEMINI_MULTIMODAL_MODEL: config.multimodalModel,
-      GEMINI_EMBEDDING_DIMENSIONS: String(config.embeddingDimensions),
-      MEMORY_COLLECTION: config.memoryCollection,
-      SEARCH_RESULT_LIMIT: String(config.topK),
-      DEFAULT_FILTER_STATE: config.defaultFilterState,
-      SERVICE_NAME: config.serviceName,
-      SERVICE_VERSION: config.serviceVersion
-    });
+    cachedRuntime = createRuntimeFromConfig(config);
   }
 
   return cachedRuntime;
