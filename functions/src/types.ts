@@ -6,8 +6,10 @@ export const ARTIFACT_TYPES = [
 ] as const;
 
 export const MCP_TOOL_NAMES = [
+  "remember_context",
   "store_context",
   "search_context",
+  "fetch_context",
   "deprecate_context",
   "get_consolidation_queue"
 ] as const;
@@ -24,10 +26,18 @@ export const MEMORY_MODALITIES = [
   "text_image"
 ] as const;
 
+export const REMEMBER_MEMORY_TYPES = [
+  "decision",
+  "requirement",
+  "pattern",
+  "spec"
+] as const;
+
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 export type BranchState = (typeof BRANCH_STATES)[number];
 export type MemoryModality = (typeof MEMORY_MODALITIES)[number];
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
+export type RememberMemoryType = (typeof REMEMBER_MEMORY_TYPES)[number];
 
 export interface MemoryMedia {
   kind: "inline_image";
@@ -69,6 +79,16 @@ export interface SearchContextInput {
   limit?: number;
 }
 
+export interface RememberContextInput {
+  content?: string;
+  topic?: string;
+  memory_type?: RememberMemoryType;
+  draft?: boolean;
+  artifact_refs?: string[];
+  image_base64?: string;
+  image_mime_type?: string;
+}
+
 export interface StoreContextResult {
   id: string;
   metadata: MemoryMetadata;
@@ -81,6 +101,14 @@ export interface SearchContextResult {
     filter_module?: string;
     filter_state: BranchState;
   };
+}
+
+export interface FetchContextInput {
+  document_id: string;
+}
+
+export interface FetchContextResult {
+  item: MemoryDocument;
 }
 
 export interface DeprecateContextInput {

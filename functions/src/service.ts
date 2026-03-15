@@ -9,7 +9,11 @@ import type {
   ConsolidationQueueResult,
   DeprecateContextInput,
   DeprecateContextResult,
+  FetchContextInput,
+  FetchContextResult,
   MemoryDocument,
+  RememberContextInput,
+  RememberMemoryType,
   SearchContextInput,
   SearchContextResult,
   StoreContextInput,
@@ -65,6 +69,25 @@ export class OpenBrainService {
     };
   }
 
+  async rememberContext(input: RememberContextInput): Promise<StoreContextResult> {
+    const normalizedTopic = normalizeOptionalText(input.topic) ?? "general";
+    const normalizedContent = normalizeOptionalText(input.content);
+    const artifactType =
+      input.memory_type
+        ? rememberMemoryTypeToArtifactType(input.memory_type)
+        : inferArtifactType(normalizedContent);
+
+    return this.storeContext({
+      content: normalizedContent,
+      artifact_type: artifactType,
+      module_name: normalizedTopic,
+      branch_state: input.draft ? "wip" : "active",
+      artifact_refs: input.artifact_refs,
+      image_base64: normalizeOptionalText(input.image_base64),
+      image_mime_type: normalizeOptionalText(input.image_mime_type)
+    });
+  }
+
   async searchContext(input: SearchContextInput): Promise<SearchContextResult> {
     const normalizedQuery = normalizeRequiredText(input.query, "query");
     const filterModule = normalizeOptionalText(input.filter_module);
@@ -87,6 +110,17 @@ export class OpenBrainService {
         filter_state: filterState
       }
     };
+  }
+
+  async fetchContext(input: FetchContextInput): Promise<FetchContextResult> {
+    const documentId = normalizeRequiredText(input.document_id, "document_id");
+    const item = await this.repository.get(documentId);
+
+    if (!item) {
+      throw new HttpError(404, "Document not found");
+    }
+
+    return { item };
   }
 
   async deprecateContext(input: DeprecateContextInput): Promise<DeprecateContextResult> {
@@ -150,6 +184,7 @@ export function formatSearchResults(result: SearchContextResult): string {
         new Date(match.metadata.timestamp).toISOString()
       ].join(" | ");
 
+      const idLine = `id=${match.id}\n`;
       const mediaLine = match.media
         ? `media=${match.media.kind}:${match.media.mime_type}\n`
         : "";
@@ -158,7 +193,104 @@ export function formatSearchResults(result: SearchContextResult): string {
           ? `artifact_refs=${match.metadata.artifact_refs.join(",")}\n`
           : "";
 
-      return `${header}\n${mediaLine}${artifactRefsLine}${match.content}`;
+      return `${header}\n${idLine}${mediaLine}${artifactRefsLine}${match.content}`;
     })
     .join("\n\n");
+}
+
+export function formatFetchedContext(result: FetchContextResult): string {
+  const { item } = result;
+  const header = [
+    `id=${item.id}`,
+    `artifact_type=${item.metadata.artifact_type}`,
+    `module_name=${item.metadata.module_name}`,
+    `branch_state=${item.metadata.branch_state}`,
+    `modality=${item.metadata.modality}`,
+    `timestamp=${new Date(item.metadata.timestamp).toISOString()}`
+  ];
+
+  if (item.media) {
+    header.push(`media=${item.media.kind}:${item.media.mime_type}`);
+  }
+
+  if (item.metadata.artifact_refs && item.metadata.artifact_refs.length > 0) {
+    header.push(`artifact_refs=${item.metadata.artifact_refs.join(",")}`);
+  }
+
+  if (item.metadata.superseded_by) {
+    header.push(`superseded_by=${item.metadata.superseded_by}`);
+  }
+
+  return `${header.join("\n")}\n\n${item.content}`;
+}
+
+function rememberMemoryTypeToArtifactType(memoryType: RememberMemoryType): StoreContextInput["artifact_type"] {
+  switch (memoryType) {
+    case "decision":
+      return "DECISION";
+    case "requirement":
+      return "REQUIREMENT";
+    case "pattern":
+      return "PATTERN";
+    case "spec":
+      return "SPEC";
+  }
+}
+
+function inferArtifactType(content: string | undefined): StoreContextInput["artifact_type"] {
+  const normalized = content?.toLowerCase() ?? "";
+
+  if (!normalized) {
+    return "PATTERN";
+  }
+
+  if (
+    includesAny(normalized, [
+      "must ",
+      "must\n",
+      "must be",
+      "should ",
+      "needs to",
+      "need to",
+      "requirement",
+      "required",
+      "cannot ",
+      "can't "
+    ])
+  ) {
+    return "REQUIREMENT";
+  }
+
+  if (
+    includesAny(normalized, [
+      "pattern",
+      "workflow",
+      "playbook",
+      "runbook",
+      "how to",
+      "recipe",
+      "screenshot"
+    ])
+  ) {
+    return "PATTERN";
+  }
+
+  if (
+    includesAny(normalized, [
+      "spec",
+      "schema",
+      "contract",
+      "interface",
+      "api shape",
+      "documented"
+    ])
+  ) {
+    return "SPEC";
+  }
+
+  return "DECISION";
+}
+
+function includesAny(value: string, needles: string[]): boolean {
+  return needles.some(needle => value.includes(needle));
 }

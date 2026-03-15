@@ -25,6 +25,7 @@ export interface SearchMemoryParams {
 export interface MemoryRepository {
   store(params: StoreMemoryParams): Promise<{ id: string }>;
   search(params: SearchMemoryParams): Promise<MemoryDocument[]>;
+  get(documentId: string): Promise<MemoryDocument | null>;
   deprecate(documentId: string, supersedingDocumentId: string): Promise<{ previousState: BranchState }>;
   getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]>;
 }
@@ -84,6 +85,27 @@ export class FirestoreMemoryRepository implements MemoryRepository {
         distance: typeof data.distance === "number" ? data.distance : undefined
       };
     });
+  }
+
+  async get(documentId: string): Promise<MemoryDocument | null> {
+    const snapshot = await this.firestore
+      .collection(this.collectionName)
+      .doc(documentId)
+      .get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    const data = snapshot.data() as FirestoreMemoryDocument;
+
+    return {
+      id: snapshot.id,
+      content: data.content,
+      metadata: data.metadata,
+      media: data.media,
+      distance: typeof data.distance === "number" ? data.distance : undefined
+    };
   }
 
   async deprecate(

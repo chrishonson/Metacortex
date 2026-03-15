@@ -124,6 +124,21 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       .slice(0, params.limit);
   }
 
+  async get(documentId: string): Promise<MemoryDocument | null> {
+    const record = this.records.find(r => r.id === documentId);
+
+    if (!record) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      content: record.content,
+      metadata: record.metadata,
+      media: record.media
+    };
+  }
+
   listRecords(): StoredRecord[] {
     return [...this.records];
   }

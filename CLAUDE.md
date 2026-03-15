@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Firebase Open Brain is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes four MCP tools for storing, searching, deprecating, and consolidating vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
+Firebase Open Brain is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes browser-friendly and admin MCP tools for remembering, searching, fetching, deprecating, and consolidating vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
 
 ## Common Commands
 
@@ -68,8 +68,10 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | Tool | Purpose |
 |------|---------|
+| `remember_context` | High-level write tool for chat clients: save durable memory with optional topic, draft flag, image input, and artifact refs |
 | `store_context` | Store text (+ optional image) → Gemini multimodal normalization → embedding → Firestore |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
+| `fetch_context` | Retrieve one stored memory by document ID after search |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
 | `get_consolidation_queue` | Fetch WIP-state memories for synthesis into official specs |
 
@@ -82,7 +84,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
-| `service.ts` | ~161 | `OpenBrainService` — `storeContext()`, `searchContext()`, `deprecateContext()`, `getConsolidationQueue()` |
+| `service.ts` | ~161 | `OpenBrainService` — remember/store/search/fetch/deprecate/consolidation flows |
 | `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
 | `types.ts` | ~111 | Enums (`ARTIFACT_TYPES`, `BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
@@ -90,9 +92,13 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 ### Data Flow
 
+**remember_context**: Chat-friendly input → server defaults/inference for metadata → `store_context` pipeline
+
 **store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
+
+**fetch_context**: Document ID → direct Firestore read of one stored memory
 
 **deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
 
@@ -140,7 +146,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
 | `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
-| `MCP_ALLOWED_TOOLS` | all four tools | Comma-separated tool allowlist for default client |
+| `MCP_ALLOWED_TOOLS` | all six tools | Comma-separated tool allowlist for default client |
 | `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles |

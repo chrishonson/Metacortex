@@ -57,7 +57,9 @@ describe("MCP integration", () => {
     const tools = await client.listTools();
     expect(tools.tools.map(tool => tool.name).sort()).toEqual([
       "deprecate_context",
+      "fetch_context",
       "get_consolidation_queue",
+      "remember_context",
       "search_context",
       "store_context"
     ]);
@@ -168,6 +170,7 @@ describe("MCP integration", () => {
     expect(textContent(searchResult)).toContain(
       "artifact_refs=gs://bucket/settings-screen.png"
     );
+    expect(textContent(searchResult)).toContain("id=memory-1");
   });
 
   it("enforces tool scoping on client-specific endpoints", async () => {
@@ -256,6 +259,90 @@ describe("MCP integration", () => {
     expect(disallowedStateResult.isError).toBe(true);
     expect(textContent(disallowedStateResult)).toContain(
       "filter_state 'deprecated' is not allowed"
+    );
+  });
+
+  it("supports browser-oriented remember, search, and fetch flows", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "browser",
+          authToken: "browser-token",
+          allowedOrigins: ["https://chatgpt.com", "https://claude.ai"],
+          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedFilterStates: ["active"]
+        }
+      ]
+    });
+
+    const baseUrl = await startServer(
+      createOpenBrainApp({
+        getConfig: () => runtime.config,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "browser-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/clients/browser/mcp`),
+      {
+        requestInit: {
+          headers: {
+            Authorization: "Bearer browser-token"
+          }
+        }
+      }
+    );
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const tools = await client.listTools();
+    expect(tools.tools.map(tool => tool.name).sort()).toEqual([
+      "fetch_context",
+      "remember_context",
+      "search_context"
+    ]);
+
+    const rememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We use Ktor for shared Android and iOS networking.",
+        topic: "kmp-networking"
+      }
+    });
+
+    expect(textContent(rememberResult)).toContain("Stored memory vector");
+    expect(textContent(rememberResult)).toContain("branch_state=active");
+
+    const searchResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "shared networking for android and ios",
+        filter_module: "kmp-networking"
+      }
+    });
+
+    expect(textContent(searchResult)).toContain("id=memory-1");
+    expect(textContent(searchResult)).toContain("kmp-networking");
+
+    const fetchResult = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        document_id: "memory-1"
+      }
+    });
+
+    expect(textContent(fetchResult)).toContain("id=memory-1");
+    expect(textContent(fetchResult)).toContain(
+      "We use Ktor for shared Android and iOS networking."
     );
   });
 });

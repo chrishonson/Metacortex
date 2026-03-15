@@ -68,6 +68,44 @@ describe("OpenBrainService", () => {
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0]?.metadata.module_name).toBe("kmp-networking");
     expect(formatSearchResults(result)).toContain("Ktor");
+    expect(formatSearchResults(result)).toContain("id=memory-1");
+  });
+
+  it("remembers browser-written context with friendly defaults", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const result = await service.rememberContext({
+      content: "We use Ktor for shared Android and iOS networking."
+    });
+
+    expect(result.metadata.module_name).toBe("general");
+    expect(result.metadata.branch_state).toBe("active");
+    expect(result.metadata.artifact_type).toBe("DECISION");
+  });
+
+  it("stores drafts as wip when remembering context", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const result = await service.rememberContext({
+      content: "Draft notes about auth rate limiting.",
+      topic: "auth",
+      draft: true
+    });
+
+    expect(result.metadata.module_name).toBe("auth");
+    expect(result.metadata.branch_state).toBe("wip");
   });
 
   it("stores image-backed memories as multimodal retrieval text", async () => {
@@ -178,6 +216,32 @@ describe("OpenBrainService", () => {
     const storedRecord = repository.listRecords()[0];
     expect(storedRecord?.metadata.branch_state).toBe("deprecated");
     expect(storedRecord?.metadata.superseded_by).toBe(newDoc.id);
+  });
+
+  it("fetches a stored memory by document id", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const stored = await service.rememberContext({
+      content: "We use Firestore vector indexes for retrieval.",
+      topic: "memory-infra",
+      artifact_refs: ["gs://bucket/vector-notes.md"]
+    });
+
+    const result = await service.fetchContext({
+      document_id: stored.id
+    });
+
+    expect(result.item.id).toBe(stored.id);
+    expect(result.item.metadata.module_name).toBe("memory-infra");
+    expect(result.item.metadata.artifact_refs).toEqual([
+      "gs://bucket/vector-notes.md"
+    ]);
   });
 
   it("returns WIP items from consolidation queue", async () => {

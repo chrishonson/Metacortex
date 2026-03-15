@@ -82,7 +82,7 @@ MEMORY_COLLECTION=memory_vectors
 Recommended security and access defaults for the first release:
 
 ```dotenv
-MCP_ALLOWED_TOOLS=store_context,search_context,deprecate_context,get_consolidation_queue
+MCP_ALLOWED_TOOLS=remember_context,store_context,search_context,fetch_context,deprecate_context,get_consolidation_queue
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 MAX_SSE_SESSIONS=25
@@ -103,6 +103,18 @@ Client-scoped endpoints are available, but for the first production release keep
 - `<FUNCTION_BASE_URL>/mcp/messages`
 
 Add client profiles later through `MCP_CLIENT_PROFILES_JSON` when you are ready to expose search-only clients such as Nanobot or browser-hosted consumers.
+
+Recommended browser read/write toolset:
+
+- `remember_context`
+- `search_context`
+- `fetch_context`
+
+Recommended browser client profile shape:
+
+```dotenv
+MCP_CLIENT_PROFILES_JSON=[{"id":"browser","token":"replace-browser","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com","https://claude.ai"]}]
+```
 
 ## Local verification
 
