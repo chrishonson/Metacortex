@@ -33,6 +33,27 @@
           }
         }
       ]
+    },
+    {
+      "collectionGroup": "memory_vectors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "metadata.branch_state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "metadata.module_name",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "embedding",
+          "vectorConfig": {
+            "dimension": 768,
+            "flat": {}
+          }
+        }
+      ]
     }
   ],
   "fieldOverrides": []

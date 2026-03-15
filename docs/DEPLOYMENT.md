@@ -228,6 +228,7 @@ Required vector indexes:
 
 - `metadata.module_name ASC + embedding VECTOR`
 - `metadata.branch_state ASC + embedding VECTOR`
+- `metadata.branch_state ASC + metadata.module_name ASC + embedding VECTOR`
 
 Wait until those indexes are fully built before trusting search results.
 

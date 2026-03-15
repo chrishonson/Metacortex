@@ -271,6 +271,39 @@ if [[ "$INDEX_DIMS" != "$EFFECTIVE_DIM" ]]; then
   exit 1
 fi
 
+node - <<'NODE'
+const fs = require("fs");
+
+const data = JSON.parse(fs.readFileSync("firestore.indexes.json", "utf8"));
+const signatures = data.indexes.map(index =>
+  index.fields
+    .map(field =>
+      field.vectorConfig
+        ? `${field.fieldPath}[VECTOR:${field.vectorConfig.dimension}]`
+        : `${field.fieldPath}[ASC]`
+    )
+    .join(" + ")
+);
+const normalized = signatures.map(signature =>
+  signature.replace(/\[VECTOR:\d+\]/g, "[VECTOR]")
+);
+const required = [
+  "metadata.module_name[ASC] + embedding[VECTOR]",
+  "metadata.branch_state[ASC] + embedding[VECTOR]",
+  "metadata.branch_state[ASC] + metadata.module_name[ASC] + embedding[VECTOR]"
+];
+const missing = required.filter(signature => !normalized.includes(signature));
+
+console.log(`index signatures: ${signatures.join(" | ")}`);
+
+if (missing.length > 0) {
+  console.error(
+    `ERROR: Missing required Firestore vector indexes: ${missing.join(" ; ")}`
+  );
+  process.exit(1);
+}
+NODE
+
 if [[ -f functions/.env.prod && -z "$PROD_MODEL" ]]; then
   echo "warning: functions/.env.prod does not pin GEMINI_EMBEDDING_MODEL; deployment will rely on the code fallback (${CONFIG_DEFAULT_MODEL})"
 fi

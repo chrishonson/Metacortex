@@ -124,7 +124,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 
 ## Critical Constraints
 
-- **Embedding dimensions must match everywhere**: `GEMINI_EMBEDDING_DIMENSIONS` env var (default 768) must equal the dimension in both Firestore indexes in `firestore.indexes.json`
+- **Embedding dimensions must match everywhere**: `GEMINI_EMBEDDING_DIMENSIONS` env var (default 768) must equal the dimension in all Firestore vector indexes in `firestore.indexes.json`
 - **Firestore must be Native mode**, not Datastore mode
 - **Firebase Blaze plan required** for Cloud Functions deployment
 - **Embedding migration**: If switching embedding providers, embedding models, or dimensions, either clear the collection or use a new `MEMORY_COLLECTION` name — never mix vectors from different vector spaces
@@ -170,7 +170,7 @@ See `docs/DEPLOYMENT.md` for the deployment playbook.
 
 - **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
 - **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
-- **Firestore indexes**: Two composite indexes on `memory_vectors` — one on `metadata.module_name` + `embedding` (768-dim FLAT), one on `metadata.branch_state` + `embedding` (768-dim FLAT)
+- **Firestore indexes**: Three composite indexes on `memory_vectors` — `metadata.module_name` + `embedding`, `metadata.branch_state` + `embedding`, and `metadata.branch_state` + `metadata.module_name` + `embedding` (all 768-dim FLAT)
 - **Observability collection**: `memory_events` stores one audit record per tool call with `client_id`, `tool_name`, `status`, and compact request/response metadata
 - **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
 
