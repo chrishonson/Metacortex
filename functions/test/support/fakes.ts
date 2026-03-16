@@ -7,8 +7,9 @@ import type {
   PreparedMemoryContent
 } from "../../src/embeddings.js";
 import type {
+  ObservabilityEvent,
   RecordToolCallEventInput,
-  ToolCallEvent,
+  RecordRequestEventInput,
   ToolCallObserver
 } from "../../src/observability.js";
 import type {
@@ -30,6 +31,7 @@ import type {
 interface StoredRecord {
   id: string;
   content: string;
+  retrieval_text: string;
   embedding: number[];
   metadata: MemoryMetadata;
   media?: MemoryMedia;
@@ -71,19 +73,23 @@ export class FakeMemoryContentPreparer implements MemoryContentPreparer {
     if (!input.imageBase64) {
       return {
         content: normalizedContent!,
+        retrieval_text: normalizedContent!,
         modality: "text"
       };
     }
 
+    const imageSummary =
+      `Architecture screenshot for ${input.moduleName} with labels relevant to ${input.artifactType}.`;
+
     return {
-      content: [
+      content: normalizedContent ?? imageSummary,
+      retrieval_text: [
         normalizedContent,
-        `Visual memory summary:
-Architecture screenshot for ${input.moduleName} with labels relevant to ${input.artifactType}.`
+        `Visual memory summary:\n${imageSummary}`
       ]
         .filter(Boolean)
         .join("\n\n"),
-      modality: "text_image",
+      modality: normalizedContent ? "mixed" : "image",
       media: {
         kind: "inline_image",
         mime_type: input.imageMimeType!
@@ -95,19 +101,48 @@ Architecture screenshot for ${input.moduleName} with labels relevant to ${input.
 export class InMemoryMemoryRepository implements MemoryRepository {
   private nextId = 1;
   private readonly records: StoredRecord[] = [];
+  private readonly fingerprints = new Map<
+    string,
+    { documentId: string; expiresAt: number }
+  >();
 
-  async store(params: StoreMemoryParams): Promise<{ id: string }> {
+  async store(
+    params: StoreMemoryParams
+  ): Promise<{ document: MemoryDocument; created: boolean }> {
+    const existing = this.fingerprints.get(params.idempotencyKey);
+
+    if (existing && existing.expiresAt >= params.metadata.created_at) {
+      const record = this.records.find(item => item.id === existing.documentId);
+
+      if (record) {
+        return {
+          document: toMemoryDocument(record),
+          created: false
+        };
+      }
+    }
+
     const id = `memory-${this.nextId++}`;
 
-    this.records.push({
+    const record = {
       id,
       content: params.content,
+      retrieval_text: params.retrievalText,
       embedding: [...params.embedding],
       metadata: params.metadata,
       media: params.media
+    };
+
+    this.records.push(record);
+    this.fingerprints.set(params.idempotencyKey, {
+      documentId: id,
+      expiresAt: params.metadata.created_at + 15 * 60 * 1000
     });
 
-    return { id };
+    return {
+      document: toMemoryDocument(record),
+      created: true
+    };
   }
 
   async search(params: SearchMemoryParams): Promise<MemoryDocument[]> {
@@ -119,10 +154,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
           : true
       )
       .map(record => ({
-        id: record.id,
-        content: record.content,
-        metadata: record.metadata,
-        media: record.media,
+        ...toMemoryDocument(record),
         distance: cosineDistance(record.embedding, params.queryVector)
       }))
       .sort((left, right) => (left.distance ?? 1) - (right.distance ?? 1))
@@ -136,12 +168,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       return null;
     }
 
-    return {
-      id: record.id,
-      content: record.content,
-      metadata: record.metadata,
-      media: record.media
-    };
+    return toMemoryDocument(record);
   }
 
   listRecords(): StoredRecord[] {
@@ -162,7 +189,8 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     record.metadata = {
       ...record.metadata,
       branch_state: "deprecated",
-      superseded_by: supersedingDocumentId
+      superseded_by: supersedingDocumentId,
+      updated_at: Date.now()
     };
 
     return { previousState };
@@ -172,33 +200,49 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     return this.records
       .filter(r => r.metadata.branch_state === "wip")
       .filter(r => (moduleName ? r.metadata.module_name === moduleName : true))
-      .map(r => ({
-        id: r.id,
-        content: r.content,
-        metadata: r.metadata,
-        media: r.media
-      }));
+      .map(toMemoryDocument);
   }
 }
 
 export class InMemoryToolCallObserver implements ToolCallObserver {
   private nextId = 1;
-  private readonly events: ToolCallEvent[] = [];
+  private readonly events: ObservabilityEvent[] = [];
 
   async record(input: RecordToolCallEventInput): Promise<void> {
     this.events.push({
       event_id: `event-${this.nextId++}`,
+      event_type: "tool_call",
       timestamp: input.timestamp ?? Date.now(),
       client_id: input.client_id,
       tool_name: input.tool_name,
       status: input.status,
+      ...(typeof input.latency_ms === "number"
+        ? { latency_ms: input.latency_ms }
+        : {}),
       request: input.request,
       ...(input.response ? { response: input.response } : {}),
       ...(input.error ? { error: input.error } : {})
     });
   }
 
-  listEvents(): ToolCallEvent[] {
+  async recordRequest(input: RecordRequestEventInput): Promise<void> {
+    this.events.push({
+      event_id: `event-${this.nextId++}`,
+      event_type: "request",
+      timestamp: input.timestamp ?? Date.now(),
+      client_id: input.client_id,
+      method: input.method,
+      path: input.path,
+      status: input.status,
+      status_code: input.status_code,
+      reason: input.reason,
+      ...(typeof input.latency_ms === "number"
+        ? { latency_ms: input.latency_ms }
+        : {})
+    });
+  }
+
+  listEvents(): ObservabilityEvent[] {
     return [...this.events];
   }
 }
@@ -254,6 +298,16 @@ export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
 
 function includesAny(value: string, needles: string[]): boolean {
   return needles.some(needle => value.includes(needle));
+}
+
+function toMemoryDocument(record: StoredRecord): MemoryDocument {
+  return {
+    id: record.id,
+    content: record.content,
+    retrieval_text: record.retrieval_text,
+    metadata: record.metadata,
+    media: record.media
+  };
 }
 
 function cosineDistance(left: number[], right: number[]): number {

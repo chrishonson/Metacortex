@@ -26,6 +26,7 @@ export interface RuntimeDependencies {
 
 let cachedConfig: AppConfig | undefined;
 let cachedRuntime: RuntimeDependencies | undefined;
+let cachedObserver: ToolCallObserver | undefined;
 
 export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDependencies {
   const config = loadConfig(env);
@@ -48,7 +49,8 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
     firestore,
     config.memoryCollection
   );
-  const observer: ToolCallObserver = new FirestoreToolCallObserver(firestore);
+  const observer = cachedObserver ?? new FirestoreToolCallObserver(firestore);
+  cachedObserver = observer;
   const service = new OpenBrainService(
     contentPreparer,
     embeddings,
@@ -78,4 +80,14 @@ export function getRuntime(): RuntimeDependencies {
   }
 
   return cachedRuntime;
+}
+
+export function getObserver(): ToolCallObserver {
+  if (!cachedObserver) {
+    const app = getApps().length === 0 ? initializeApp() : getApp();
+    const firestore = getFirestore(app);
+    cachedObserver = new FirestoreToolCallObserver(firestore);
+  }
+
+  return cachedObserver;
 }

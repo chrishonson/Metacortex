@@ -170,7 +170,7 @@ Use separate client profiles per browser client:
 
 ## Tool Contract
 
-The MCP server returns plain text tool results, not structured JSON payloads.
+The v1 client-facing tools return one `TextContent` block whose `text` is a single JSON object.
 
 ### `remember_context`
 
@@ -185,13 +185,28 @@ Minimal text memory:
 
 Typical result:
 
-```text
-Stored memory vector abc123.
-artifact_type=DECISION
-module_name=kmp-networking
-branch_state=active
-modality=text
-timestamp=2026-03-14T12:00:00.000Z
+```json
+{
+  "item": {
+    "id": "abc123",
+    "content": "We use Ktor for shared Android and iOS networking.",
+    "metadata": {
+      "module_name": "kmp-networking",
+      "memory_type": "decision",
+      "branch_state": "active",
+      "modality": "text",
+      "created_at": "2026-03-14T12:00:00.000Z",
+      "updated_at": "2026-03-14T12:00:00.000Z"
+    }
+  },
+  "write_status": "created"
+}
+```
+
+Supported `memory_type` values are:
+
+```json
+["decision", "requirement", "pattern", "spec", "preference", "general"]
 ```
 
 Image-backed memory with an external asset reference:
@@ -220,23 +235,43 @@ Example input:
 
 Typical result:
 
-```text
-Result 1 | DECISION | kmp-networking | active | text | 2026-03-14T12:00:00.000Z
-id=abc123
-We use Ktor for shared Android and iOS networking.
+```json
+{
+  "matches": [
+    {
+      "id": "abc123",
+      "summary": "We use Ktor for shared Android and iOS networking.",
+      "score": 0.92,
+      "content_preview": "We use Ktor for shared Android and iOS networking.",
+      "metadata": {
+        "module_name": "kmp-networking",
+        "memory_type": "decision",
+        "branch_state": "active",
+        "modality": "text",
+        "created_at": "2026-03-14T12:00:00.000Z",
+        "updated_at": "2026-03-14T12:00:00.000Z"
+      }
+    }
+  ],
+  "applied_filters": {
+    "filter_module": "kmp-networking",
+    "filter_state": "active"
+  }
+}
 ```
 
-If an item has media metadata or external refs, those lines appear before the stored content:
-
-```text
-media=inline_image:image/png
-artifact_refs=gs://your-bucket/settings-screen.png
-```
+If an item has external refs, they appear in `metadata.artifact_refs`.
 
 If nothing matches, the result is:
 
-```text
-No matching context found.
+```json
+{
+  "matches": [],
+  "applied_filters": {
+    "filter_module": null,
+    "filter_state": "active"
+  }
+}
 ```
 
 ### `fetch_context`
@@ -251,15 +286,22 @@ Example input:
 
 Typical result:
 
-```text
-id=abc123
-artifact_type=DECISION
-module_name=kmp-networking
-branch_state=active
-modality=text
-timestamp=2026-03-14T12:00:00.000Z
-
-We use Ktor for shared Android and iOS networking.
+```json
+{
+  "item": {
+    "id": "abc123",
+    "content": "We use Ktor for shared Android and iOS networking.",
+    "retrieval_text": "We use Ktor for shared Android and iOS networking.",
+    "metadata": {
+      "module_name": "kmp-networking",
+      "memory_type": "decision",
+      "branch_state": "active",
+      "modality": "text",
+      "created_at": "2026-03-14T12:00:00.000Z",
+      "updated_at": "2026-03-14T12:00:00.000Z"
+    }
+  }
+}
 ```
 
 ## Search Behavior
@@ -283,6 +325,8 @@ Write behavior that matters in production:
 - `image_mime_type` is required whenever `image_base64` is provided
 - images are normalized into retrieval text and embedded as text; raw image bytes are not stored for download
 - if you want the real asset later, store it elsewhere and include `artifact_refs`
+- exact duplicate writes within the current idempotency window are replay-safe and reuse the existing document id
+- duplicate suppression is intentionally light and based on the normalized write fingerprint, not semantic similarity
 
 `remember_context` defaults:
 
@@ -294,10 +338,12 @@ Write behavior that matters in production:
 Memory type inference is intentionally simple:
 
 - keywords like `must`, `should`, `required`, `need to` map toward `REQUIREMENT`
+- keywords like `prefer`, `preference`, `we like`, `default to` map toward `PREFERENCE`
 - keywords like `pattern`, `workflow`, `playbook`, `screenshot` map toward `PATTERN`
 - keywords like `spec`, `schema`, `contract`, `interface` map toward `SPEC`
-- otherwise text memories fall back to `DECISION`
-- image-only memories with no text fall back to `PATTERN`
+- obvious `we use`, `we decided`, `choose`, `switched to` language maps toward `DECISION`
+- otherwise text memories fall back to `GENERAL`
+- image-only memories with no text fall back to `GENERAL`
 
 If canonical classification matters, set `memory_type` explicitly instead of relying on inference.
 
@@ -324,14 +370,15 @@ After deployment, there are three places to look:
 - `memory_events` in Firestore shows client-attributed tool usage over time
 - Cloud Logging shows request failures and structured tool-event logs
 
-`memory_events` records one document per tool call. Each event includes:
+`memory_events` records one document per tool call and one document per ingress rejection/degraded request. Events include:
 
 - `client_id`
-- `tool_name`
+- `event_type`
 - `status`
 - `timestamp`
+- `latency_ms`
 - a compact `request` summary
-- either a compact `response` summary or an `error`
+- either a compact `response` summary, an `error`, or a request rejection reason
 
 Examples:
 
@@ -339,6 +386,8 @@ Examples:
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
 - `fetch_context` events record which `document_id` was read
 - `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`
+- rejected browser/admin requests record `reason=origin_not_allowed` or `reason=unauthorized`
+- degraded SSE requests record `reason=sse_capacity_exceeded`
 
 Traceability is by client profile id, so:
 

@@ -7,6 +7,7 @@ import express, { type Request, type Response } from "express";
 import { type AppConfig, type ClientProfile, MissingConfigurationError } from "./config.js";
 import { HttpError } from "./errors.js";
 import { createOpenBrainMcpServer } from "./mcpServer.js";
+import type { ToolCallObserver } from "./observability.js";
 import { type RuntimeDependencies } from "./runtime.js";
 
 interface ActiveSession {
@@ -15,6 +16,7 @@ interface ActiveSession {
 
 export interface CreateAppOptions {
   getConfig: () => AppConfig;
+  getObserver: () => ToolCallObserver;
   getRuntime: () => RuntimeDependencies;
 }
 
@@ -68,6 +70,8 @@ function registerMcpRoutes(
   const router = express.Router({ mergeParams: true });
 
   router.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.locals.requestStartedAt = startedAt;
     let config: AppConfig;
 
     try {
@@ -85,6 +89,15 @@ function registerMcpRoutes(
     }
 
     if (!applyCorsHeaders(req, res, profile)) {
+      void recordRequestEvent(
+        options,
+        profile.id,
+        req,
+        "rejected",
+        403,
+        "origin_not_allowed",
+        startedAt
+      );
       res.status(403).json({ error: "Origin not allowed" });
       return;
     }
@@ -95,6 +108,15 @@ function registerMcpRoutes(
     }
 
     if (!isAuthorized(req, profile.authToken)) {
+      void recordRequestEvent(
+        options,
+        profile.id,
+        req,
+        "rejected",
+        401,
+        "unauthorized",
+        startedAt
+      );
       res.setHeader("WWW-Authenticate", 'Bearer realm="firebase-open-brain"');
       res.status(401).json({ error: "Unauthorized" });
       return;
@@ -114,6 +136,15 @@ function registerMcpRoutes(
     const profile = res.locals.clientProfile as ClientProfile;
 
     if (sessions.size >= runtime.config.maxSseSessions) {
+      void recordRequestEvent(
+        options,
+        profile.id,
+        req,
+        "degraded",
+        503,
+        "sse_capacity_exceeded",
+        res.locals.requestStartedAt as number | undefined
+      );
       res.status(503).json({
         error: "Too many active SSE sessions. Try again later."
       });
@@ -344,4 +375,43 @@ function handleAppError(req: Request, res: Response, error: unknown): void {
     error: "Internal server error",
     requestId
   });
+}
+
+async function recordRequestEvent(
+  options: CreateAppOptions,
+  clientId: string,
+  req: Request,
+  status: "rejected" | "degraded",
+  statusCode: number,
+  reason: "origin_not_allowed" | "unauthorized" | "sse_capacity_exceeded",
+  startedAt: number | undefined
+): Promise<void> {
+  try {
+    await options.getObserver().recordRequest({
+      client_id: clientId,
+      method: req.method,
+      path: req.originalUrl,
+      status,
+      status_code: statusCode,
+      reason,
+      latency_ms: startedAt ? Date.now() - startedAt : undefined
+    });
+  } catch (error) {
+    console.error("openBrainMcp request event failed", {
+      client_id: clientId,
+      method: req.method,
+      path: req.originalUrl,
+      status,
+      status_code: statusCode,
+      reason,
+      error:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            }
+          : error
+    });
+  }
 }

@@ -342,7 +342,7 @@ Expected:
 
 - `remember_context` succeeds
 - `search_context` returns a result with `id=...`
-- `fetch_context` returns the full stored record
+- `fetch_context` returns the full stored record, including both `content` and `retrieval_text`
 
 Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
 
@@ -358,9 +358,10 @@ Confirm:
 - admin calls are recorded with `client_id=default`
 - ChatGPT web calls are recorded with `client_id=chatgpt-web`
 - Claude web calls are recorded with `client_id=claude-web`
-- each event includes `tool_name`, `status`, `timestamp`, and a compact `request` / `response` or `error`
+- tool events include `tool_name`, `status`, `timestamp`, `latency_ms`, and a compact `request` / `response` or `error`
+- request rejections and degraded events use `event_type=request` with a `reason` such as `unauthorized`, `origin_not_allowed`, or `sse_capacity_exceeded`
 
-Cloud Logging should also contain structured `openBrainMcp tool event` entries for the same calls.
+Cloud Logging should also contain structured `openBrainMcp tool event` and `openBrainMcp request event` entries for the same calls.
 
 ### 7. Verify the written document
 
@@ -370,6 +371,8 @@ Confirm:
 
 - one document was written
 - `metadata.branch_state` is `active`
+- the record stores both canonical `content` and internal `retrieval_text`
+- `metadata.created_at` and `metadata.updated_at` are present
 - the stored content is searchable through `search_context`
 
 ### 8. Optional multimodal browser smoke test
@@ -390,8 +393,8 @@ Repeat with `/clients/claude-web/mcp` and `<CLAUDE_WEB_TOKEN>` if Claude web wil
 Expected:
 
 - `remember_context` accepts the image-backed memory
-- returned metadata includes `modality=text_image`
-- `search_context` returns the normalized memory
+- returned JSON metadata includes `modality=mixed` when both text and image are present
+- `search_context` returns a summary with the same `id=...`
 - `fetch_context` returns the same `artifact_refs`
 
 ## Token Management
@@ -416,15 +419,16 @@ After deployment, use these views together:
 - `memory_events` for client-attributed usage and audit history
 - Cloud Logging for request failures and structured tool-event logs
 
-`memory_events` is populated automatically by successful and failed tool calls. It is the easiest way to answer:
+`memory_events` is populated automatically by successful and failed tool calls plus ingress-level auth/CORS/degraded events. It is the easiest way to answer:
 
 - which client is writing memories
 - which client is searching or fetching most often
 - which memory ids are being returned or fetched repeatedly
 - how many searches return zero results
 - whether a specific client is generating repeated tool errors
+- whether a specific client is hitting repeated `401`, `403`, or SSE-capacity failures
 
-The event payload is intentionally compact. It records ids, filters, counts, states, and modality rather than duplicating full memory bodies.
+The event payload is intentionally compact. It records ids, filters, counts, states, reasons, and latency rather than duplicating full memory bodies.
 
 ## First-release rollout
 

@@ -23,14 +23,17 @@ export const BRANCH_STATES = [
 
 export const MEMORY_MODALITIES = [
   "text",
-  "text_image"
+  "image",
+  "mixed"
 ] as const;
 
 export const REMEMBER_MEMORY_TYPES = [
   "decision",
   "requirement",
   "pattern",
-  "spec"
+  "spec",
+  "preference",
+  "general"
 ] as const;
 
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
@@ -46,9 +49,11 @@ export interface MemoryMedia {
 
 export interface MemoryMetadata {
   artifact_type: ArtifactType;
+  memory_type: RememberMemoryType;
   module_name: string;
   branch_state: BranchState;
-  timestamp: number;
+  created_at: number;
+  updated_at: number;
   modality: MemoryModality;
   artifact_refs?: string[];
   superseded_by?: string;
@@ -57,6 +62,7 @@ export interface MemoryMetadata {
 export interface MemoryDocument {
   id: string;
   content: string;
+  retrieval_text: string;
   metadata: MemoryMetadata;
   media?: MemoryMedia;
   distance?: number;
@@ -65,6 +71,7 @@ export interface MemoryDocument {
 export interface StoreContextInput {
   content?: string;
   artifact_type: ArtifactType;
+  memory_type?: RememberMemoryType;
   module_name: string;
   branch_state: BranchState;
   artifact_refs?: string[];
@@ -91,8 +98,11 @@ export interface RememberContextInput {
 
 export interface StoreContextResult {
   id: string;
+  content: string;
+  retrieval_text: string;
   metadata: MemoryMetadata;
   media?: MemoryMedia;
+  was_duplicate: boolean;
 }
 
 export interface SearchContextResult {

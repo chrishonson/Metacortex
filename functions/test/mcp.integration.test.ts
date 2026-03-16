@@ -31,6 +31,7 @@ describe("MCP integration", () => {
     const baseUrl = await startServer(
       createOpenBrainApp({
         getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
         getRuntime: () => runtime
       }),
       cleanup
@@ -85,8 +86,22 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(searchResult)).toContain("Ktor");
-    expect(textContent(searchResult)).toContain("kmp-networking");
+    expect(parseJsonTextContent(searchResult)).toMatchObject({
+      matches: [
+        {
+          id: "memory-1",
+          summary: expect.stringContaining("Ktor"),
+          metadata: {
+            module_name: "kmp-networking",
+            branch_state: "active"
+          }
+        }
+      ],
+      applied_filters: {
+        filter_module: "kmp-networking",
+        filter_state: "active"
+      }
+    });
 
     // Store a WIP context and verify consolidation queue
     await client.callTool({
@@ -115,6 +130,7 @@ describe("MCP integration", () => {
     const baseUrl = await startServer(
       createOpenBrainApp({
         getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
         getRuntime: () => runtime
       }),
       cleanup
@@ -165,12 +181,18 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(searchResult)).toContain("Jetpack Compose");
-    expect(textContent(searchResult)).toContain("media=inline_image:image/png");
-    expect(textContent(searchResult)).toContain(
-      "artifact_refs=gs://bucket/settings-screen.png"
-    );
-    expect(textContent(searchResult)).toContain("id=memory-1");
+    expect(parseJsonTextContent(searchResult)).toMatchObject({
+      matches: [
+        {
+          id: "memory-1",
+          summary: expect.stringContaining("Jetpack Compose"),
+          metadata: {
+            modality: "mixed",
+            artifact_refs: ["gs://bucket/settings-screen.png"]
+          }
+        }
+      ]
+    });
   });
 
   it("enforces tool scoping on client-specific endpoints", async () => {
@@ -196,6 +218,7 @@ describe("MCP integration", () => {
     const baseUrl = await startServer(
       createOpenBrainApp({
         getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
         getRuntime: () => runtime
       }),
       cleanup
@@ -233,7 +256,14 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(searchResult)).toContain("Ktor");
+    expect(parseJsonTextContent(searchResult)).toMatchObject({
+      matches: [
+        {
+          id: "memory-1",
+          summary: expect.stringContaining("Ktor")
+        }
+      ]
+    });
     const disallowedResult = await client.callTool({
       name: "store_context",
       arguments: {
@@ -288,6 +318,7 @@ describe("MCP integration", () => {
     const baseUrl = await startServer(
       createOpenBrainApp({
         getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
         getRuntime: () => runtime
       }),
       cleanup
@@ -329,8 +360,19 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(rememberResult)).toContain("Stored memory vector");
-    expect(textContent(rememberResult)).toContain("branch_state=active");
+    expect(parseJsonTextContent(rememberResult)).toMatchObject({
+      item: {
+        id: "memory-1",
+        content: "We use Ktor for shared Android and iOS networking.",
+        metadata: {
+          module_name: "kmp-networking",
+          memory_type: "decision",
+          branch_state: "active",
+          modality: "text"
+        }
+      },
+      write_status: "created"
+    });
 
     const searchResult = await client.callTool({
       name: "search_context",
@@ -340,8 +382,21 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(searchResult)).toContain("id=memory-1");
-    expect(textContent(searchResult)).toContain("kmp-networking");
+    expect(parseJsonTextContent(searchResult)).toMatchObject({
+      matches: [
+        {
+          id: "memory-1",
+          metadata: {
+            module_name: "kmp-networking",
+            branch_state: "active"
+          }
+        }
+      ],
+      applied_filters: {
+        filter_module: "kmp-networking",
+        filter_state: "active"
+      }
+    });
 
     const fetchResult = await client.callTool({
       name: "fetch_context",
@@ -350,10 +405,18 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(fetchResult)).toContain("id=memory-1");
-    expect(textContent(fetchResult)).toContain(
-      "We use Ktor for shared Android and iOS networking."
-    );
+    expect(parseJsonTextContent(fetchResult)).toMatchObject({
+      item: {
+        id: "memory-1",
+        content: "We use Ktor for shared Android and iOS networking.",
+        retrieval_text: "We use Ktor for shared Android and iOS networking.",
+        metadata: {
+          module_name: "kmp-networking",
+          memory_type: "decision",
+          branch_state: "active"
+        }
+      }
+    });
 
     expect(runtime.observer.listEvents()).toMatchObject([
       {
@@ -431,4 +494,10 @@ function textContent(result: Awaited<ReturnType<Client["callTool"]>>): string {
     .filter(item => item.type === "text")
     .map(item => item.text)
     .join("\n");
+}
+
+function parseJsonTextContent(
+  result: Awaited<ReturnType<Client["callTool"]>>
+): Record<string, unknown> {
+  return JSON.parse(textContent(result)) as Record<string, unknown>;
 }

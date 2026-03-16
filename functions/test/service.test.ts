@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { formatSearchResults, OpenBrainService } from "../src/service.js";
+import {
+  buildFetchPayload,
+  buildSearchPayload,
+  OpenBrainService
+} from "../src/service.js";
 import { createTestConfig } from "./support/fakes.js";
 import {
   FakeMemoryContentPreparer,
@@ -33,8 +37,12 @@ describe("OpenBrainService", () => {
     expect(storedRecord?.content).toBe(
       "Architectural decision: Use Ktor for networking."
     );
+    expect(storedRecord?.retrieval_text).toBe(
+      "Architectural decision: Use Ktor for networking."
+    );
     expect(storedRecord?.metadata.module_name).toBe("kmp-networking");
-    expect(storedRecord?.metadata.timestamp).toBe(1_700_000_000_000);
+    expect(storedRecord?.metadata.created_at).toBe(1_700_000_000_000);
+    expect(storedRecord?.metadata.updated_at).toBe(1_700_000_000_000);
   });
 
   it("searches with the default active filter and formats results", async () => {
@@ -67,8 +75,24 @@ describe("OpenBrainService", () => {
     expect(result.appliedFilters.filter_state).toBe("active");
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0]?.metadata.module_name).toBe("kmp-networking");
-    expect(formatSearchResults(result)).toContain("Ktor");
-    expect(formatSearchResults(result)).toContain("id=memory-1");
+    expect(buildSearchPayload(result)).toMatchObject({
+      matches: [
+        {
+          id: "memory-1",
+          summary: expect.stringContaining("Ktor"),
+          metadata: {
+            module_name: "kmp-networking",
+            memory_type: "decision",
+            branch_state: "active",
+            modality: "text"
+          }
+        }
+      ],
+      applied_filters: {
+        filter_module: null,
+        filter_state: "active"
+      }
+    });
   });
 
   it("remembers browser-written context with friendly defaults", async () => {
@@ -86,7 +110,8 @@ describe("OpenBrainService", () => {
 
     expect(result.metadata.module_name).toBe("general");
     expect(result.metadata.branch_state).toBe("active");
-    expect(result.metadata.artifact_type).toBe("DECISION");
+    expect(result.metadata.memory_type).toBe("decision");
+    expect(result.was_duplicate).toBe(false);
   });
 
   it("stores drafts as wip when remembering context", async () => {
@@ -106,6 +131,25 @@ describe("OpenBrainService", () => {
 
     expect(result.metadata.module_name).toBe("auth");
     expect(result.metadata.branch_state).toBe("wip");
+  });
+
+  it("accepts public memory_type values like preference", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const result = await service.rememberContext({
+      content: "We prefer concise release notes in memory fetches.",
+      topic: "nanobot",
+      memory_type: "preference"
+    });
+
+    expect(result.metadata.memory_type).toBe("preference");
+    expect(result.metadata.artifact_type).toBe("DECISION");
   });
 
   it("stores image-backed memories as multimodal retrieval text", async () => {
@@ -128,9 +172,10 @@ describe("OpenBrainService", () => {
 
     const storedRecord = repository.listRecords()[0];
 
-    expect(result.metadata.modality).toBe("text_image");
+    expect(result.metadata.modality).toBe("mixed");
     expect(result.media?.mime_type).toBe("image/png");
-    expect(storedRecord?.content).toContain("Visual memory summary");
+    expect(storedRecord?.content).toBe("Compose settings screen screenshot");
+    expect(storedRecord?.retrieval_text).toContain("Visual memory summary");
   });
 
   it("stores artifact_refs when provided", async () => {
@@ -176,12 +221,42 @@ describe("OpenBrainService", () => {
       query: "compose settings screenshot"
     });
 
-    expect(formatSearchResults(result)).toContain(
-      "artifact_refs=gs://bucket/settings-screen.png"
+    expect(buildSearchPayload(result)).toMatchObject({
+      matches: [
+        {
+          metadata: {
+            artifact_refs: ["gs://bucket/settings-screen.png"]
+          }
+        }
+      ]
+    });
+  });
+
+  it("returns an empty search payload on miss", async () => {
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
     );
+
+    const result = await service.searchContext({
+      query: "missing memory query"
+    });
+
+    expect(buildSearchPayload(result)).toEqual({
+      matches: [],
+      applied_filters: {
+        filter_module: null,
+        filter_state: "active"
+      }
+    });
   });
 
   it("deprecates a document and records superseding ID", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
     const repository = new InMemoryMemoryRepository();
     const service = new OpenBrainService(
       new FakeMemoryContentPreparer(),
@@ -216,6 +291,7 @@ describe("OpenBrainService", () => {
     const storedRecord = repository.listRecords()[0];
     expect(storedRecord?.metadata.branch_state).toBe("deprecated");
     expect(storedRecord?.metadata.superseded_by).toBe(newDoc.id);
+    expect(storedRecord?.metadata.updated_at).toBe(1_700_000_000_000);
   });
 
   it("fetches a stored memory by document id", async () => {
@@ -242,6 +318,44 @@ describe("OpenBrainService", () => {
     expect(result.item.metadata.artifact_refs).toEqual([
       "gs://bucket/vector-notes.md"
     ]);
+    expect(buildFetchPayload(result)).toMatchObject({
+      item: {
+        id: stored.id,
+        content: "We use Firestore vector indexes for retrieval.",
+        retrieval_text: "We use Firestore vector indexes for retrieval.",
+        metadata: {
+          module_name: "memory-infra",
+          memory_type: "decision",
+          artifact_refs: ["gs://bucket/vector-notes.md"]
+        }
+      }
+    });
+  });
+
+  it("reuses the same document for exact duplicate writes within the idempotency window", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
+    const repository = new InMemoryMemoryRepository();
+    const service = new OpenBrainService(
+      new FakeMemoryContentPreparer(),
+      new KeywordEmbeddingClient(),
+      repository,
+      createTestConfig()
+    );
+
+    const first = await service.rememberContext({
+      content: "We use Ktor for shared Android and iOS networking.",
+      topic: "kmp-networking"
+    });
+    const second = await service.rememberContext({
+      content: "We use Ktor for shared Android and iOS networking.",
+      topic: "kmp-networking"
+    });
+
+    expect(first.id).toBe(second.id);
+    expect(first.was_duplicate).toBe(false);
+    expect(second.was_duplicate).toBe(true);
+    expect(repository.listRecords()).toHaveLength(1);
   });
 
   it("returns WIP items from consolidation queue", async () => {

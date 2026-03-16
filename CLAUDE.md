@@ -85,7 +85,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
 | `service.ts` | ~161 | `OpenBrainService` — remember/store/search/fetch/deprecate/consolidation flows |
-| `observability.ts` | ~88 | Structured tool-event logging plus Firestore-backed `memory_events` audit trail |
+| `observability.ts` | ~150 | Structured tool-event and request-event logging plus Firestore-backed `memory_events` audit trail |
 | `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
 | `types.ts` | ~111 | Enums (`ARTIFACT_TYPES`, `BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
@@ -95,7 +95,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **remember_context**: Chat-friendly input → server defaults/inference for metadata → `store_context` pipeline
 
-**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
+**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
 
@@ -171,7 +171,7 @@ See `docs/DEPLOYMENT.md` for the deployment playbook.
 - **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
 - **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
 - **Firestore indexes**: Three composite indexes on `memory_vectors` — `metadata.module_name` + `embedding`, `metadata.branch_state` + `embedding`, and `metadata.branch_state` + `metadata.module_name` + `embedding` (all 768-dim FLAT)
-- **Observability collection**: `memory_events` stores one audit record per tool call with `client_id`, `tool_name`, `status`, and compact request/response metadata
+- **Observability collection**: `memory_events` stores one audit record per tool call and one per ingress rejection/degraded request, including `client_id`, `event_type`, `status`, `latency_ms`, and compact request/response or reason metadata
 - **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
 
 ## TypeScript Configuration

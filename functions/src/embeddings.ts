@@ -33,6 +33,7 @@ export interface MemoryPreparationInput {
 
 export interface PreparedMemoryContent {
   content: string;
+  retrieval_text: string;
   modality: MemoryModality;
   media?: MemoryMedia;
 }
@@ -112,6 +113,7 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
     if (!hasImage) {
       return {
         content: normalizedContent!,
+        retrieval_text: normalizedContent!,
         modality: "text"
       };
     }
@@ -158,8 +160,9 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
       .join("\n\n");
 
     return {
-      content: sections,
-      modality: "text_image",
+      content: normalizedContent ?? imageSummary,
+      retrieval_text: sections,
+      modality: normalizedContent ? "mixed" : "image",
       media: {
         kind: "inline_image",
         mime_type: input.imageMimeType!

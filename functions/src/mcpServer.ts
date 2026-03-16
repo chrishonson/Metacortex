@@ -5,8 +5,9 @@ import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
 import type { ToolCallObserver } from "./observability.js";
 import {
-  formatFetchedContext,
-  formatSearchResults,
+  buildFetchPayload,
+  buildRememberPayload,
+  buildSearchPayload,
   OpenBrainService
 } from "./service.js";
 import {
@@ -45,6 +46,8 @@ export function createOpenBrainMcpServer(
     run: () => Promise<Result>,
     summarizeResult: (result: Result) => Record<string, unknown>
   ): Promise<Result> => {
+    const startedAt = Date.now();
+
     try {
       const result = await run();
 
@@ -52,6 +55,7 @@ export function createOpenBrainMcpServer(
         client_id: config.clientId,
         tool_name: toolName,
         status: "success",
+        latency_ms: Date.now() - startedAt,
         request: requestSummary,
         response: summarizeResult(result)
       });
@@ -62,6 +66,7 @@ export function createOpenBrainMcpServer(
         client_id: config.clientId,
         tool_name: toolName,
         status: "error",
+        latency_ms: Date.now() - startedAt,
         request: requestSummary,
         error: summarizeToolError(error)
       });
@@ -92,7 +97,7 @@ export function createOpenBrainMcpServer(
             .enum(REMEMBER_MEMORY_TYPES)
             .optional()
             .describe(
-              "Optional memory category. Use decision for chosen approaches, requirement for rules or constraints, pattern for reusable workflows, and spec for canonical interface or schema details. If omitted, the server infers a best-effort type."
+              "Optional memory category. Use decision, requirement, pattern, spec, preference, or general. If omitted, the server infers a best-effort type."
             ),
           draft: z
             .boolean()
@@ -131,36 +136,17 @@ export function createOpenBrainMcpServer(
           () => service.rememberContext(args),
           record => ({
             document_id: record.id,
-            artifact_type: record.metadata.artifact_type,
+            memory_type: record.metadata.memory_type,
             module_name: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
+            write_status: record.was_duplicate ? "duplicate" : "created",
             artifact_ref_count: record.metadata.artifact_refs?.length ?? 0
           })
         );
 
         return {
-          content: [
-            {
-              type: "text",
-              text: [
-                `Stored memory vector ${result.id}.`,
-                `artifact_type=${result.metadata.artifact_type}`,
-                `module_name=${result.metadata.module_name}`,
-                `branch_state=${result.metadata.branch_state}`,
-                `modality=${result.metadata.modality}`,
-                result.media
-                  ? `media=${result.media.kind}:${result.media.mime_type}`
-                  : undefined,
-                result.metadata.artifact_refs?.length
-                  ? `artifact_refs=${result.metadata.artifact_refs.join(",")}`
-                  : undefined,
-                `timestamp=${new Date(result.metadata.timestamp).toISOString()}`
-              ]
-                .filter(Boolean)
-                .join("\n")
-            }
-          ]
+          content: [jsonTextContent(buildRememberPayload(result))]
         };
       }
     );
@@ -223,6 +209,7 @@ export function createOpenBrainMcpServer(
             module_name: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
+            write_status: record.was_duplicate ? "duplicate" : "created",
             artifact_ref_count: record.metadata.artifact_refs?.length ?? 0
           })
         );
@@ -232,7 +219,10 @@ export function createOpenBrainMcpServer(
             {
               type: "text",
               text: [
-                `Stored memory vector ${result.id}.`,
+                result.was_duplicate
+                  ? `Reused existing memory vector ${result.id}.`
+                  : `Stored memory vector ${result.id}.`,
+                `write_status=${result.was_duplicate ? "duplicate" : "created"}`,
                 `artifact_type=${result.metadata.artifact_type}`,
                 `module_name=${result.metadata.module_name}`,
                 `branch_state=${result.metadata.branch_state}`,
@@ -243,7 +233,8 @@ export function createOpenBrainMcpServer(
                 result.metadata.artifact_refs?.length
                   ? `artifact_refs=${result.metadata.artifact_refs.join(",")}`
                   : undefined,
-                `timestamp=${new Date(result.metadata.timestamp).toISOString()}`
+                `created_at=${new Date(result.metadata.created_at).toISOString()}`,
+                `updated_at=${new Date(result.metadata.updated_at).toISOString()}`
               ]
                 .filter(Boolean)
                 .join("\n")
@@ -260,7 +251,7 @@ export function createOpenBrainMcpServer(
       {
         title: "Search Context",
         description:
-          "Search stored memories with a natural-language query. Returns matching memories with document ids for follow-up fetches, plus artifact_refs when available.",
+          "Search stored memories with a natural-language query. Returns a single JSON object with ranked matches, stable document ids, and metadata for follow-up fetches.",
         inputSchema: {
           query: z.string().min(1).describe("The natural-language search query."),
           filter_module: z
@@ -313,12 +304,7 @@ export function createOpenBrainMcpServer(
         );
 
         return {
-          content: [
-            {
-              type: "text",
-              text: formatSearchResults(result)
-            }
-          ]
+          content: [jsonTextContent(buildSearchPayload(result))]
         };
       }
     );
@@ -330,7 +316,7 @@ export function createOpenBrainMcpServer(
       {
         title: "Fetch Context",
         description:
-          "Fetch one stored memory by document id. Use this after search_context when a client needs the full stored content or artifact references for a specific result.",
+          "Fetch one stored memory by document id. Returns a single JSON object with canonical content, retrieval text, and metadata for the requested record.",
         inputSchema: {
           document_id: z
             .string()
@@ -363,7 +349,7 @@ export function createOpenBrainMcpServer(
           },
           fetched => ({
             document_id: fetched.item.id,
-            artifact_type: fetched.item.metadata.artifact_type,
+            memory_type: fetched.item.metadata.memory_type,
             module_name: fetched.item.metadata.module_name,
             branch_state: fetched.item.metadata.branch_state,
             modality: fetched.item.metadata.modality,
@@ -372,12 +358,7 @@ export function createOpenBrainMcpServer(
         );
 
         return {
-          content: [
-            {
-              type: "text",
-              text: formatFetchedContext(result)
-            }
-          ]
+          content: [jsonTextContent(buildFetchPayload(result))]
         };
       }
     );
@@ -484,7 +465,7 @@ export function createOpenBrainMcpServer(
               `id=${item.id}`,
               `artifact_type=${item.metadata.artifact_type}`,
               `module_name=${item.metadata.module_name}`,
-              `timestamp=${new Date(item.metadata.timestamp).toISOString()}`,
+              `updated_at=${new Date(item.metadata.updated_at).toISOString()}`,
               item.content
             ].join(" | ")
         );
@@ -547,4 +528,11 @@ function truncateText(value: string, limit = 160): string {
 function normalizeOptionalText(value: string | undefined): string | undefined {
   const normalized = value?.trim();
   return normalized ? normalized : undefined;
+}
+
+function jsonTextContent(payload: Record<string, unknown>) {
+  return {
+    type: "text" as const,
+    text: JSON.stringify(payload)
+  };
 }

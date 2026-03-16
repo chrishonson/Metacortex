@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { AppConfig } from "./config.js";
 import type {
   EmbeddingClient,
@@ -31,55 +33,81 @@ export class OpenBrainService {
 
   async storeContext(input: StoreContextInput): Promise<StoreContextResult> {
     const normalizedModule = normalizeRequiredText(input.module_name, "module_name");
+    const normalizedContent = normalizeOptionalText(input.content);
+    const normalizedImageBase64 = normalizeOptionalText(input.image_base64);
+    const normalizedImageMimeType = normalizeOptionalText(input.image_mime_type);
+    const normalizedArtifactRefs = normalizeArtifactRefs(input.artifact_refs);
+    const memoryType =
+      input.memory_type ?? artifactTypeToMemoryType(input.artifact_type);
     const preparedContent = await this.contentPreparer.prepare({
-      content: normalizeOptionalText(input.content),
+      content: normalizedContent,
       artifactType: input.artifact_type,
       moduleName: normalizedModule,
-      imageBase64: normalizeOptionalText(input.image_base64),
-      imageMimeType: normalizeOptionalText(input.image_mime_type)
+      imageBase64: normalizedImageBase64,
+      imageMimeType: normalizedImageMimeType
     });
     const embedding = await this.embeddings.embed({
-      text: preparedContent.content,
+      text: preparedContent.retrieval_text,
       taskType: "RETRIEVAL_DOCUMENT",
       title: `${input.artifact_type} ${normalizedModule}`
     });
+    const now = Date.now();
 
     const metadata = {
       artifact_type: input.artifact_type,
+      memory_type: memoryType,
       module_name: normalizedModule,
       branch_state: input.branch_state,
-      timestamp: Date.now(),
+      created_at: now,
+      updated_at: now,
       modality: preparedContent.modality,
-      ...(input.artifact_refs && input.artifact_refs.length > 0
-        ? { artifact_refs: input.artifact_refs }
+      ...(normalizedArtifactRefs.length > 0
+        ? { artifact_refs: normalizedArtifactRefs }
         : {})
     } as const;
 
     const result = await this.repository.store({
       content: preparedContent.content,
+      retrievalText: preparedContent.retrieval_text,
       embedding,
+      idempotencyKey: buildWriteFingerprint({
+        artifactType: input.artifact_type,
+        memoryType,
+        moduleName: normalizedModule,
+        branchState: input.branch_state,
+        content: normalizedContent,
+        imageBase64: normalizedImageBase64,
+        imageMimeType: normalizedImageMimeType,
+        artifactRefs: normalizedArtifactRefs
+      }),
       metadata,
       media: preparedContent.media
     });
 
     return {
-      id: result.id,
-      metadata,
-      media: preparedContent.media
+      id: result.document.id,
+      content: result.document.content,
+      retrieval_text: result.document.retrieval_text,
+      metadata: result.document.metadata,
+      media: result.document.media,
+      was_duplicate: !result.created
     };
   }
 
   async rememberContext(input: RememberContextInput): Promise<StoreContextResult> {
     const normalizedTopic = normalizeOptionalText(input.topic) ?? "general";
     const normalizedContent = normalizeOptionalText(input.content);
+    const memoryType =
+      input.memory_type ?? inferMemoryType(normalizedContent);
     const artifactType =
       input.memory_type
         ? rememberMemoryTypeToArtifactType(input.memory_type)
-        : inferArtifactType(normalizedContent);
+        : rememberMemoryTypeToArtifactType(memoryType);
 
     return this.storeContext({
       content: normalizedContent,
       artifact_type: artifactType,
+      memory_type: memoryType,
       module_name: normalizedTopic,
       branch_state: input.draft ? "wip" : "active",
       artifact_refs: input.artifact_refs,
@@ -168,60 +196,46 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-export function formatSearchResults(result: SearchContextResult): string {
-  if (result.matches.length === 0) {
-    return "No matching context found.";
-  }
-
-  return result.matches
-    .map((match: MemoryDocument, index) => {
-      const header = [
-        `Result ${index + 1}`,
-        match.metadata.artifact_type,
-        match.metadata.module_name,
-        match.metadata.branch_state,
-        match.metadata.modality,
-        new Date(match.metadata.timestamp).toISOString()
-      ].join(" | ");
-
-      const idLine = `id=${match.id}\n`;
-      const mediaLine = match.media
-        ? `media=${match.media.kind}:${match.media.mime_type}\n`
-        : "";
-      const artifactRefsLine =
-        match.metadata.artifact_refs && match.metadata.artifact_refs.length > 0
-          ? `artifact_refs=${match.metadata.artifact_refs.join(",")}\n`
-          : "";
-
-      return `${header}\n${idLine}${mediaLine}${artifactRefsLine}${match.content}`;
-    })
-    .join("\n\n");
+export function buildSearchPayload(result: SearchContextResult): Record<string, unknown> {
+  return {
+    matches: result.matches.map(match => ({
+      id: match.id,
+      summary: summarizeMemoryContent(match.content),
+      ...(typeof match.distance === "number"
+        ? { score: distanceToScore(match.distance) }
+        : {}),
+      content_preview: previewMemoryContent(match.content),
+      metadata: buildPublicMetadata(match)
+    })),
+    applied_filters: {
+      filter_module: result.appliedFilters.filter_module ?? null,
+      filter_state: result.appliedFilters.filter_state
+    }
+  };
 }
 
-export function formatFetchedContext(result: FetchContextResult): string {
-  const { item } = result;
-  const header = [
-    `id=${item.id}`,
-    `artifact_type=${item.metadata.artifact_type}`,
-    `module_name=${item.metadata.module_name}`,
-    `branch_state=${item.metadata.branch_state}`,
-    `modality=${item.metadata.modality}`,
-    `timestamp=${new Date(item.metadata.timestamp).toISOString()}`
-  ];
+export function buildFetchPayload(result: FetchContextResult): Record<string, unknown> {
+  return {
+    item: {
+      id: result.item.id,
+      content: result.item.content,
+      retrieval_text: result.item.retrieval_text,
+      metadata: buildPublicMetadata(result.item)
+    }
+  };
+}
 
-  if (item.media) {
-    header.push(`media=${item.media.kind}:${item.media.mime_type}`);
-  }
-
-  if (item.metadata.artifact_refs && item.metadata.artifact_refs.length > 0) {
-    header.push(`artifact_refs=${item.metadata.artifact_refs.join(",")}`);
-  }
-
-  if (item.metadata.superseded_by) {
-    header.push(`superseded_by=${item.metadata.superseded_by}`);
-  }
-
-  return `${header.join("\n")}\n\n${item.content}`;
+export function buildRememberPayload(result: StoreContextResult): Record<string, unknown> {
+  return {
+    item: {
+      id: result.id,
+      content: result.content,
+      metadata: buildPublicMetadata({
+        metadata: result.metadata
+      })
+    },
+    write_status: result.was_duplicate ? "duplicate" : "created"
+  };
 }
 
 function rememberMemoryTypeToArtifactType(memoryType: RememberMemoryType): StoreContextInput["artifact_type"] {
@@ -234,14 +248,18 @@ function rememberMemoryTypeToArtifactType(memoryType: RememberMemoryType): Store
       return "PATTERN";
     case "spec":
       return "SPEC";
+    case "preference":
+      return "DECISION";
+    case "general":
+      return "PATTERN";
   }
 }
 
-function inferArtifactType(content: string | undefined): StoreContextInput["artifact_type"] {
+function inferMemoryType(content: string | undefined): RememberMemoryType {
   const normalized = content?.toLowerCase() ?? "";
 
   if (!normalized) {
-    return "PATTERN";
+    return "general";
   }
 
   if (
@@ -258,7 +276,19 @@ function inferArtifactType(content: string | undefined): StoreContextInput["arti
       "can't "
     ])
   ) {
-    return "REQUIREMENT";
+    return "requirement";
+  }
+
+  if (
+    includesAny(normalized, [
+      "prefer",
+      "preference",
+      "usually use",
+      "we like",
+      "default to"
+    ])
+  ) {
+    return "preference";
   }
 
   if (
@@ -272,7 +302,7 @@ function inferArtifactType(content: string | undefined): StoreContextInput["arti
       "screenshot"
     ])
   ) {
-    return "PATTERN";
+    return "pattern";
   }
 
   if (
@@ -285,12 +315,129 @@ function inferArtifactType(content: string | undefined): StoreContextInput["arti
       "documented"
     ])
   ) {
-    return "SPEC";
+    return "spec";
   }
 
-  return "DECISION";
+  if (
+    includesAny(normalized, [
+      "decision",
+      "decided",
+      "choose",
+      "chosen",
+      "switched to",
+      "we use"
+    ])
+  ) {
+    return "decision";
+  }
+
+  return "general";
 }
 
 function includesAny(value: string, needles: string[]): boolean {
   return needles.some(needle => value.includes(needle));
+}
+
+function buildWriteFingerprint(input: {
+  artifactType: StoreContextInput["artifact_type"];
+  memoryType: RememberMemoryType;
+  moduleName: string;
+  branchState: StoreContextInput["branch_state"];
+  content?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+  artifactRefs: string[];
+}): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: 1,
+        artifact_type: input.artifactType,
+        memory_type: input.memoryType,
+        module_name: input.moduleName,
+        branch_state: input.branchState,
+        content: input.content ?? null,
+        image_mime_type: input.imageMimeType ?? null,
+        image_sha256: input.imageBase64
+          ? createHash("sha256").update(input.imageBase64).digest("hex")
+          : null,
+        artifact_refs: input.artifactRefs
+      })
+    )
+    .digest("hex");
+}
+
+function normalizeArtifactRefs(value: string[] | undefined): string[] {
+  if (!value || value.length === 0) {
+    return [];
+  }
+
+  return [...new Set(value.map(item => item.trim()).filter(Boolean))];
+}
+
+function summarizeMemoryContent(value: string, limit = 220): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, limit - 3)}...`;
+}
+
+function artifactTypeToMemoryType(
+  artifactType: StoreContextInput["artifact_type"]
+): RememberMemoryType {
+  switch (artifactType) {
+    case "DECISION":
+      return "decision";
+    case "REQUIREMENT":
+      return "requirement";
+    case "PATTERN":
+      return "pattern";
+    case "SPEC":
+      return "spec";
+  }
+}
+
+function buildPublicMetadata(match: Pick<MemoryDocument, "metadata">): Record<string, unknown> {
+  return {
+    module_name: match.metadata.module_name,
+    memory_type:
+      match.metadata.memory_type ??
+      artifactTypeToMemoryType(match.metadata.artifact_type),
+    branch_state: match.metadata.branch_state,
+    modality: normalizePublicModality(match.metadata.modality),
+    ...(match.metadata.artifact_refs
+      ? { artifact_refs: match.metadata.artifact_refs }
+      : {}),
+    created_at: new Date(match.metadata.created_at).toISOString(),
+    updated_at: new Date(match.metadata.updated_at).toISOString()
+  };
+}
+
+function distanceToScore(distance: number): number {
+  return Math.max(0, Number((1 - distance).toFixed(6)));
+}
+
+function previewMemoryContent(value: string, limit = 400): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, limit - 3)}...`;
+}
+
+function normalizePublicModality(value: string): "text" | "image" | "mixed" {
+  if (value === "text_image") {
+    return "mixed";
+  }
+
+  if (value === "text" || value === "image" || value === "mixed") {
+    return value;
+  }
+
+  return "text";
 }

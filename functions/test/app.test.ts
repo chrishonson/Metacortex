@@ -10,6 +10,7 @@ describe("createOpenBrainApp", () => {
     const runtime = createTestRuntime();
     const app = createOpenBrainApp({
       getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
       getRuntime: () => runtime
     });
 
@@ -19,10 +20,11 @@ describe("createOpenBrainApp", () => {
     expect(response.body.ok).toBe(true);
   });
 
-  it("rejects unauthorized MCP requests before runtime work continues", async () => {
+  it("rejects unauthorized MCP requests and records a request event", async () => {
     const runtime = createTestRuntime();
     const app = createOpenBrainApp({
       getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
       getRuntime: () => runtime
     });
 
@@ -34,12 +36,24 @@ describe("createOpenBrainApp", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe("Unauthorized");
+    expect(runtime.observer.listEvents()).toContainEqual(
+      expect.objectContaining({
+        event_type: "request",
+        client_id: "default",
+        status: "rejected",
+        status_code: 401,
+        reason: "unauthorized"
+      })
+    );
   });
 
   it("surfaces configuration failures as 500s", async () => {
     const app = createOpenBrainApp({
       getConfig: () => {
         throw new MissingConfigurationError("GEMINI_API_KEY is missing");
+      },
+      getObserver: () => {
+        throw new MissingConfigurationError("should not be called");
       },
       getRuntime: () => {
         throw new MissingConfigurationError("should not be called");
@@ -64,6 +78,7 @@ describe("createOpenBrainApp", () => {
     const runtime = createTestRuntime();
     const app = createOpenBrainApp({
       getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
       getRuntime: () => runtime
     });
 
@@ -79,6 +94,15 @@ describe("createOpenBrainApp", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error).toBe("Origin not allowed");
+    expect(runtime.observer.listEvents()).toContainEqual(
+      expect.objectContaining({
+        event_type: "request",
+        client_id: "default",
+        status: "rejected",
+        status_code: 403,
+        reason: "origin_not_allowed"
+      })
+    );
   });
 
   it("allows preflight for explicitly allowlisted browser clients", async () => {
@@ -95,6 +119,7 @@ describe("createOpenBrainApp", () => {
     });
     const app = createOpenBrainApp({
       getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
       getRuntime: () => runtime
     });
 
