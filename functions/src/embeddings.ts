@@ -18,7 +18,10 @@ export interface EmbeddingClient {
 }
 
 export interface GeminiEmbeddingClientOptions {
-  apiKey: string;
+  apiKey?: string;
+  vertexai?: boolean;
+  project?: string;
+  location?: string;
   model: string;
   dimensions: number;
 }
@@ -51,9 +54,13 @@ export class GeminiEmbeddingClient implements EmbeddingClient {
   private readonly client: GoogleGenAI;
 
   constructor(private readonly options: GeminiEmbeddingClientOptions) {
-    this.client = new GoogleGenAI({
-      apiKey: options.apiKey
-    });
+    this.client = options.vertexai
+      ? new GoogleGenAI({
+          vertexai: true,
+          project: options.project,
+          location: options.location ?? "us-central1"
+        })
+      : new GoogleGenAI({ apiKey: options.apiKey! });
   }
 
   async embed(request: EmbeddingRequest): Promise<number[]> {

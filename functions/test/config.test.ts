@@ -9,7 +9,7 @@ describe("loadConfig", () => {
       MCP_AUTH_TOKEN: "secret-token"
     });
 
-    expect(config.embeddingModel).toBe("text-multimodal-embedding-002");
+    expect(config.embeddingModel).toBe("text-embedding-004");
     expect(config.multimodalModel).toBe("gemini-3.1-flash-lite-preview");
     expect(config.embeddingDimensions).toBe(768);
     expect(config.defaultFilterState).toBe("active");

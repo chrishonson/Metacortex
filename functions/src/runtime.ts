@@ -36,11 +36,21 @@ export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDepe
 function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
   const app = getApps().length === 0 ? initializeApp() : getApp();
   const firestore = getFirestore(app);
-  const embeddings: EmbeddingClient = new GeminiEmbeddingClient({
-    apiKey: config.geminiApiKey,
-    model: config.embeddingModel,
-    dimensions: config.embeddingDimensions
-  });
+  const gcpProject = app.options?.projectId;
+  const embeddings: EmbeddingClient = new GeminiEmbeddingClient(
+    gcpProject
+      ? {
+          vertexai: true,
+          project: gcpProject,
+          model: config.embeddingModel,
+          dimensions: config.embeddingDimensions
+        }
+      : {
+          apiKey: config.geminiApiKey,
+          model: config.embeddingModel,
+          dimensions: config.embeddingDimensions
+        }
+  );
   const contentPreparer: MemoryContentPreparer = new GeminiMultimodalPreparer({
     apiKey: config.geminiApiKey,
     model: config.multimodalModel
