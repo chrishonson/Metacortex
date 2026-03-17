@@ -1,6 +1,6 @@
-# Firebase Open Brain
+# MetaCortex
 
-Firebase Open Brain is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
+MetaCortex is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
 
 ![System Architecture](docs/graphics/architecture.png)
 

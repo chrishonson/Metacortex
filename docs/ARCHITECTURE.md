@@ -1,6 +1,6 @@
 # Visual Design & System Architecture
 
-Firebase Open Brain is a serverless MCP (Model Context Protocol) memory service. This document visualizes the system boundaries, personas, and primary use cases to provide a clear mental model of the ecosystem.
+MetaCortex is a serverless MCP (Model Context Protocol) memory service. This document visualizes the system boundaries, personas, and primary use cases to provide a clear mental model of the ecosystem.
 
 ## 👥 Personas
 
@@ -77,7 +77,7 @@ sequenceDiagram
     A-->>U: "Saved to project memory."
 ```
 
-### 2. Contextual Retrieval (The "Open Brain")
+### 2. Contextual Retrieval (MetaCortex)
 The Assistant searches the project's memory to answer a user's question.
 
 ```mermaid
@@ -97,6 +97,6 @@ sequenceDiagram
 
 ## 🎨 Conceptual Visualization: Brain & Body
 
-The relationship between the **Open Brain** and **Nanobot** is one of remote intelligence and local manifestation. The "Brain" resides in the cloud (Firebase/Gemini), providing durable memory and reasoning, while Nanobot acts as its "Body" on the local machine, executing tasks and interacting with the local environment.
+The relationship between **MetaCortex** and **Nanobot** is one of remote intelligence and local manifestation. The "Cortex" resides in the cloud (Firebase/Gemini), providing durable memory and reasoning, while Nanobot acts as its "Body" on the local machine, executing tasks and interacting with the local environment.
 
-![Final unified conceptual architecture showing the Cloud Intelligence (Open Brain, ChatGPT, Claude) and the Local Body (Nanobot)](graphics/architecture.png)
+![Final unified conceptual architecture showing the Cloud Intelligence (MetaCortex, ChatGPT, Claude) and the Local Body (Nanobot)](graphics/architecture.png)

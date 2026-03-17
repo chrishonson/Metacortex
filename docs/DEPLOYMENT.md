@@ -1,6 +1,6 @@
 # Deployment Playbook
 
-This is the single deploy guide for Firebase Open Brain.
+This is the single deploy guide for MetaCortex.
 
 Use it for:
 
@@ -152,12 +152,12 @@ npm --prefix functions run serve
 Then in another shell:
 
 ```bash
-curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/healthz"
+curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/healthz"
 ```
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
 MCP_AUTH_TOKEN="replace-me" \
 npm run smoke -- --mode admin-read-write
 ```
@@ -166,7 +166,7 @@ Browser-client flow:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/chatgpt-web/mcp" \
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/clients/chatgpt-web/mcp" \
 MCP_AUTH_TOKEN="replace-chatgpt-token" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke
@@ -246,7 +246,7 @@ cd /Users/nick/git/FirebaseOpenBrain
 firebase deploy --only firestore:indexes,functions
 ```
 
-Capture the deployed base URL for `openBrainMcp`.
+Capture the deployed base URL for `metaCortexMcp`.
 
 The useful production routes are:
 

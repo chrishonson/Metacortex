@@ -29,7 +29,7 @@ export function createOpenBrainApp(options: CreateAppOptions) {
   app.get("/healthz", (_req, res) => {
     res.status(200).json({
       ok: true,
-      service: "firebase-open-brain",
+      service: "metacortex",
       endpoints: ["/mcp", "/mcp/sse", "/mcp/messages", "/clients/:clientId/mcp"]
     });
   });
