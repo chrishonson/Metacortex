@@ -2,6 +2,11 @@
 
 Firebase Open Brain is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
 
+![System Architecture](docs/graphics/architecture.png)
+
+> [!TIP]
+> **Brain & Body**: The Open Brain resides in the cloud as the intelligence core, while Nanobot acts as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
+
 The practical target is a remote MCP server that chat clients such as ChatGPT web or Claude web can use for:
 
 - searching what the project already knows
