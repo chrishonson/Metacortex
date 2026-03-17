@@ -289,12 +289,13 @@ function applyCorsHeaders(
 
 function isAuthorized(req: Request, expectedToken: string): boolean {
   const header = req.header("authorization");
+  let providedToken: string | undefined;
 
-  if (!header?.startsWith("Bearer ")) {
-    return false;
+  if (header?.startsWith("Bearer ")) {
+    providedToken = header.slice("Bearer ".length).trim();
+  } else if (typeof req.query.auth_token === "string") {
+    providedToken = req.query.auth_token;
   }
-
-  const providedToken = header.slice("Bearer ".length).trim();
 
   if (!providedToken) {
     return false;

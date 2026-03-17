@@ -7,7 +7,8 @@ export const openBrainMcp = onRequest(
   {
     region: "us-central1",
     timeoutSeconds: 300,
-    memory: "512MiB"
+    memory: "512MiB",
+    invoker: "public"
   },
   createOpenBrainApp({
     getConfig,
