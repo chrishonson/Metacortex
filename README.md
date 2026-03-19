@@ -186,6 +186,19 @@ ChatGPT's current MCP UI does not support configuring custom `Authorization: Bea
 
 MetaCortex will validate the token from the URL and reject unauthenticated requests even though ChatGPT is configured for "No Auth".
 
+### Connecting to Claude
+
+Depending on your Claude client (e.g., experimental web extensions, custom UIs, or future Claude Desktop SSE support), you can configure the connection in two ways:
+
+**Option 1: Standard Headers (Preferred)**
+- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
+- **Auth Type**: Bearer Token / Service Token
+- **Token**: `Bearer <YOUR_CLAUDE_TOKEN>`
+
+**Option 2: Tokenized URL (If headers are unsupported)**
+- **Auth Type**: No Authentication
+- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp?auth_token=<YOUR_CLAUDE_TOKEN>`
+
 
 ## Tool Contract
 
