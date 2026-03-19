@@ -161,7 +161,7 @@ Recommended browser read/write toolset:
 
 For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
 
-- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
 - Claude web URL: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
 - bearer token: the `token` value from the matching client profile
 - allowed browser origins: the matching profile's `allowedOrigins`
@@ -172,6 +172,20 @@ Use separate client profiles per browser client:
 
 - `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
 - `claude-web` with `allowedOrigins=["https://claude.ai"]`
+
+### Connecting to ChatGPT
+
+ChatGPT's current MCP UI does not support configuring custom `Authorization: Bearer` headers. To work around this security limitation, MetaCortex supports passing the token securely via the URL.
+
+1. Open ChatGPT Web or Desktop.
+2. Open Settings -> Connected Apps (or MCP Settings).
+3. Click "Add new App" or "Connect MCP Server".
+4. Set **Auth Type** to **No Authentication**.
+5. Set the **MCP URL** to your tokenized endpoint:
+   `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
+
+MetaCortex will validate the token from the URL and reject unauthenticated requests even though ChatGPT is configured for "No Auth".
+
 
 ## Tool Contract
 
