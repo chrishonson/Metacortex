@@ -105,10 +105,10 @@ Important constraints:
 
 Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy separate scoped client profiles from day one:
 
-- admin: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp`
-- admin SSE: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp/sse`
-- ChatGPT web: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp`
-- Claude web: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp`
+- admin: `<FUNCTION_BASE_URL>/mcp`
+- admin SSE: `<FUNCTION_BASE_URL>/mcp/sse`
+- ChatGPT web: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- Claude web: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
 
 Recommended browser read/write toolset:
 
@@ -212,8 +212,8 @@ If you later switch embedding models or dimensions and want to keep old memories
 
 Also confirm the actual web-client registration values you will use:
 
-- ChatGPT URL: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp`
-- Claude URL: `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp`
+- ChatGPT URL: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
+- Claude URL: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
 - each bearer token comes from the matching client profile, not `MCP_AUTH_TOKEN`
 - each web origin must match the profile's `allowedOrigins`
 
@@ -250,20 +250,20 @@ Capture the deployed base URL for `metaCortexMcp`.
 
 The useful production routes are:
 
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/healthz`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp/sse`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp/messages`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/<CLIENT_ID>/mcp`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/<CLIENT_ID>/mcp/sse`
-- `https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/<CLIENT_ID>/mcp/messages`
+- `<FUNCTION_BASE_URL>/healthz`
+- `<FUNCTION_BASE_URL>/mcp`
+- `<FUNCTION_BASE_URL>/mcp/sse`
+- `<FUNCTION_BASE_URL>/mcp/messages`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
+- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
 
 ## Post-deploy verification
 
 ### 1. Health check
 
 ```bash
-curl -i "https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/healthz"
+curl -i "<FUNCTION_BASE_URL>/healthz"
 ```
 
 Expected:
@@ -275,7 +275,7 @@ Expected:
 
 ```bash
 curl -i \
-  -X POST "https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp" \
+  -X POST "<FUNCTION_BASE_URL>/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'
 ```
@@ -288,7 +288,7 @@ Expected:
 
 ```bash
 curl -i \
-  -X OPTIONS "https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp" \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
   -H "Origin: https://chatgpt.com"
 ```
 
@@ -301,7 +301,7 @@ Repeat with:
 
 ```bash
 curl -i \
-  -X OPTIONS "https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp" \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/claude-web/mcp" \
   -H "Origin: https://claude.ai"
 ```
 
@@ -309,7 +309,7 @@ curl -i \
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
 MCP_AUTH_TOKEN="<ADMIN_MCP_TOKEN>" \
 MCP_SMOKE_MODE="admin-read-write" \
 npm run smoke
@@ -332,7 +332,7 @@ This is the first proof that:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
 MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS networking." --query "shared networking for android and ios"
@@ -379,7 +379,7 @@ Confirm:
 
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
-MCP_BASE_URL="https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp" \
+MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
 MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
