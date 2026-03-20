@@ -216,9 +216,7 @@ function parseClientProfiles(
           )
         : undefined,
       `MCP_CLIENT_PROFILES_JSON[${index}].allowedFilterStates`,
-      allowedTools.includes("search_context")
-        ? [defaultFilterState]
-        : [defaultFilterState]
+      [defaultFilterState]
     );
 
     return {

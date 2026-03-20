@@ -136,12 +136,12 @@ That means the practical image flow is:
 
 ## Endpoints
 
-- Default Streamable HTTP MCP endpoint: `/openBrainMcp/mcp`
-- Default legacy SSE MCP endpoint: `/openBrainMcp/mcp/sse`
-- Default legacy SSE message endpoint: `/openBrainMcp/mcp/messages`
-- Client-scoped Streamable HTTP MCP endpoint: `/openBrainMcp/clients/<clientId>/mcp`
-- Client-scoped legacy SSE endpoint: `/openBrainMcp/clients/<clientId>/mcp/sse`
-- Client-scoped legacy SSE message endpoint: `/openBrainMcp/clients/<clientId>/mcp/messages`
+- Default Streamable HTTP MCP endpoint: `/metaCortexMcp/mcp`
+- Default legacy SSE MCP endpoint: `/metaCortexMcp/mcp/sse`
+- Default legacy SSE message endpoint: `/metaCortexMcp/mcp/messages`
+- Client-scoped Streamable HTTP MCP endpoint: `/metaCortexMcp/clients/<clientId>/mcp`
+- Client-scoped legacy SSE endpoint: `/metaCortexMcp/clients/<clientId>/mcp/sse`
+- Client-scoped legacy SSE message endpoint: `/metaCortexMcp/clients/<clientId>/mcp/messages`
 
 Security model:
 
@@ -472,7 +472,7 @@ Search events do include a short `query_preview`, but the observability collecti
 
    ```bash
    cd functions
-   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
+   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
    MCP_ADMIN_TOKEN="replace-me" \
    MCP_SMOKE_MODE="admin-read-write" \
    npm run smoke
@@ -482,7 +482,7 @@ Search events do include a short `query_preview`, but the observability collecti
 
    ```bash
    cd functions
-   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/chatgpt-web/mcp" \
+   MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/clients/chatgpt-web/mcp" \
    MCP_ADMIN_TOKEN="replace-chatgpt-token" \
    MCP_SMOKE_MODE="browser-read-write" \
    npm run smoke

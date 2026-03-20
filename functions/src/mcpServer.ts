@@ -3,6 +3,7 @@ import * as z from "zod/v4";
 
 import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
+import { normalizeOptionalText } from "./normalize.js";
 import type { ToolCallObserver } from "./observability.js";
 import {
   buildFetchPayload,
@@ -525,10 +526,7 @@ function truncateText(value: string, limit = 160): string {
   return `${normalized.slice(0, limit)}...`;
 }
 
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const normalized = value?.trim();
-  return normalized ? normalized : undefined;
-}
+
 
 function jsonTextContent(payload: Record<string, unknown>) {
   return {

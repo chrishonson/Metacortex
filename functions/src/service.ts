@@ -6,6 +6,7 @@ import type {
   MemoryContentPreparer
 } from "./embeddings.js";
 import { HttpError } from "./errors.js";
+import { normalizeOptionalText } from "./normalize.js";
 import type {
   ConsolidationQueueInput,
   ConsolidationQueueResult,
@@ -191,10 +192,6 @@ function normalizeRequiredText(value: string, fieldName: string): string {
   return normalized;
 }
 
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const normalized = value?.trim();
-  return normalized ? normalized : undefined;
-}
 
 export function buildSearchPayload(result: SearchContextResult): Record<string, unknown> {
   return {

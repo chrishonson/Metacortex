@@ -6,7 +6,7 @@ describe("loadConfig", () => {
   it("loads required values and defaults", () => {
     const config = loadConfig({
       GEMINI_API_KEY: "gemini-key",
-      MCP_AUTH_TOKEN: "secret-token"
+      MCP_ADMIN_TOKEN: "secret-token"
     });
 
     expect(config.embeddingModel).toBe("text-embedding-004");
@@ -29,7 +29,7 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig({
         GEMINI_API_KEY: "gemini-key",
-        MCP_AUTH_TOKEN: "secret-token",
+        MCP_ADMIN_TOKEN: "secret-token",
         DEFAULT_FILTER_STATE: "unknown"
       })
     ).toThrowError(MissingConfigurationError);
@@ -38,7 +38,7 @@ describe("loadConfig", () => {
   it("loads scoped client profiles", () => {
     const config = loadConfig({
       GEMINI_API_KEY: "gemini-key",
-      MCP_AUTH_TOKEN: "admin-token",
+      MCP_ADMIN_TOKEN: "admin-token",
       MCP_ALLOWED_ORIGINS: "https://admin.example",
       MCP_ALLOWED_TOOLS: "store_context,search_context",
       MCP_CLIENT_PROFILES_JSON: JSON.stringify([
@@ -104,7 +104,7 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig({
         GEMINI_API_KEY: "gemini-key",
-        MCP_AUTH_TOKEN: "admin-token",
+        MCP_ADMIN_TOKEN: "admin-token",
         MCP_CLIENT_PROFILES_JSON: JSON.stringify([
           {
             id: "nanobot",

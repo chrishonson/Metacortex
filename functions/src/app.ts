@@ -337,6 +337,14 @@ function selectDefaultFilterState(
 
 function handleAppError(req: Request, res: Response, error: unknown): void {
   if (res.headersSent) {
+    console.warn("openBrainMcp error dropped (headers already sent)", {
+      method: req.method,
+      path: req.originalUrl,
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : error
+    });
     return;
   }
 

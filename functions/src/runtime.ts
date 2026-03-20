@@ -28,11 +28,6 @@ let cachedConfig: AppConfig | undefined;
 let cachedRuntime: RuntimeDependencies | undefined;
 let cachedObserver: ToolCallObserver | undefined;
 
-export function createRuntime(env: NodeJS.ProcessEnv = process.env): RuntimeDependencies {
-  const config = loadConfig(env);
-  return createRuntimeFromConfig(config);
-}
-
 function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
   const app = getApps().length === 0 ? initializeApp() : getApp();
   const firestore = getFirestore(app);

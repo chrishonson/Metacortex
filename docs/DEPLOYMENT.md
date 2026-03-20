@@ -19,7 +19,7 @@ The deploy path in this repo currently assumes:
 - Firestore collection `memory_vectors`
 - Firestore collection `memory_events` for audit and observability
 - embedding output pinned to `768` dimensions
-- embedding model pinned to `text-multimodal-embedding-002`
+- embedding model pinned to `text-embedding-004`
 - multimodal normalization model pinned to `gemini-3.1-flash-lite-preview`
 
 For the first production release, if `memory_vectors` is empty, no embedding migration is required.
@@ -74,7 +74,7 @@ Minimum required production values:
 ```dotenv
 GEMINI_API_KEY=...
 MCP_ADMIN_TOKEN=...
-GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002
+GEMINI_EMBEDDING_MODEL=text-embedding-004
 GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite-preview
 GEMINI_EMBEDDING_DIMENSIONS=768
 MEMORY_COLLECTION=memory_vectors
@@ -202,7 +202,7 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 - `MCP_ADMIN_TOKEN`
 - `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
 - `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
-- `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002`
+- `GEMINI_EMBEDDING_MODEL=text-embedding-004`
 - `GEMINI_EMBEDDING_DIMENSIONS=768`
 - `MEMORY_COLLECTION=memory_vectors`
 

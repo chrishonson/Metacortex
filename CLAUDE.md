@@ -35,7 +35,7 @@ Smoke test (against local emulator or production):
 ```bash
 cd functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
-MCP_AUTH_TOKEN="replace-me" \
+MCP_ADMIN_TOKEN="replace-me" \
 npm run smoke
 ```
 
@@ -59,7 +59,7 @@ Three transports, all available at both the default and per-client mount points:
 ### Client Profile Scoping
 
 Each client gets scoped access via bearer token + allowlists:
-- **Default client**: `/mcp` endpoint, configured via `MCP_AUTH_TOKEN` + `MCP_ALLOWED_TOOLS` + `MCP_ALLOWED_ORIGINS` + `MCP_ALLOWED_FILTER_STATES`; `MCP_ALLOWED_ORIGINS` applies only to this admin endpoint
+- **Default client**: `/mcp` endpoint, configured via `MCP_ADMIN_TOKEN` + `MCP_ALLOWED_TOOLS` + `MCP_ALLOWED_ORIGINS` + `MCP_ALLOWED_FILTER_STATES`; `MCP_ALLOWED_ORIGINS` applies only to this admin endpoint
 - **Custom clients**: `/clients/<clientId>/mcp` endpoints, configured via `MCP_CLIENT_PROFILES_JSON` (array of `{id, token, allowedOrigins[], allowedTools[], allowedFilterStates[]}`)
 
 Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildcard; default is deny-all.
@@ -141,7 +141,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `GEMINI_EMBEDDING_MODEL` | `text-multimodal-embedding-002` | Embedding model name |
+| `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` | Embedding model name |
 | `GEMINI_MULTIMODAL_MODEL` | `gemini-3.1-flash-lite-preview` | Multimodal normalization model |
 | `GEMINI_EMBEDDING_DIMENSIONS` | `768` | Embedding vector dimensions |
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |

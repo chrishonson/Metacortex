@@ -5,5 +5,11 @@ service cloud.firestore {
     match /memory_vectors/{document=**} {
       allow read, write: if false;
     }
+    match /memory_events/{document=**} {
+      allow read, write: if false;
+    }
+    match /memory_vectors_write_fingerprints/{document=**} {
+      allow read, write: if false;
+    }
   }
 }
