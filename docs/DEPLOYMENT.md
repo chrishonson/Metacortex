@@ -42,7 +42,7 @@ You need:
 - Firestore created in Native mode
 - access to the correct Firebase project alias
 - a valid `GEMINI_API_KEY`
-- a production `MCP_AUTH_TOKEN`
+- a production `MCP_ADMIN_TOKEN`
 
 If the repo is not bound to the right Firebase project yet:
 
@@ -73,7 +73,7 @@ Minimum required production values:
 
 ```dotenv
 GEMINI_API_KEY=...
-MCP_AUTH_TOKEN=...
+MCP_ADMIN_TOKEN=...
 GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002
 GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite-preview
 GEMINI_EMBEDDING_DIMENSIONS=768
@@ -122,7 +122,7 @@ Recommended web client profile shape:
 MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
-Keep each web-client token distinct from `MCP_AUTH_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
+Keep each web-client token distinct from `MCP_ADMIN_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
 
 ## Local verification
 
@@ -158,7 +158,7 @@ curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/healthz
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
-MCP_AUTH_TOKEN="replace-me" \
+MCP_ADMIN_TOKEN="replace-me" \
 npm run smoke -- --mode admin-read-write
 ```
 
@@ -167,7 +167,7 @@ Browser-client flow:
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/clients/chatgpt-web/mcp" \
-MCP_AUTH_TOKEN="replace-chatgpt-token" \
+MCP_ADMIN_TOKEN="replace-chatgpt-token" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke
 ```
@@ -199,7 +199,7 @@ Do not deploy while unsure which alias is active.
 Verify that `functions/.env.prod` or the dotenv file you plan to deploy with includes the intended values, especially:
 
 - `GEMINI_API_KEY`
-- `MCP_AUTH_TOKEN`
+- `MCP_ADMIN_TOKEN`
 - `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
 - `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
 - `GEMINI_EMBEDDING_MODEL=text-multimodal-embedding-002`
@@ -214,7 +214,7 @@ Also confirm the actual web-client registration values you will use:
 
 - ChatGPT URL: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
 - Claude URL: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- each bearer token comes from the matching client profile, not `MCP_AUTH_TOKEN`
+- each bearer token comes from the matching client profile, not `MCP_ADMIN_TOKEN`
 - each web origin must match the profile's `allowedOrigins`
 
 ### 3. Deploy Firestore indexes
@@ -310,7 +310,7 @@ curl -i \
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
-MCP_AUTH_TOKEN="<ADMIN_MCP_TOKEN>" \
+MCP_ADMIN_TOKEN="<ADMIN_MCP_TOKEN>" \
 MCP_SMOKE_MODE="admin-read-write" \
 npm run smoke
 ```
@@ -333,7 +333,7 @@ This is the first proof that:
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
+MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS networking." --query "shared networking for android and ios"
 ```
@@ -380,7 +380,7 @@ Confirm:
 ```bash
 cd /Users/nick/git/FirebaseOpenBrain/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-MCP_AUTH_TOKEN="<CHATGPT_WEB_TOKEN>" \
+MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
 MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
 MCP_IMAGE_MIME_TYPE="image/png" \
@@ -401,14 +401,14 @@ Expected:
 
 Use separate tokens for separate trust boundaries:
 
-- `MCP_AUTH_TOKEN` is the admin token for `/mcp`
+- `MCP_ADMIN_TOKEN` is the admin token for `/mcp`
 - `MCP_CLIENT_PROFILES_JSON[].token` is the scoped token for each client endpoint
 
 Rotation and revocation rules:
 
 - rotate a web client token by changing that profile's `token` and redeploying functions
 - revoke a client by removing the profile or replacing its token and redeploying functions
-- do not reuse `MCP_AUTH_TOKEN` for browser-hosted clients
+- do not reuse `MCP_ADMIN_TOKEN` for browser-hosted clients
 - if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
 
 ## Observability

@@ -240,7 +240,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     );
   }
 
-  const authToken = requireEnv(env, "MCP_AUTH_TOKEN");
+  const authToken = requireEnv(env, "MCP_ADMIN_TOKEN");
   const defaultClientProfile: ClientProfile = {
     id: "default",
     authToken,

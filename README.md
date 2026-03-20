@@ -166,7 +166,7 @@ For browser-hosted MCP clients, register the scoped endpoint, not the admin endp
 - bearer token: the `token` value from the matching client profile
 - allowed browser origins: the matching profile's `allowedOrigins`
 
-Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_AUTH_TOKEN`.
+Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_ADMIN_TOKEN`.
 
 Use separate client profiles per browser client:
 
@@ -473,7 +473,7 @@ Search events do include a short `query_preview`, but the observability collecti
    ```bash
    cd functions
    MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
-   MCP_AUTH_TOKEN="replace-me" \
+   MCP_ADMIN_TOKEN="replace-me" \
    MCP_SMOKE_MODE="admin-read-write" \
    npm run smoke
    ```
@@ -483,7 +483,7 @@ Search events do include a short `query_preview`, but the observability collecti
    ```bash
    cd functions
    MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/clients/chatgpt-web/mcp" \
-   MCP_AUTH_TOKEN="replace-chatgpt-token" \
+   MCP_ADMIN_TOKEN="replace-chatgpt-token" \
    MCP_SMOKE_MODE="browser-read-write" \
    npm run smoke
    ```
