@@ -161,12 +161,12 @@ Recommended browser read/write toolset:
 
 For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
 
-- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
-- Claude web URL: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
+- ChatGPT web URL: `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
+- Claude web URL: `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp`
 - bearer token: the `token` value from the matching client profile
 - allowed browser origins: the matching profile's `allowedOrigins`
 
-Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_AUTH_TOKEN`.
+Do not register `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_AUTH_TOKEN`.
 
 Use separate client profiles per browser client:
 
@@ -182,7 +182,7 @@ ChatGPT's current MCP UI does not support configuring custom `Authorization: Bea
 3. Click "Add new App" or "Connect MCP Server".
 4. Set **Auth Type** to **No Authentication**.
 5. Set the **MCP URL** to your tokenized endpoint:
-   `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
+   `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
 
 MetaCortex will validate the token from the URL and reject unauthenticated requests even though ChatGPT is configured for "No Auth".
 
@@ -191,13 +191,13 @@ MetaCortex will validate the token from the URL and reject unauthenticated reque
 Depending on your Claude client (e.g., experimental web extensions, custom UIs, or future Claude Desktop SSE support), you can configure the connection in two ways:
 
 **Option 1: Standard Headers (Preferred)**
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
+- **MCP URL**: `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp`
 - **Auth Type**: Bearer Token / Service Token
 - **Token**: `Bearer <YOUR_CLAUDE_TOKEN>`
 
 **Option 2: Tokenized URL (If headers are unsupported)**
 - **Auth Type**: No Authentication
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp?auth_token=<YOUR_CLAUDE_TOKEN>`
+- **MCP URL**: `https://https://us-central1-my-brain-88870.cloudfunctions.net/metaCortexMcp/clients/claude-web/mcp?auth_token=<YOUR_CLAUDE_TOKEN>`
 
 
 ## Tool Contract
