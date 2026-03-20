@@ -50,7 +50,7 @@ These are the tools you should expose to read/write chat clients first:
 These are still useful, but they are not the first tools to expose to browser-hosted chat clients:
 
 - `store_context`
-  Low-level write tool that requires explicit backend metadata such as `artifact_type` and `branch_state`.
+  Low-level write tool that requires explicit backend metadata such as `module_name` and `branch_state`.
 - `deprecate_context`
   Soft-delete obsolete memories.
 - `get_consolidation_queue`
@@ -60,32 +60,15 @@ These are still useful, but they are not the first tools to expose to browser-ho
 
 `store_context` is too backend-shaped for normal web chat use.
 
-If you ask a model to choose `artifact_type`, `branch_state`, and `module_name` correctly on every write, it will be inconsistent. `remember_context` is the practical front door:
+If you ask a model to choose `branch_state` and `module_name` correctly on every write, it will be inconsistent. `remember_context` is the practical front door:
 
 - `topic` maps to the stored `module_name`
 - `draft=false` stores canonical memory as `active`
 - `draft=true` stores draft material as `wip`
-- `memory_type` is optional and uses plain language
-- if `memory_type` is omitted, the server applies a best-effort classification
 
 ## Metadata model
 
-These fields still exist in stored records because they help maintenance and filtering.
-
-### `artifact_type`
-
-Backend category for the memory:
-
-- `DECISION`
-  Chosen approaches or settled project direction
-- `REQUIREMENT`
-  Rules, constraints, or must/should statements
-- `PATTERN`
-  Reusable workflows, screenshots, playbooks, or implementation patterns
-- `SPEC`
-  Canonical schema, interface, contract, or spec details
-
-For browser clients, prefer `remember_context` and let the server infer this unless the type is obvious.
+These fields exist in stored records because they help maintenance and filtering.
 
 ### `branch_state`
 
@@ -224,7 +207,6 @@ Typical result:
     "content": "We use Ktor for shared Android and iOS networking.",
     "metadata": {
       "module_name": "kmp-networking",
-      "memory_type": "decision",
       "branch_state": "active",
       "modality": "text",
       "created_at": "2026-03-14T12:00:00.000Z",
@@ -233,12 +215,6 @@ Typical result:
   },
   "write_status": "created"
 }
-```
-
-Supported `memory_type` values are:
-
-```json
-["decision", "requirement", "pattern", "spec", "preference", "general"]
 ```
 
 Image-backed memory with an external asset reference:
@@ -277,7 +253,6 @@ Typical result:
       "content_preview": "We use Ktor for shared Android and iOS networking.",
       "metadata": {
         "module_name": "kmp-networking",
-        "memory_type": "decision",
         "branch_state": "active",
         "modality": "text",
         "created_at": "2026-03-14T12:00:00.000Z",
@@ -326,7 +301,6 @@ Typical result:
     "retrieval_text": "We use Ktor for shared Android and iOS networking.",
     "metadata": {
       "module_name": "kmp-networking",
-      "memory_type": "decision",
       "branch_state": "active",
       "modality": "text",
       "created_at": "2026-03-14T12:00:00.000Z",
@@ -365,19 +339,6 @@ Write behavior that matters in production:
 - omitted `topic` becomes `general`
 - omitted `draft` becomes `false`, which stores `branch_state=active`
 - `draft=true` stores `branch_state=wip`
-- omitted `memory_type` is inferred heuristically
-
-Memory type inference is intentionally simple:
-
-- keywords like `must`, `should`, `required`, `need to` map toward `REQUIREMENT`
-- keywords like `prefer`, `preference`, `we like`, `default to` map toward `PREFERENCE`
-- keywords like `pattern`, `workflow`, `playbook`, `screenshot` map toward `PATTERN`
-- keywords like `spec`, `schema`, `contract`, `interface` map toward `SPEC`
-- obvious `we use`, `we decided`, `choose`, `switched to` language maps toward `DECISION`
-- otherwise text memories fall back to `GENERAL`
-- image-only memories with no text fall back to `GENERAL`
-
-If canonical classification matters, set `memory_type` explicitly instead of relying on inference.
 
 ## Lifecycle And Maintenance
 

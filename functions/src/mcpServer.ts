@@ -12,9 +12,7 @@ import {
   OpenBrainService
 } from "./service.js";
 import {
-  ARTIFACT_TYPES,
   BRANCH_STATES,
-  REMEMBER_MEMORY_TYPES,
   type BranchState,
   type McpToolName
 } from "./types.js";
@@ -94,12 +92,6 @@ export function createOpenBrainMcpServer(
             .describe(
               "Optional subsystem or topic label for later filtering, such as auth, billing, or ui-settings. Defaults to general if omitted."
             ),
-          memory_type: z
-            .enum(REMEMBER_MEMORY_TYPES)
-            .optional()
-            .describe(
-              "Optional memory category. Use decision, requirement, pattern, spec, preference, or general. If omitted, the server infers a best-effort type."
-            ),
           draft: z
             .boolean()
             .optional()
@@ -125,7 +117,6 @@ export function createOpenBrainMcpServer(
       async args => {
         const requestSummary = {
           topic: normalizeOptionalText(args.topic) ?? "general",
-          memory_type: args.memory_type,
           draft: args.draft ?? false,
           content_length: args.content?.trim().length ?? 0,
           image_present: Boolean(args.image_base64),
@@ -137,7 +128,6 @@ export function createOpenBrainMcpServer(
           () => service.rememberContext(args),
           record => ({
             document_id: record.id,
-            memory_type: record.metadata.memory_type,
             module_name: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
@@ -159,15 +149,12 @@ export function createOpenBrainMcpServer(
       {
         title: "Store Context",
         description:
-          "Low-level admin write tool. Normalize text or image-backed memories with Gemini, embed the resulting retrieval text, and store it in Firestore-backed long-term memory using explicit metadata fields. Prefer remember_context for normal chat-client writes.",
+          "Low-level admin write tool. Normalize text or image-backed memories with Gemini, embed the resulting retrieval text, and store it in Firestore-backed long-term memory. Prefer remember_context for normal chat-client writes.",
         inputSchema: {
           content: z
             .string()
             .optional()
             .describe("Optional raw markdown or text to store. Required unless image_base64 is provided."),
-          artifact_type: z
-            .enum(ARTIFACT_TYPES)
-            .describe("The type of artifact being stored."),
           module_name: z
             .string()
             .min(1)
@@ -193,7 +180,6 @@ export function createOpenBrainMcpServer(
       },
       async args => {
         const requestSummary = {
-          artifact_type: args.artifact_type,
           module_name: normalizeOptionalText(args.module_name),
           branch_state: args.branch_state,
           content_length: args.content?.trim().length ?? 0,
@@ -206,7 +192,6 @@ export function createOpenBrainMcpServer(
           () => service.storeContext(args),
           record => ({
             document_id: record.id,
-            artifact_type: record.metadata.artifact_type,
             module_name: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
@@ -224,7 +209,6 @@ export function createOpenBrainMcpServer(
                   ? `Reused existing memory vector ${result.id}.`
                   : `Stored memory vector ${result.id}.`,
                 `write_status=${result.was_duplicate ? "duplicate" : "created"}`,
-                `artifact_type=${result.metadata.artifact_type}`,
                 `module_name=${result.metadata.module_name}`,
                 `branch_state=${result.metadata.branch_state}`,
                 `modality=${result.metadata.modality}`,
@@ -350,7 +334,6 @@ export function createOpenBrainMcpServer(
           },
           fetched => ({
             document_id: fetched.item.id,
-            memory_type: fetched.item.metadata.memory_type,
             module_name: fetched.item.metadata.module_name,
             branch_state: fetched.item.metadata.branch_state,
             modality: fetched.item.metadata.modality,
@@ -464,7 +447,6 @@ export function createOpenBrainMcpServer(
             [
               `Item ${index + 1}`,
               `id=${item.id}`,
-              `artifact_type=${item.metadata.artifact_type}`,
               `module_name=${item.metadata.module_name}`,
               `updated_at=${new Date(item.metadata.updated_at).toISOString()}`,
               item.content
@@ -525,8 +507,6 @@ function truncateText(value: string, limit = 160): string {
 
   return `${normalized.slice(0, limit)}...`;
 }
-
-
 
 function jsonTextContent(payload: Record<string, unknown>) {
   return {

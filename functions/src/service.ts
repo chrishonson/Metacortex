@@ -16,7 +16,6 @@ import type {
   FetchContextResult,
   MemoryDocument,
   RememberContextInput,
-  RememberMemoryType,
   SearchContextInput,
   SearchContextResult,
   StoreContextInput,
@@ -38,11 +37,8 @@ export class OpenBrainService {
     const normalizedImageBase64 = normalizeOptionalText(input.image_base64);
     const normalizedImageMimeType = normalizeOptionalText(input.image_mime_type);
     const normalizedArtifactRefs = normalizeArtifactRefs(input.artifact_refs);
-    const memoryType =
-      input.memory_type ?? artifactTypeToMemoryType(input.artifact_type);
     const preparedContent = await this.contentPreparer.prepare({
       content: normalizedContent,
-      artifactType: input.artifact_type,
       moduleName: normalizedModule,
       imageBase64: normalizedImageBase64,
       imageMimeType: normalizedImageMimeType
@@ -50,13 +46,11 @@ export class OpenBrainService {
     const embedding = await this.embeddings.embed({
       text: preparedContent.retrieval_text,
       taskType: "RETRIEVAL_DOCUMENT",
-      title: `${input.artifact_type} ${normalizedModule}`
+      title: normalizedModule
     });
     const now = Date.now();
 
     const metadata = {
-      artifact_type: input.artifact_type,
-      memory_type: memoryType,
       module_name: normalizedModule,
       branch_state: input.branch_state,
       created_at: now,
@@ -72,8 +66,6 @@ export class OpenBrainService {
       retrievalText: preparedContent.retrieval_text,
       embedding,
       idempotencyKey: buildWriteFingerprint({
-        artifactType: input.artifact_type,
-        memoryType,
         moduleName: normalizedModule,
         branchState: input.branch_state,
         content: normalizedContent,
@@ -97,18 +89,9 @@ export class OpenBrainService {
 
   async rememberContext(input: RememberContextInput): Promise<StoreContextResult> {
     const normalizedTopic = normalizeOptionalText(input.topic) ?? "general";
-    const normalizedContent = normalizeOptionalText(input.content);
-    const memoryType =
-      input.memory_type ?? inferMemoryType(normalizedContent);
-    const artifactType =
-      input.memory_type
-        ? rememberMemoryTypeToArtifactType(input.memory_type)
-        : rememberMemoryTypeToArtifactType(memoryType);
 
     return this.storeContext({
-      content: normalizedContent,
-      artifact_type: artifactType,
-      memory_type: memoryType,
+      content: normalizeOptionalText(input.content),
       module_name: normalizedTopic,
       branch_state: input.draft ? "wip" : "active",
       artifact_refs: input.artifact_refs,
@@ -192,7 +175,6 @@ function normalizeRequiredText(value: string, fieldName: string): string {
   return normalized;
 }
 
-
 export function buildSearchPayload(result: SearchContextResult): Record<string, unknown> {
   return {
     matches: result.matches.map(match => ({
@@ -235,109 +217,7 @@ export function buildRememberPayload(result: StoreContextResult): Record<string,
   };
 }
 
-function rememberMemoryTypeToArtifactType(memoryType: RememberMemoryType): StoreContextInput["artifact_type"] {
-  switch (memoryType) {
-    case "decision":
-      return "DECISION";
-    case "requirement":
-      return "REQUIREMENT";
-    case "pattern":
-      return "PATTERN";
-    case "spec":
-      return "SPEC";
-    case "preference":
-      return "DECISION";
-    case "general":
-      return "PATTERN";
-  }
-}
-
-function inferMemoryType(content: string | undefined): RememberMemoryType {
-  const normalized = content?.toLowerCase() ?? "";
-
-  if (!normalized) {
-    return "general";
-  }
-
-  if (
-    includesAny(normalized, [
-      "must ",
-      "must\n",
-      "must be",
-      "should ",
-      "needs to",
-      "need to",
-      "requirement",
-      "required",
-      "cannot ",
-      "can't "
-    ])
-  ) {
-    return "requirement";
-  }
-
-  if (
-    includesAny(normalized, [
-      "prefer",
-      "preference",
-      "usually use",
-      "we like",
-      "default to"
-    ])
-  ) {
-    return "preference";
-  }
-
-  if (
-    includesAny(normalized, [
-      "pattern",
-      "workflow",
-      "playbook",
-      "runbook",
-      "how to",
-      "recipe",
-      "screenshot"
-    ])
-  ) {
-    return "pattern";
-  }
-
-  if (
-    includesAny(normalized, [
-      "spec",
-      "schema",
-      "contract",
-      "interface",
-      "api shape",
-      "documented"
-    ])
-  ) {
-    return "spec";
-  }
-
-  if (
-    includesAny(normalized, [
-      "decision",
-      "decided",
-      "choose",
-      "chosen",
-      "switched to",
-      "we use"
-    ])
-  ) {
-    return "decision";
-  }
-
-  return "general";
-}
-
-function includesAny(value: string, needles: string[]): boolean {
-  return needles.some(needle => value.includes(needle));
-}
-
 function buildWriteFingerprint(input: {
-  artifactType: StoreContextInput["artifact_type"];
-  memoryType: RememberMemoryType;
   moduleName: string;
   branchState: StoreContextInput["branch_state"];
   content?: string;
@@ -348,9 +228,7 @@ function buildWriteFingerprint(input: {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        version: 1,
-        artifact_type: input.artifactType,
-        memory_type: input.memoryType,
+        version: 2,
         module_name: input.moduleName,
         branch_state: input.branchState,
         content: input.content ?? null,
@@ -382,27 +260,9 @@ function summarizeMemoryContent(value: string, limit = 220): string {
   return `${normalized.slice(0, limit - 3)}...`;
 }
 
-function artifactTypeToMemoryType(
-  artifactType: StoreContextInput["artifact_type"]
-): RememberMemoryType {
-  switch (artifactType) {
-    case "DECISION":
-      return "decision";
-    case "REQUIREMENT":
-      return "requirement";
-    case "PATTERN":
-      return "pattern";
-    case "SPEC":
-      return "spec";
-  }
-}
-
 function buildPublicMetadata(match: Pick<MemoryDocument, "metadata">): Record<string, unknown> {
   return {
     module_name: match.metadata.module_name,
-    memory_type:
-      match.metadata.memory_type ??
-      artifactTypeToMemoryType(match.metadata.artifact_type),
     branch_state: match.metadata.branch_state,
     modality: normalizePublicModality(match.metadata.modality),
     ...(match.metadata.artifact_refs

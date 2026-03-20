@@ -2,7 +2,6 @@ import { GoogleGenAI, type Part } from "@google/genai";
 
 import { HttpError } from "./errors.js";
 import type {
-  ArtifactType,
   MemoryMedia,
   MemoryModality
 } from "./types.js";
@@ -28,7 +27,6 @@ export interface GeminiEmbeddingClientOptions {
 
 export interface MemoryPreparationInput {
   content?: string;
-  artifactType: ArtifactType;
   moduleName: string;
   imageBase64?: string;
   imageMimeType?: string;
@@ -129,7 +127,6 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
       {
         text: buildImageNormalizationPrompt(
           normalizedContent,
-          input.artifactType,
           input.moduleName
         )
       },
@@ -180,7 +177,6 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
 
 function buildImageNormalizationPrompt(
   content: string | undefined,
-  artifactType: ArtifactType,
   moduleName: string
 ): string {
   const userContext = content
@@ -189,7 +185,6 @@ function buildImageNormalizationPrompt(
 
   return [
     "Convert this software-project memory into concise retrieval text.",
-    `Artifact type: ${artifactType}`,
     `Module name: ${moduleName}`,
     userContext,
     "Describe only details visible in the image that matter for later semantic retrieval.",

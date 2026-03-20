@@ -70,7 +70,6 @@ describe("MCP integration", () => {
       arguments: {
         content:
           "We are using Ktor for the Android/iOS networking layer in the main branch.",
-        artifact_type: "DECISION",
         module_name: "kmp-networking",
         branch_state: "active"
       }
@@ -108,7 +107,6 @@ describe("MCP integration", () => {
       name: "store_context",
       arguments: {
         content: "Draft thoughts on error handling in networking.",
-        artifact_type: "PATTERN",
         module_name: "kmp-networking",
         branch_state: "wip"
       }
@@ -164,7 +162,6 @@ describe("MCP integration", () => {
       name: "store_context",
       arguments: {
         content: "Jetpack Compose settings screen screenshot.",
-        artifact_type: "PATTERN",
         module_name: "jetpack-compose-ui",
         branch_state: "active",
         image_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
@@ -210,7 +207,6 @@ describe("MCP integration", () => {
 
     await runtime.service.storeContext({
       content: "We are using Ktor for the Android/iOS networking layer in the main branch.",
-      artifact_type: "DECISION",
       module_name: "kmp-networking",
       branch_state: "active"
     });
@@ -268,7 +264,6 @@ describe("MCP integration", () => {
       name: "store_context",
       arguments: {
         content: "should fail",
-        artifact_type: "DECISION",
         module_name: "kmp-networking",
         branch_state: "active"
       }
@@ -366,7 +361,6 @@ describe("MCP integration", () => {
         content: "We use Ktor for shared Android and iOS networking.",
         metadata: {
           module_name: "kmp-networking",
-          memory_type: "decision",
           branch_state: "active",
           modality: "text"
         }
@@ -412,7 +406,6 @@ describe("MCP integration", () => {
         retrieval_text: "We use Ktor for shared Android and iOS networking.",
         metadata: {
           module_name: "kmp-networking",
-          memory_type: "decision",
           branch_state: "active"
         }
       }

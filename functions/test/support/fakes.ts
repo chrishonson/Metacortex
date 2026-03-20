@@ -79,7 +79,7 @@ export class FakeMemoryContentPreparer implements MemoryContentPreparer {
     }
 
     const imageSummary =
-      `Architecture screenshot for ${input.moduleName} with labels relevant to ${input.artifactType}.`;
+      `Architecture screenshot for ${input.moduleName}.`;
 
     return {
       content: normalizedContent ?? imageSummary,
@@ -254,7 +254,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     authToken,
     allowedOrigins: [],
     allowedTools: [...MCP_TOOL_NAMES],
-    allowedFilterStates: ["active", "merged", "deprecated", "wip"] as const
+    allowedFilterStates: ["active", "merged", "deprecated", "wip"] as BranchState[]
   };
 
   return {
