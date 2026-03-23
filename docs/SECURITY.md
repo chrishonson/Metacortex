@@ -45,7 +45,7 @@ The public, unauthenticated `/healthz` response includes an `endpoints` array th
 
 **File:** `functions/src/service.ts`, `functions/src/embeddings.ts`
 
-Every authenticated `store_context` or `search_context` call triggers one or more Gemini API calls (embedding and optionally multimodal normalization). A valid client token can trigger unbounded Gemini API usage, with no per-client quota enforcement beyond Cloud Functions concurrency limits.
+Every authenticated `remember_context` or `search_context` call triggers one or more Gemini API calls (embedding and optionally multimodal normalization). A valid client token can trigger unbounded Gemini API usage, with no per-client quota enforcement beyond Cloud Functions concurrency limits.
 
 **Fix options:**
 - Add Cloud Armor or Firebase App Check for browser-facing client profiles

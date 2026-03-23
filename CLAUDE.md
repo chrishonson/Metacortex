@@ -67,8 +67,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | Tool | Purpose |
 |------|---------|
-| `remember_context` | High-level write tool for chat clients: save durable memory with optional topic, draft flag, image input, and artifact refs |
-| `store_context` | Store text (+ optional image) → Gemini multimodal normalization → embedding → Firestore |
+| `remember_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, and artifact refs |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
@@ -92,9 +91,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 ### Data Flow
 
-**remember_context**: Chat-friendly input → server defaults/inference for metadata → `store_context` pipeline
-
-**store_context**: Input text (+ optional image) → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
+**remember_context**: Chat/admin input → server defaults/inference for metadata and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
 

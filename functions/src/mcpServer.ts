@@ -11,7 +11,6 @@ import {
   buildFetchPayload,
   buildRememberPayload,
   buildSearchPayload,
-  buildStorePayload,
   MetaCortexService
 } from "./service.js";
 import {
@@ -83,7 +82,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Remember Context",
         description:
-          "Save a durable memory for future retrieval from chat clients. Prefer this over store_context for normal read/write use. The server defaults topic to general, stores canonical memories as active, and uses wip only when draft=true.",
+          "Save a durable memory for future retrieval. This is the single write tool for both chat clients and admin workflows. The server defaults topic to general and branch_state to active. Use draft=true as a shorthand for wip, or set branch_state explicitly for advanced lifecycle control.",
         inputSchema: {
           content: z
             .string()
@@ -99,7 +98,13 @@ export function createMetaCortexMcpServer(
             .boolean()
             .optional()
             .describe(
-              "Set true only for rough notes awaiting consolidation. Omit or false for normal durable memory."
+              "Convenience shorthand for active vs wip writes. Use true for rough notes awaiting consolidation. Omit when setting branch_state explicitly."
+            ),
+          branch_state: z
+            .enum(BRANCH_STATES)
+            .optional()
+            .describe(
+              "Optional advanced lifecycle state. Defaults to active. Use wip for draft material, merged for incorporated context, and deprecated only for explicit admin workflows. If provided with draft, both must agree."
             ),
           image_base64: z
             .string()
@@ -118,9 +123,11 @@ export function createMetaCortexMcpServer(
         }
       },
       async args => {
+        const requestedBranchState = args.branch_state ?? (args.draft ? "wip" : "active");
         const requestSummary = {
           topic: normalizeOptionalText(args.topic) ?? "general",
-          draft: args.draft ?? false,
+          branch_state: requestedBranchState,
+          draft: args.draft,
           content_length: args.content?.trim().length ?? 0,
           image_present: Boolean(args.image_base64),
           artifact_ref_count: args.artifact_refs?.length ?? 0
@@ -141,70 +148,6 @@ export function createMetaCortexMcpServer(
 
         return {
           content: [jsonTextContent(buildRememberPayload(result))]
-        };
-      }
-    );
-  }
-
-  if (allowedTools.has("store_context")) {
-    server.registerTool(
-      "store_context",
-      {
-        title: "Store Context",
-        description:
-          "Low-level admin write tool. Normalize text or image-backed memories with Gemini, embed the resulting retrieval text, and store it in Firestore-backed long-term memory. Prefer remember_context for normal chat-client writes.",
-        inputSchema: {
-          content: z
-            .string()
-            .optional()
-            .describe("Optional raw markdown or text to store. Required unless image_base64 is provided."),
-          module_name: z
-            .string()
-            .min(1)
-            .describe("The codebase or subsystem name associated with the content."),
-          branch_state: z
-            .enum(BRANCH_STATES)
-            .describe(
-              "The lifecycle state for the stored memory. Use active for canonical context, wip for draft material awaiting consolidation, merged for incorporated context, and deprecated for obsolete context."
-            ),
-          image_base64: z
-            .string()
-            .optional()
-            .describe("Optional base64-encoded image bytes for multimodal memories."),
-          image_mime_type: z
-            .string()
-            .optional()
-            .describe("Required when image_base64 is provided, for example image/png."),
-          artifact_refs: z
-            .array(z.string())
-            .optional()
-            .describe("Optional array of Firebase Storage URIs (gs://...) linking to multimodal evidence.")
-        }
-      },
-      async args => {
-        const requestSummary = {
-          module_name: normalizeOptionalText(args.module_name),
-          branch_state: args.branch_state,
-          content_length: args.content?.trim().length ?? 0,
-          image_present: Boolean(args.image_base64),
-          artifact_ref_count: args.artifact_refs?.length ?? 0
-        };
-        const result = await observeToolCall(
-          "store_context",
-          requestSummary,
-          () => service.storeContext(args),
-          record => ({
-            document_id: record.id,
-            module_name: record.metadata.module_name,
-            branch_state: record.metadata.branch_state,
-            modality: record.metadata.modality,
-            write_status: record.was_duplicate ? "duplicate" : "created",
-            artifact_ref_count: record.metadata.artifact_refs?.length ?? 0
-          })
-        );
-
-        return {
-          content: [jsonTextContent(buildStorePayload(result))]
         };
       }
     );

@@ -39,7 +39,7 @@ There are two tool layers in this repo.
 These are the tools you should expose to read/write chat clients first:
 
 - `remember_context`
-  High-level write tool for normal chat use. The client supplies the memory text, optional topic, optional `draft=true`, optional image input, and optional `artifact_refs`. The server fills in backend metadata defaults.
+  The single write tool for normal chat use and advanced admin writes. The client supplies the memory text, optional topic, optional `draft=true` or explicit `branch_state`, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
 - `search_context`
   Vector search over stored memories. Results include document ids and artifact refs when available.
 - `fetch_context`
@@ -49,22 +49,19 @@ These are the tools you should expose to read/write chat clients first:
 
 These are still useful, but they are not the first tools to expose to browser-hosted chat clients:
 
-- `store_context`
-  Low-level write tool that requires explicit backend metadata such as `module_name` and `branch_state`.
 - `deprecate_context`
   Soft-delete obsolete memories.
 - `get_consolidation_queue`
   Read all draft (`wip`) memories that still need consolidation into canonical context.
 
-## Why `remember_context` exists
+## Why `remember_context` Is The Write Tool
 
-`store_context` is too backend-shaped for normal web chat use.
-
-If you ask a model to choose `branch_state` and `module_name` correctly on every write, it will be inconsistent. `remember_context` is the practical front door:
+`remember_context` keeps the public write surface simple while still supporting advanced lifecycle control when needed:
 
 - `topic` maps to the stored `module_name`
-- `draft=false` stores canonical memory as `active`
+- omitted `branch_state` stores canonical memory as `active`
 - `draft=true` stores draft material as `wip`
+- explicit `branch_state` is available for advanced admin workflows such as `merged`
 
 ## Metadata model
 
@@ -83,7 +80,7 @@ Lifecycle state for a stored memory:
 - `deprecated`
   Obsolete memory kept only for history/audit
 
-For browser clients, do not expose `branch_state` directly. Use `remember_context` and set `draft=true` only when the user is explicitly saving rough notes.
+For browser clients, prefer `remember_context` with its defaults and use `draft=true` only when the user is explicitly saving rough notes. Admin flows can set `branch_state` explicitly when needed.
 
 ### `module_name`
 
@@ -333,8 +330,10 @@ Write behavior that matters in production:
 `remember_context` defaults:
 
 - omitted `topic` becomes `general`
-- omitted `draft` becomes `false`, which stores `branch_state=active`
+- omitted `draft` and omitted `branch_state` store `branch_state=active`
 - `draft=true` stores `branch_state=wip`
+- explicit `branch_state` overrides the default lifecycle state
+- if both `draft` and `branch_state` are provided, they must agree
 
 ## Lifecycle And Maintenance
 
@@ -347,9 +346,9 @@ Recommended usage:
 
 Current lifecycle behavior:
 
-- `remember_context` only creates `active` or `wip` records
+- `remember_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
-- `merged` exists as a searchable historical state, but browser writes do not assign it automatically
+- `merged` exists as a searchable historical state for explicit admin writes
 
 ## Observability
 
@@ -371,7 +370,7 @@ After deployment, there are three places to look:
 
 Examples:
 
-- `remember_context` and `store_context` events record the written `document_id`, `module_name`, `branch_state`, and `modality`
+- `remember_context` events record the written `document_id`, `module_name`, `branch_state`, and `modality`
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
 - `fetch_context` events record which `document_id` was read
 - `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`

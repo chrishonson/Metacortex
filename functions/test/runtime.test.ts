@@ -22,7 +22,7 @@ describe("runtime caching", () => {
       GEMINI_API_KEY: "gemini-key",
       MCP_ADMIN_TOKEN: "admin-token",
       MCP_ALLOWED_ORIGINS: "https://admin.example",
-      MCP_ALLOWED_TOOLS: "store_context,search_context",
+      MCP_ALLOWED_TOOLS: "remember_context,search_context",
       MCP_ALLOWED_FILTER_STATES: "active,merged,deprecated,wip",
       MCP_CLIENT_PROFILES_JSON: JSON.stringify([
         {
@@ -58,7 +58,7 @@ describe("runtime caching", () => {
       "https://admin.example"
     ]);
     expect(runtime.config.defaultClientProfile.allowedTools).toEqual([
-      "store_context",
+      "remember_context",
       "search_context"
     ]);
     expect(runtime.config.clientProfiles.map(profile => profile.id)).toEqual([

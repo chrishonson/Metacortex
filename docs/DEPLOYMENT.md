@@ -83,7 +83,7 @@ MEMORY_COLLECTION=memory_vectors
 Recommended security and access defaults for the first release:
 
 ```dotenv
-MCP_ALLOWED_TOOLS=remember_context,store_context,search_context,fetch_context,deprecate_context,get_consolidation_queue
+MCP_ALLOWED_TOOLS=remember_context,search_context,fetch_context,deprecate_context,get_consolidation_queue
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 SEARCH_RESULT_LIMIT=5
@@ -312,7 +312,7 @@ npm run smoke
 Expected:
 
 - tool listing succeeds
-- `store_context` succeeds
+- `remember_context` succeeds
 - `search_context` returns the stored sample
 
 This is the first proof that:

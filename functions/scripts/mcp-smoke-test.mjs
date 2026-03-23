@@ -30,6 +30,10 @@ const query = readArg(
   "networking layer for Android and iOS"
 );
 const topic = readArg("topic", process.env.MCP_TOPIC ?? "kmp-networking");
+const branchState = readArg(
+  "branch-state",
+  process.env.MCP_BRANCH_STATE ?? "active"
+);
 const imageBase64 = readArg("image-base64", process.env.MCP_IMAGE_BASE64);
 const imageMimeType = readArg(
   "image-mime-type",
@@ -73,15 +77,14 @@ try {
   }
 
   if (mode === "admin-read-write" || mode === "read-write") {
-    ensureTools(toolNames, ["store_context", "search_context"]);
+    ensureTools(toolNames, ["remember_context", "search_context"]);
 
-    const storeResult = await client.callTool({
-      name: "store_context",
+    const rememberResult = await client.callTool({
+      name: "remember_context",
       arguments: {
         content,
-        artifact_type: "DECISION",
-        module_name: topic,
-        branch_state: "active",
+        topic,
+        branch_state: branchState,
         ...(artifactRef
           ? {
               artifact_refs: [artifactRef]
@@ -96,8 +99,8 @@ try {
       }
     });
 
-    console.log("\nstore_context:");
-    console.log(textContent(storeResult));
+    console.log("\nremember_context:");
+    console.log(textContent(rememberResult));
   } else if (mode === "browser-read-write") {
     ensureTools(toolNames, ["remember_context", "search_context", "fetch_context"]);
 
@@ -106,6 +109,7 @@ try {
       arguments: {
         content,
         topic,
+        ...(branchState ? { branch_state: branchState } : {}),
         ...(artifactRef
           ? {
               artifact_refs: [artifactRef]
@@ -125,8 +129,8 @@ try {
   } else if (mode === "search-only") {
     ensureTools(toolNames, ["search_context"]);
 
-    if (toolNames.includes("store_context")) {
-      throw new Error("search-only mode expected store_context to be unavailable");
+    if (toolNames.includes("remember_context")) {
+      throw new Error("search-only mode expected remember_context to be unavailable");
     }
   } else {
     throw new Error(`Unsupported smoke mode: ${mode}`);
@@ -185,6 +189,6 @@ function ensureTools(toolNames, required) {
 }
 
 function extractDocumentId(searchText) {
-  const match = searchText.match(/^id=([^\s]+)$/m);
-  return match?.[1];
+  const payload = JSON.parse(searchText);
+  return payload.matches?.[0]?.id;
 }

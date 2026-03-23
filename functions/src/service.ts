@@ -89,11 +89,12 @@ export class MetaCortexService {
 
   async rememberContext(input: RememberContextInput): Promise<StoreContextResult> {
     const normalizedTopic = normalizeOptionalText(input.topic) ?? "general";
+    const branchState = resolveRememberBranchState(input);
 
     return this.storeContext({
       content: normalizeOptionalText(input.content),
       module_name: normalizedTopic,
-      branch_state: input.draft ? "wip" : "active",
+      branch_state: branchState,
       artifact_refs: input.artifact_refs,
       image_base64: normalizeOptionalText(input.image_base64),
       image_mime_type: normalizeOptionalText(input.image_mime_type)
@@ -204,21 +205,6 @@ export function buildFetchPayload(result: FetchContextResult): Record<string, un
   };
 }
 
-export function buildStorePayload(result: StoreContextResult): Record<string, unknown> {
-  return {
-    item: {
-      id: result.id,
-      content: result.content,
-      retrieval_text: result.retrieval_text,
-      metadata: buildPublicMetadata({
-        metadata: result.metadata
-      }),
-      ...(result.media ? { media: result.media } : {})
-    },
-    write_status: result.was_duplicate ? "duplicate" : "created"
-  };
-}
-
 export function buildRememberPayload(result: StoreContextResult): Record<string, unknown> {
   return {
     item: {
@@ -259,6 +245,29 @@ export function buildConsolidationQueuePayload(
     filter_module: result.filter_module ?? null,
     result_count: result.items.length
   };
+}
+
+function resolveRememberBranchState(
+  input: RememberContextInput
+): StoreContextInput["branch_state"] {
+  if (!input.branch_state) {
+    return input.draft ? "wip" : "active";
+  }
+
+  if (typeof input.draft === "undefined") {
+    return input.branch_state;
+  }
+
+  const draftBranchState = input.draft ? "wip" : "active";
+
+  if (input.branch_state !== draftBranchState) {
+    throw new HttpError(
+      400,
+      "draft and branch_state must agree when both are provided"
+    );
+  }
+
+  return input.branch_state;
 }
 
 function buildWriteFingerprint(input: {

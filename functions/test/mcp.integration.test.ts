@@ -60,26 +60,22 @@ describe("MCP integration", () => {
       "fetch_context",
       "get_consolidation_queue",
       "remember_context",
-      "search_context",
-      "store_context"
+      "search_context"
     ]);
 
-    const storeResult = await client.callTool({
-      name: "store_context",
+    const rememberResult = await client.callTool({
+      name: "remember_context",
       arguments: {
         content:
           "We are using Ktor for the Android/iOS networking layer in the main branch.",
-        module_name: "kmp-networking",
-        branch_state: "active"
+        topic: "kmp-networking"
       }
     });
 
-    expect(parseJsonTextContent(storeResult)).toMatchObject({
+    expect(parseJsonTextContent(rememberResult)).toMatchObject({
       item: {
         id: "memory-1",
         content:
-          "We are using Ktor for the Android/iOS networking layer in the main branch.",
-        retrieval_text:
           "We are using Ktor for the Android/iOS networking layer in the main branch.",
         metadata: {
           module_name: "kmp-networking",
@@ -117,10 +113,10 @@ describe("MCP integration", () => {
 
     // Store a WIP context and verify consolidation queue
     await client.callTool({
-      name: "store_context",
+      name: "remember_context",
       arguments: {
         content: "Draft thoughts on error handling in networking.",
-        module_name: "kmp-networking",
+        topic: "kmp-networking",
         branch_state: "wip"
       }
     });
@@ -148,11 +144,10 @@ describe("MCP integration", () => {
     });
 
     const replacementResult = await client.callTool({
-      name: "store_context",
+      name: "remember_context",
       arguments: {
         content: "We standardized on Ktor 3 for shared networking.",
-        module_name: "kmp-networking",
-        branch_state: "active"
+        topic: "kmp-networking"
       }
     });
 
@@ -250,16 +245,15 @@ describe("MCP integration", () => {
       ]
     });
     const disallowedResult = await client.callTool({
-      name: "store_context",
+      name: "remember_context",
       arguments: {
         content: "should fail",
-        module_name: "kmp-networking",
-        branch_state: "active"
+        topic: "kmp-networking"
       }
     });
 
     expect(disallowedResult.isError).toBe(true);
-    expect(textContent(disallowedResult)).toContain("Tool store_context not found");
+    expect(textContent(disallowedResult)).toContain("Tool remember_context not found");
 
     const disallowedStateResult = await client.callTool({
       name: "search_context",

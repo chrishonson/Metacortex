@@ -1,6 +1,5 @@
 export const MCP_TOOL_NAMES = [
   "remember_context",
-  "store_context",
   "search_context",
   "fetch_context",
   "deprecate_context",
@@ -68,6 +67,7 @@ export interface RememberContextInput {
   content?: string;
   topic?: string;
   draft?: boolean;
+  branch_state?: BranchState;
   artifact_refs?: string[];
   image_base64?: string;
   image_mime_type?: string;

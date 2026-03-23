@@ -104,7 +104,7 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
     if (!normalizedContent && !hasImage) {
       throw new HttpError(
         400,
-        "Either content or image_base64 must be provided to store_context"
+        "Either content or image_base64 must be provided."
       );
     }
 

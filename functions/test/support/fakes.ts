@@ -60,7 +60,7 @@ export class FakeMemoryContentPreparer implements MemoryContentPreparer {
 
     if (!normalizedContent && !input.imageBase64) {
       throw new Error(
-        "Either content or image_base64 must be provided to store_context"
+        "Either content or image_base64 must be provided."
       );
     }
 
