@@ -75,7 +75,21 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(storeResult)).toContain("Stored memory vector");
+    expect(parseJsonTextContent(storeResult)).toMatchObject({
+      item: {
+        id: "memory-1",
+        content:
+          "We are using Ktor for the Android/iOS networking layer in the main branch.",
+        retrieval_text:
+          "We are using Ktor for the Android/iOS networking layer in the main branch.",
+        metadata: {
+          module_name: "kmp-networking",
+          branch_state: "active",
+          modality: "text"
+        }
+      },
+      write_status: "created"
+    });
 
     const searchResult = await client.callTool({
       name: "search_context",
@@ -119,8 +133,53 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(textContent(queueResult)).toContain("WIP item");
-    expect(textContent(queueResult)).toContain("Draft thoughts on error handling");
+    expect(parseJsonTextContent(queueResult)).toMatchObject({
+      items: [
+        {
+          id: "memory-2",
+          content: "Draft thoughts on error handling in networking.",
+          metadata: {
+            module_name: "kmp-networking",
+            branch_state: "wip"
+          }
+        }
+      ],
+      filter_module: "kmp-networking",
+      result_count: 1
+    });
+
+    const replacementResult = await client.callTool({
+      name: "store_context",
+      arguments: {
+        content: "We standardized on Ktor 3 for shared networking.",
+        module_name: "kmp-networking",
+        branch_state: "active"
+      }
+    });
+
+    expect(parseJsonTextContent(replacementResult)).toMatchObject({
+      item: {
+        id: "memory-3"
+      },
+      write_status: "created"
+    });
+
+    const deprecateResult = await client.callTool({
+      name: "deprecate_context",
+      arguments: {
+        document_id: "memory-1",
+        superseding_document_id: "memory-3"
+      }
+    });
+
+    expect(parseJsonTextContent(deprecateResult)).toMatchObject({
+      item: {
+        id: "memory-1",
+        branch_state: "deprecated",
+        superseded_by: "memory-3"
+      },
+      previous_state: "active"
+    });
   });
 
   it("serves the legacy SSE transport", async () => {

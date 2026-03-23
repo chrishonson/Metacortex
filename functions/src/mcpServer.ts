@@ -6,9 +6,12 @@ import { HttpError } from "./errors.js";
 import { normalizeOptionalText } from "./normalize.js";
 import type { ToolCallObserver } from "./observability.js";
 import {
+  buildConsolidationQueuePayload,
+  buildDeprecatePayload,
   buildFetchPayload,
   buildRememberPayload,
   buildSearchPayload,
+  buildStorePayload,
   MetaCortexService
 } from "./service.js";
 import {
@@ -201,30 +204,7 @@ export function createMetaCortexMcpServer(
         );
 
         return {
-          content: [
-            {
-              type: "text",
-              text: [
-                result.was_duplicate
-                  ? `Reused existing memory vector ${result.id}.`
-                  : `Stored memory vector ${result.id}.`,
-                `write_status=${result.was_duplicate ? "duplicate" : "created"}`,
-                `module_name=${result.metadata.module_name}`,
-                `branch_state=${result.metadata.branch_state}`,
-                `modality=${result.metadata.modality}`,
-                result.media
-                  ? `media=${result.media.kind}:${result.media.mime_type}`
-                  : undefined,
-                result.metadata.artifact_refs?.length
-                  ? `artifact_refs=${result.metadata.artifact_refs.join(",")}`
-                  : undefined,
-                `created_at=${new Date(result.metadata.created_at).toISOString()}`,
-                `updated_at=${new Date(result.metadata.updated_at).toISOString()}`
-              ]
-                .filter(Boolean)
-                .join("\n")
-            }
-          ]
+          content: [jsonTextContent(buildStorePayload(result))]
         };
       }
     );
@@ -383,16 +363,7 @@ export function createMetaCortexMcpServer(
         );
 
         return {
-          content: [
-            {
-              type: "text",
-              text: [
-                `Deprecated memory ${result.document_id}.`,
-                `previous_state=${result.previous_state}`,
-                `superseded_by=${result.superseding_document_id}`
-              ].join("\n")
-            }
-          ]
+          content: [jsonTextContent(buildDeprecatePayload(result))]
         };
       }
     );
@@ -429,41 +400,8 @@ export function createMetaCortexMcpServer(
           })
         );
 
-        if (result.items.length === 0) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: result.filter_module
-                  ? `No WIP items found for module ${result.filter_module}.`
-                  : "No WIP items found."
-              }
-            ]
-          };
-        }
-
-        const lines = result.items.map(
-          (item, index) =>
-            [
-              `Item ${index + 1}`,
-              `id=${item.id}`,
-              `module_name=${item.metadata.module_name}`,
-              `updated_at=${new Date(item.metadata.updated_at).toISOString()}`,
-              item.content
-            ].join(" | ")
-        );
-
         return {
-          content: [
-            {
-              type: "text",
-              text: [
-                `Found ${result.items.length} WIP item(s)${result.filter_module ? ` for module ${result.filter_module}` : ""}.`,
-                "",
-                ...lines
-              ].join("\n")
-            }
-          ]
+          content: [jsonTextContent(buildConsolidationQueuePayload(result))]
         };
       }
     );

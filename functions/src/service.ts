@@ -204,6 +204,21 @@ export function buildFetchPayload(result: FetchContextResult): Record<string, un
   };
 }
 
+export function buildStorePayload(result: StoreContextResult): Record<string, unknown> {
+  return {
+    item: {
+      id: result.id,
+      content: result.content,
+      retrieval_text: result.retrieval_text,
+      metadata: buildPublicMetadata({
+        metadata: result.metadata
+      }),
+      ...(result.media ? { media: result.media } : {})
+    },
+    write_status: result.was_duplicate ? "duplicate" : "created"
+  };
+}
+
 export function buildRememberPayload(result: StoreContextResult): Record<string, unknown> {
   return {
     item: {
@@ -214,6 +229,35 @@ export function buildRememberPayload(result: StoreContextResult): Record<string,
       })
     },
     write_status: result.was_duplicate ? "duplicate" : "created"
+  };
+}
+
+export function buildDeprecatePayload(
+  result: DeprecateContextResult
+): Record<string, unknown> {
+  return {
+    item: {
+      id: result.document_id,
+      branch_state: "deprecated",
+      superseded_by: result.superseding_document_id
+    },
+    previous_state: result.previous_state
+  };
+}
+
+export function buildConsolidationQueuePayload(
+  result: ConsolidationQueueResult
+): Record<string, unknown> {
+  return {
+    items: result.items.map(item => ({
+      id: item.id,
+      content: item.content,
+      metadata: buildPublicMetadata({
+        metadata: item.metadata
+      })
+    })),
+    filter_module: result.filter_module ?? null,
+    result_count: result.items.length
   };
 }
 
