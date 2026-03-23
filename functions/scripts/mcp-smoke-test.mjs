@@ -55,7 +55,7 @@ if (!token) {
 
 const client = new Client({
   name: "metacortex-smoke-test",
-  version: "0.1.0"
+  version: "0.3.0"
 });
 
 const transport = new StreamableHTTPClientTransport(new URL(url), {
@@ -140,7 +140,7 @@ try {
     name: "search_context",
     arguments: {
       query,
-      filter_module: topic,
+      filter_topic: topic,
       filter_state: "active"
     }
   });

@@ -51,14 +51,14 @@ These are still useful, but they are not the first tools to expose to browser-ho
 
 - `deprecate_context`
   Soft-delete obsolete memories.
-- `get_consolidation_queue`
-  Read all draft (`wip`) memories that still need consolidation into canonical context.
+
+WIP consolidation is currently an internal maintenance workflow, not a public MCP tool.
 
 ## Why `remember_context` Is The Write Tool
 
 `remember_context` keeps the public write surface simple while still supporting advanced lifecycle control when needed:
 
-- `topic` maps to the stored `module_name`
+- `topic` is the public label and maps to the stored `module_name` internally
 - omitted `branch_state` stores canonical memory as `active`
 - `draft=true` stores draft material as `wip`
 - explicit `branch_state` is available for advanced admin workflows such as `merged`
@@ -82,9 +82,9 @@ Lifecycle state for a stored memory:
 
 For browser clients, prefer `remember_context` with its defaults and use `draft=true` only when the user is explicitly saving rough notes. Admin flows can set `branch_state` explicitly when needed.
 
-### `module_name`
+### `topic`
 
-Stored topic or subsystem label.
+Public topic or subsystem label for MCP clients. Internally this is stored as `module_name`.
 
 Examples:
 
@@ -93,7 +93,7 @@ Examples:
 - `kmp-networking`
 - `ui-settings`
 
-In `remember_context` this is exposed as `topic`. If omitted, the server defaults it to `general`.
+If omitted, the server defaults it to `general`.
 
 ## Images
 
@@ -199,7 +199,7 @@ Typical result:
     "id": "abc123",
     "content": "We use Ktor for shared Android and iOS networking.",
     "metadata": {
-      "module_name": "kmp-networking",
+      "topic": "kmp-networking",
       "branch_state": "active",
       "modality": "text",
       "created_at": "2026-03-14T12:00:00.000Z",
@@ -229,7 +229,7 @@ Example input:
 ```json
 {
   "query": "shared networking for android and ios",
-  "filter_module": "kmp-networking",
+  "filter_topic": "kmp-networking",
   "filter_state": "active"
 }
 ```
@@ -245,7 +245,7 @@ Typical result:
       "score": 0.92,
       "content_preview": "We use Ktor for shared Android and iOS networking.",
       "metadata": {
-        "module_name": "kmp-networking",
+        "topic": "kmp-networking",
         "branch_state": "active",
         "modality": "text",
         "created_at": "2026-03-14T12:00:00.000Z",
@@ -254,7 +254,7 @@ Typical result:
     }
   ],
   "applied_filters": {
-    "filter_module": "kmp-networking",
+    "filter_topic": "kmp-networking",
     "filter_state": "active"
   }
 }
@@ -268,7 +268,7 @@ If nothing matches, the result is:
 {
   "matches": [],
   "applied_filters": {
-    "filter_module": null,
+    "filter_topic": null,
     "filter_state": "active"
   }
 }
@@ -291,9 +291,8 @@ Typical result:
   "item": {
     "id": "abc123",
     "content": "We use Ktor for shared Android and iOS networking.",
-    "retrieval_text": "We use Ktor for shared Android and iOS networking.",
     "metadata": {
-      "module_name": "kmp-networking",
+      "topic": "kmp-networking",
       "branch_state": "active",
       "modality": "text",
       "created_at": "2026-03-14T12:00:00.000Z",
@@ -308,7 +307,7 @@ Typical result:
 `search_context` does one exact metadata filter step and one vector step:
 
 - `filter_state` is always applied before nearest-neighbor search
-- `filter_module`, when present, is an exact match on `module_name`
+- `filter_topic`, when present, is an exact match on the stored topic label
 - vector search then runs Firestore `findNearest()` with cosine distance
 - the result count is `limit` when provided, otherwise `SEARCH_RESULT_LIMIT`
 - the default state is `active` unless the client profile allows and requests another state
@@ -333,7 +332,7 @@ Write behavior that matters in production:
 - omitted `draft` and omitted `branch_state` store `branch_state=active`
 - `draft=true` stores `branch_state=wip`
 - explicit `branch_state` overrides the default lifecycle state
-- if both `draft` and `branch_state` are provided, they must agree
+- `draft` and `branch_state` are mutually exclusive
 
 ## Lifecycle And Maintenance
 
@@ -341,7 +340,7 @@ Recommended usage:
 
 1. Browser clients save durable memories with `remember_context`.
 2. Use `draft=true` only for provisional notes that should not appear in normal active search.
-3. Admin clients review WIP material with `get_consolidation_queue`.
+3. WIP review and consolidation stay in internal maintenance workflows.
 4. After writing the canonical replacement, admins can mark obsolete records with `deprecate_context`.
 
 Current lifecycle behavior:
@@ -370,7 +369,7 @@ After deployment, there are three places to look:
 
 Examples:
 
-- `remember_context` events record the written `document_id`, `module_name`, `branch_state`, and `modality`
+- `remember_context` events record the written `document_id`, `topic`, `branch_state`, and `modality`
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
 - `fetch_context` events record which `document_id` was read
 - `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`

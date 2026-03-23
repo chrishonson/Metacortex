@@ -259,7 +259,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
 
   return {
     serviceName: "metacortex",
-    serviceVersion: "0.1.0-test",
+    serviceVersion: "0.3.0-test",
     authToken,
     geminiApiKey: "test-gemini-key",
     embeddingModel: "text-embedding-004",

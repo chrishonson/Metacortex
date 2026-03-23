@@ -111,4 +111,14 @@ describe("loadConfig", () => {
       })
     ).toThrowError(MissingConfigurationError);
   });
+
+  it("rejects unsupported tool names in allowlists", () => {
+    expect(() =>
+      loadConfig({
+        GEMINI_API_KEY: "gemini-key",
+        MCP_ADMIN_TOKEN: "secret-token",
+        MCP_ALLOWED_TOOLS: "search_context,get_consolidation_queue"
+      })
+    ).toThrowError(MissingConfigurationError);
+  });
 });

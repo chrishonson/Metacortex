@@ -58,10 +58,32 @@ describe("MCP integration", () => {
     expect(tools.tools.map(tool => tool.name).sort()).toEqual([
       "deprecate_context",
       "fetch_context",
-      "get_consolidation_queue",
       "remember_context",
       "search_context"
     ]);
+    expect(
+      tools.tools.find(tool => tool.name === "remember_context")
+    ).toMatchObject({
+      description: expect.stringContaining("Do not send both"),
+      inputSchema: {
+        properties: expect.objectContaining({
+          topic: expect.any(Object),
+          draft: expect.any(Object),
+          branch_state: expect.any(Object)
+        })
+      }
+    });
+    expect(
+      tools.tools.find(tool => tool.name === "search_context")
+    ).toMatchObject({
+      inputSchema: {
+        properties: expect.objectContaining({
+          query: expect.any(Object),
+          filter_topic: expect.any(Object)
+        })
+      }
+    });
+    expect(tools.tools.map(tool => tool.name)).not.toContain("get_consolidation_queue");
 
     const rememberResult = await client.callTool({
       name: "remember_context",
@@ -78,7 +100,7 @@ describe("MCP integration", () => {
         content:
           "We are using Ktor for the Android/iOS networking layer in the main branch.",
         metadata: {
-          module_name: "kmp-networking",
+          topic: "kmp-networking",
           branch_state: "active",
           modality: "text"
         }
@@ -90,7 +112,7 @@ describe("MCP integration", () => {
       name: "search_context",
       arguments: {
         query: "networking layer for Android and iOS",
-        filter_module: "kmp-networking"
+        filter_topic: "kmp-networking"
       }
     });
 
@@ -100,47 +122,15 @@ describe("MCP integration", () => {
           id: "memory-1",
           summary: expect.stringContaining("Ktor"),
           metadata: {
-            module_name: "kmp-networking",
+            topic: "kmp-networking",
             branch_state: "active"
           }
         }
       ],
       applied_filters: {
-        filter_module: "kmp-networking",
+        filter_topic: "kmp-networking",
         filter_state: "active"
       }
-    });
-
-    // Store a WIP context and verify consolidation queue
-    await client.callTool({
-      name: "remember_context",
-      arguments: {
-        content: "Draft thoughts on error handling in networking.",
-        topic: "kmp-networking",
-        branch_state: "wip"
-      }
-    });
-
-    const queueResult = await client.callTool({
-      name: "get_consolidation_queue",
-      arguments: {
-        module_name: "kmp-networking"
-      }
-    });
-
-    expect(parseJsonTextContent(queueResult)).toMatchObject({
-      items: [
-        {
-          id: "memory-2",
-          content: "Draft thoughts on error handling in networking.",
-          metadata: {
-            module_name: "kmp-networking",
-            branch_state: "wip"
-          }
-        }
-      ],
-      filter_module: "kmp-networking",
-      result_count: 1
     });
 
     const replacementResult = await client.callTool({
@@ -153,7 +143,7 @@ describe("MCP integration", () => {
 
     expect(parseJsonTextContent(replacementResult)).toMatchObject({
       item: {
-        id: "memory-3"
+        id: "memory-2"
       },
       write_status: "created"
     });
@@ -162,7 +152,7 @@ describe("MCP integration", () => {
       name: "deprecate_context",
       arguments: {
         document_id: "memory-1",
-        superseding_document_id: "memory-3"
+        superseding_document_id: "memory-2"
       }
     });
 
@@ -170,10 +160,37 @@ describe("MCP integration", () => {
       item: {
         id: "memory-1",
         branch_state: "deprecated",
-        superseded_by: "memory-3"
+        superseded_by: "memory-2"
       },
       previous_state: "active"
     });
+
+    const removedQueueResult = await client.callTool({
+      name: "get_consolidation_queue",
+      arguments: {
+        topic: "kmp-networking"
+      }
+    });
+
+    expect(removedQueueResult.isError).toBe(true);
+    expect(textContent(removedQueueResult)).toContain(
+      "Tool get_consolidation_queue not found"
+    );
+
+    const invalidRememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "This should fail.",
+        topic: "kmp-networking",
+        draft: true,
+        branch_state: "wip"
+      }
+    });
+
+    expect(invalidRememberResult.isError).toBe(true);
+    expect(textContent(invalidRememberResult)).toContain(
+      "Provide either draft or branch_state, not both"
+    );
   });
 
   it("enforces tool scoping on client-specific endpoints", async () => {
@@ -232,7 +249,7 @@ describe("MCP integration", () => {
       name: "search_context",
       arguments: {
         query: "networking layer for Android and iOS",
-        filter_module: "kmp-networking"
+        filter_topic: "kmp-networking"
       }
     });
 
@@ -259,7 +276,7 @@ describe("MCP integration", () => {
       name: "search_context",
       arguments: {
         query: "old deprecated networking layer",
-        filter_module: "kmp-networking",
+        filter_topic: "kmp-networking",
         filter_state: "deprecated"
       }
     });
@@ -343,7 +360,7 @@ describe("MCP integration", () => {
         id: "memory-1",
         content: "We use Ktor for shared Android and iOS networking.",
         metadata: {
-          module_name: "kmp-networking",
+          topic: "kmp-networking",
           branch_state: "active",
           modality: "text"
         }
@@ -355,7 +372,7 @@ describe("MCP integration", () => {
       name: "search_context",
       arguments: {
         query: "shared networking for android and ios",
-        filter_module: "kmp-networking"
+        filter_topic: "kmp-networking"
       }
     });
 
@@ -364,13 +381,13 @@ describe("MCP integration", () => {
         {
           id: "memory-1",
           metadata: {
-            module_name: "kmp-networking",
+            topic: "kmp-networking",
             branch_state: "active"
           }
         }
       ],
       applied_filters: {
-        filter_module: "kmp-networking",
+        filter_topic: "kmp-networking",
         filter_state: "active"
       }
     });
@@ -386,13 +403,15 @@ describe("MCP integration", () => {
       item: {
         id: "memory-1",
         content: "We use Ktor for shared Android and iOS networking.",
-        retrieval_text: "We use Ktor for shared Android and iOS networking.",
         metadata: {
-          module_name: "kmp-networking",
+          topic: "kmp-networking",
           branch_state: "active"
         }
       }
     });
+    expect(parseJsonTextContent(fetchResult)).not.toHaveProperty(
+      "item.retrieval_text"
+    );
 
     expect(runtime.observer.listEvents()).toMatchObject([
       {
@@ -401,7 +420,7 @@ describe("MCP integration", () => {
         status: "success",
         response: {
           document_id: "memory-1",
-          module_name: "kmp-networking",
+          topic: "kmp-networking",
           branch_state: "active"
         }
       },
@@ -412,7 +431,7 @@ describe("MCP integration", () => {
         response: {
           result_count: 1,
           result_ids: ["memory-1"],
-          filter_module: "kmp-networking",
+          filter_topic: "kmp-networking",
           filter_state: "active"
         }
       },
@@ -422,7 +441,7 @@ describe("MCP integration", () => {
         status: "success",
         response: {
           document_id: "memory-1",
-          module_name: "kmp-networking",
+          topic: "kmp-networking",
           branch_state: "active"
         }
       }

@@ -71,7 +71,6 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
-| `get_consolidation_queue` | Fetch WIP-state memories for synthesis into official specs |
 
 ### Key Source Files (all under `functions/src/`)
 
@@ -93,13 +92,11 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **remember_context**: Chat/admin input → server defaults/inference for metadata and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
-**search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional `module_name` filters
+**search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional topic filter
 
 **fetch_context**: Document ID → direct Firestore read of one stored memory
 
 **deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
-
-**get_consolidation_queue**: Query documents where `branch_state == "wip"`, optionally filtered by `module_name`
 
 ### Testing Approach
 

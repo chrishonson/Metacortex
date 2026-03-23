@@ -83,7 +83,7 @@ MEMORY_COLLECTION=memory_vectors
 Recommended security and access defaults for the first release:
 
 ```dotenv
-MCP_ALLOWED_TOOLS=remember_context,search_context,fetch_context,deprecate_context,get_consolidation_queue
+MCP_ALLOWED_TOOLS=remember_context,search_context,fetch_context,deprecate_context
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 SEARCH_RESULT_LIMIT=5
@@ -336,7 +336,7 @@ Expected:
 
 - `remember_context` succeeds
 - `search_context` returns a result with `id=...`
-- `fetch_context` returns the full stored record, including both `content` and `retrieval_text`
+- `fetch_context` returns the full stored record content and metadata
 
 Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
 
@@ -453,7 +453,7 @@ Recommended rollout order:
 2. Browser client rollout on `remember_context`, `search_context`, and `fetch_context`
 3. Controlled writes only for clearly durable events
 4. Search-only downstream clients such as Nanobot
-5. Later use of `deprecate_context` and `get_consolidation_queue`
+5. Later use of `deprecate_context` plus internal WIP curation workflows
 
 ## Failure checks
 

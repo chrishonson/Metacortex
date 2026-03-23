@@ -259,7 +259,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   return {
     serviceName: env.SERVICE_NAME ?? "metacortex",
-    serviceVersion: env.SERVICE_VERSION ?? "0.1.0",
+    serviceVersion: env.SERVICE_VERSION ?? "0.3.0",
     authToken,
     geminiApiKey: requireEnv(env, "GEMINI_API_KEY"),
     embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "text-embedding-004",

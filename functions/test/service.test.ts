@@ -51,7 +51,7 @@ describe("MetaCortexService", () => {
     });
     const result = await service.searchContext({
       query: "networking layer for Android and iOS",
-      filter_module: "kmp-networking"
+      filter_topic: "kmp-networking"
     });
 
     expect(result.matches.length).toBe(1);
@@ -68,11 +68,11 @@ describe("MetaCortexService", () => {
     });
     const result = await service.searchContext({
       query: "networking",
-      filter_module: "kmp-networking"
+      filter_topic: "kmp-networking"
     });
 
     expect(result.appliedFilters).toEqual({
-      filter_module: "kmp-networking",
+      filter_topic: "kmp-networking",
       filter_state: "active"
     });
   });
@@ -122,7 +122,7 @@ describe("MetaCortexService", () => {
         draft: true,
         branch_state: "active"
       })
-    ).rejects.toThrow("draft and branch_state must agree");
+    ).rejects.toThrow("Provide either draft or branch_state, not both");
   });
 
   it("uses general as default topic", async () => {
@@ -227,11 +227,11 @@ describe("MetaCortexService", () => {
       branch_state: "wip"
     });
     const result = await service.getConsolidationQueue({
-      module_name: "kmp-networking"
+      topic: "kmp-networking"
     });
 
     expect(result.items.length).toBe(1);
     expect(result.items[0]?.content).toContain("Draft networking");
-    expect(result.filter_module).toBe("kmp-networking");
+    expect(result.filter_topic).toBe("kmp-networking");
   });
 });

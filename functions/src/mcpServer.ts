@@ -6,7 +6,6 @@ import { HttpError } from "./errors.js";
 import { normalizeOptionalText } from "./normalize.js";
 import type { ToolCallObserver } from "./observability.js";
 import {
-  buildConsolidationQueuePayload,
   buildDeprecatePayload,
   buildFetchPayload,
   buildRememberPayload,
@@ -28,6 +27,54 @@ export function createMetaCortexMcpServer(
     allowedFilterStates: readonly BranchState[];
   }
 ): McpServer {
+  const rememberContextInputSchema = z
+    .object({
+      content: z
+        .string()
+        .optional()
+        .describe("The memory to save. Required unless image_base64 is provided."),
+      topic: z
+        .string()
+        .optional()
+        .describe(
+          "Optional subsystem or topic label for later filtering, such as auth, billing, or ui-settings. Defaults to general if omitted."
+        ),
+      draft: z
+        .boolean()
+        .optional()
+        .describe(
+          "Convenience shorthand for draft writes. Use true to store the memory as wip. Do not send this with branch_state."
+        ),
+      branch_state: z
+        .enum(BRANCH_STATES)
+        .optional()
+        .describe(
+          "Optional advanced lifecycle state. Defaults to active. Use this instead of draft when you need explicit lifecycle control such as merged or deprecated."
+        ),
+      image_base64: z
+        .string()
+        .optional()
+        .describe("Optional base64-encoded image bytes for image-backed memories."),
+      image_mime_type: z
+        .string()
+        .optional()
+        .describe("Required when image_base64 is provided, for example image/png."),
+      artifact_refs: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Optional external artifact references, usually Firebase Storage URIs such as gs://bucket/path.png."
+        )
+    })
+    .superRefine((value, ctx) => {
+      if (typeof value.draft !== "undefined" && typeof value.branch_state !== "undefined") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["branch_state"],
+          message: "Provide either draft or branch_state, not both"
+        });
+      }
+    });
   const server = new McpServer(
     {
       name: config.serviceName,
@@ -36,7 +83,8 @@ export function createMetaCortexMcpServer(
     {
       capabilities: {
         logging: {}
-      }
+      },
+      instructions: buildServerInstructions(config.allowedTools)
     }
   );
 
@@ -82,45 +130,8 @@ export function createMetaCortexMcpServer(
       {
         title: "Remember Context",
         description:
-          "Save a durable memory for future retrieval. This is the single write tool for both chat clients and admin workflows. The server defaults topic to general and branch_state to active. Use draft=true as a shorthand for wip, or set branch_state explicitly for advanced lifecycle control.",
-        inputSchema: {
-          content: z
-            .string()
-            .optional()
-            .describe("The memory to save. Required unless image_base64 is provided."),
-          topic: z
-            .string()
-            .optional()
-            .describe(
-              "Optional subsystem or topic label for later filtering, such as auth, billing, or ui-settings. Defaults to general if omitted."
-            ),
-          draft: z
-            .boolean()
-            .optional()
-            .describe(
-              "Convenience shorthand for active vs wip writes. Use true for rough notes awaiting consolidation. Omit when setting branch_state explicitly."
-            ),
-          branch_state: z
-            .enum(BRANCH_STATES)
-            .optional()
-            .describe(
-              "Optional advanced lifecycle state. Defaults to active. Use wip for draft material, merged for incorporated context, and deprecated only for explicit admin workflows. If provided with draft, both must agree."
-            ),
-          image_base64: z
-            .string()
-            .optional()
-            .describe("Optional base64-encoded image bytes for image-backed memories."),
-          image_mime_type: z
-            .string()
-            .optional()
-            .describe("Required when image_base64 is provided, for example image/png."),
-          artifact_refs: z
-            .array(z.string())
-            .optional()
-            .describe(
-              "Optional external artifact references, usually Firebase Storage URIs such as gs://bucket/path.png."
-            )
-        }
+          "Save a durable memory for future retrieval. This is the single write tool for both chat clients and admin workflows. The server defaults topic to general and branch_state to active. Use draft=true as a shorthand for wip, or set branch_state explicitly for advanced lifecycle control. Do not send both.",
+        inputSchema: rememberContextInputSchema
       },
       async args => {
         const requestedBranchState = args.branch_state ?? (args.draft ? "wip" : "active");
@@ -138,7 +149,7 @@ export function createMetaCortexMcpServer(
           () => service.rememberContext(args),
           record => ({
             document_id: record.id,
-            module_name: record.metadata.module_name,
+            topic: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
             write_status: record.was_duplicate ? "duplicate" : "created",
@@ -162,7 +173,7 @@ export function createMetaCortexMcpServer(
           "Search stored memories with a natural-language query. Returns a single JSON object with ranked matches, stable document ids, and metadata for follow-up fetches.",
         inputSchema: {
           query: z.string().min(1).describe("The natural-language search query."),
-          filter_module: z
+          filter_topic: z
             .string()
             .optional()
             .describe(
@@ -186,7 +197,7 @@ export function createMetaCortexMcpServer(
         const requestSummary = {
           query_preview: truncateText(args.query),
           query_length: args.query.trim().length,
-          filter_module: normalizeOptionalText(args.filter_module),
+          filter_topic: normalizeOptionalText(args.filter_topic),
           filter_state: requestedFilterState,
           limit: args.limit
         };
@@ -207,7 +218,7 @@ export function createMetaCortexMcpServer(
             result_count: searchResult.matches.length,
             result_ids: searchResult.matches.map(match => match.id),
             filter_state: searchResult.appliedFilters.filter_state,
-            filter_module: searchResult.appliedFilters.filter_module
+            filter_topic: searchResult.appliedFilters.filter_topic
           })
         );
 
@@ -224,7 +235,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Fetch Context",
         description:
-          "Fetch one stored memory by document id. Returns a single JSON object with canonical content, retrieval text, and metadata for the requested record.",
+          "Fetch one stored memory by document id. Returns a single JSON object with canonical content and metadata for the requested record.",
         inputSchema: {
           document_id: z
             .string()
@@ -257,7 +268,7 @@ export function createMetaCortexMcpServer(
           },
           fetched => ({
             document_id: fetched.item.id,
-            module_name: fetched.item.metadata.module_name,
+            topic: fetched.item.metadata.module_name,
             branch_state: fetched.item.metadata.branch_state,
             modality: fetched.item.metadata.modality,
             artifact_ref_count: fetched.item.metadata.artifact_refs?.length ?? 0
@@ -312,44 +323,6 @@ export function createMetaCortexMcpServer(
     );
   }
 
-  if (allowedTools.has("get_consolidation_queue")) {
-    server.registerTool(
-      "get_consolidation_queue",
-      {
-        title: "Get Consolidation Queue",
-        description:
-          "Fetch all memories whose branch_state is wip, optionally filtered by module_name. This is a raw backlog read for draft memories awaiting consolidation into canonical context; it does not perform vector search or change any records.",
-        inputSchema: {
-          module_name: z
-            .string()
-            .optional()
-            .describe(
-              "Optional module name to filter draft memories. Returns all wip memories if omitted."
-            )
-        }
-      },
-      async args => {
-        const requestSummary = {
-          module_name: normalizeOptionalText(args.module_name)
-        };
-        const result = await observeToolCall(
-          "get_consolidation_queue",
-          requestSummary,
-          () => service.getConsolidationQueue(args),
-          queue => ({
-            filter_module: queue.filter_module,
-            result_count: queue.items.length,
-            result_ids: queue.items.map(item => item.id)
-          })
-        );
-
-        return {
-          content: [jsonTextContent(buildConsolidationQueuePayload(result))]
-        };
-      }
-    );
-  }
-
   return server;
 }
 
@@ -377,6 +350,24 @@ function summarizeToolError(error: unknown): {
     name: "UnknownError",
     message: String(error)
   };
+}
+
+function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
+  const allowedToolSet = new Set(allowedTools);
+  const instructions = [
+    "MetaCortex stores durable project memories and returns tool results as JSON text.",
+    allowedToolSet.has("remember_context")
+      ? "Use remember_context for writes. Prefer topic plus plain content, and send either draft or branch_state, not both."
+      : undefined,
+    allowedToolSet.has("search_context")
+      ? "Use search_context for retrieval and filter_topic to narrow by topic."
+      : undefined,
+    allowedToolSet.has("fetch_context")
+      ? "Use fetch_context only when you need the full stored record behind a search result."
+      : undefined
+  ];
+
+  return instructions.filter(Boolean).join(" ");
 }
 
 function truncateText(value: string, limit = 160): string {

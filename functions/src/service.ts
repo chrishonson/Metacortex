@@ -103,7 +103,7 @@ export class MetaCortexService {
 
   async searchContext(input: SearchContextInput): Promise<SearchContextResult> {
     const normalizedQuery = normalizeRequiredText(input.query, "query");
-    const filterModule = normalizeOptionalText(input.filter_module);
+    const filterTopic = normalizeOptionalText(input.filter_topic);
     const filterState = input.filter_state ?? this.config.defaultFilterState;
     const queryVector = await this.embeddings.embed({
       text: normalizedQuery,
@@ -112,14 +112,14 @@ export class MetaCortexService {
     const matches = await this.repository.search({
       queryVector,
       limit: input.limit ?? this.config.topK,
-      filterModule,
+      filterModule: filterTopic,
       filterState
     });
 
     return {
       matches,
       appliedFilters: {
-        filter_module: filterModule,
+        filter_topic: filterTopic,
         filter_state: filterState
       }
     };
@@ -152,8 +152,8 @@ export class MetaCortexService {
   async getConsolidationQueue(
     input: ConsolidationQueueInput
   ): Promise<ConsolidationQueueResult> {
-    const filterModule = normalizeOptionalText(input.module_name);
-    const items = await this.repository.getConsolidationQueue(filterModule);
+    const filterTopic = normalizeOptionalText(input.topic);
+    const items = await this.repository.getConsolidationQueue(filterTopic);
 
     return {
       items: items.map(doc => ({
@@ -161,7 +161,7 @@ export class MetaCortexService {
         content: doc.content,
         metadata: doc.metadata
       })),
-      filter_module: filterModule
+      filter_topic: filterTopic
     };
   }
 }
@@ -188,7 +188,7 @@ export function buildSearchPayload(result: SearchContextResult): Record<string, 
       metadata: buildPublicMetadata(match)
     })),
     applied_filters: {
-      filter_module: result.appliedFilters.filter_module ?? null,
+      filter_topic: result.appliedFilters.filter_topic ?? null,
       filter_state: result.appliedFilters.filter_state
     }
   };
@@ -199,7 +199,6 @@ export function buildFetchPayload(result: FetchContextResult): Record<string, un
     item: {
       id: result.item.id,
       content: result.item.content,
-      retrieval_text: result.item.retrieval_text,
       metadata: buildPublicMetadata(result.item)
     }
   };
@@ -231,40 +230,15 @@ export function buildDeprecatePayload(
   };
 }
 
-export function buildConsolidationQueuePayload(
-  result: ConsolidationQueueResult
-): Record<string, unknown> {
-  return {
-    items: result.items.map(item => ({
-      id: item.id,
-      content: item.content,
-      metadata: buildPublicMetadata({
-        metadata: item.metadata
-      })
-    })),
-    filter_module: result.filter_module ?? null,
-    result_count: result.items.length
-  };
-}
-
 function resolveRememberBranchState(
   input: RememberContextInput
 ): StoreContextInput["branch_state"] {
+  if (typeof input.draft !== "undefined" && typeof input.branch_state !== "undefined") {
+    throw new HttpError(400, "Provide either draft or branch_state, not both");
+  }
+
   if (!input.branch_state) {
     return input.draft ? "wip" : "active";
-  }
-
-  if (typeof input.draft === "undefined") {
-    return input.branch_state;
-  }
-
-  const draftBranchState = input.draft ? "wip" : "active";
-
-  if (input.branch_state !== draftBranchState) {
-    throw new HttpError(
-      400,
-      "draft and branch_state must agree when both are provided"
-    );
   }
 
   return input.branch_state;
@@ -315,7 +289,7 @@ function summarizeMemoryContent(value: string, limit = 220): string {
 
 function buildPublicMetadata(match: Pick<MemoryDocument, "metadata">): Record<string, unknown> {
   return {
-    module_name: match.metadata.module_name,
+    topic: match.metadata.module_name,
     branch_state: match.metadata.branch_state,
     modality: normalizePublicModality(match.metadata.modality),
     ...(match.metadata.artifact_refs

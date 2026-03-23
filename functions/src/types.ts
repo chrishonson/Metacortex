@@ -2,8 +2,7 @@ export const MCP_TOOL_NAMES = [
   "remember_context",
   "search_context",
   "fetch_context",
-  "deprecate_context",
-  "get_consolidation_queue"
+  "deprecate_context"
 ] as const;
 
 export const BRANCH_STATES = [
@@ -58,7 +57,7 @@ export interface StoreContextInput {
 
 export interface SearchContextInput {
   query: string;
-  filter_module?: string;
+  filter_topic?: string;
   filter_state?: BranchState;
   limit?: number;
 }
@@ -85,7 +84,7 @@ export interface StoreContextResult {
 export interface SearchContextResult {
   matches: MemoryDocument[];
   appliedFilters: {
-    filter_module?: string;
+    filter_topic?: string;
     filter_state: BranchState;
   };
 }
@@ -110,7 +109,7 @@ export interface DeprecateContextResult {
 }
 
 export interface ConsolidationQueueInput {
-  module_name?: string;
+  topic?: string;
 }
 
 export interface ConsolidationQueueItem {
@@ -121,5 +120,5 @@ export interface ConsolidationQueueItem {
 
 export interface ConsolidationQueueResult {
   items: ConsolidationQueueItem[];
-  filter_module?: string;
+  filter_topic?: string;
 }

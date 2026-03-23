@@ -9,7 +9,7 @@ MetaCortex is a serverless MCP (Model Context Protocol) memory service. This doc
 | **The Developer** | Builds and extends the project. | `firebase deploy`, `npm test`, CLI tools. |
 | **Nanobot** | Local AI Agent inheriting this memory. | `search_context`, `remember_context`. |
 | **The AI Assistant** | Browser-hosted assistant (ChatGPT/Claude). | `search_context`, `remember_context`, `fetch_context`. |
-| **The Operator** | Manages the memory corpus. | `deprecate_context`, `get_consolidation_queue`. |
+| **The Operator** | Manages the memory corpus. | `deprecate_context`, Firestore, internal curation workflows. |
 
 ## 🏗️ System Boundaries
 

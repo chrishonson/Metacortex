@@ -22,12 +22,13 @@ Progress since this plan was drafted:
 - SSE transport has been removed. Streamable HTTP is now the only supported transport.
 - Response formats have been normalized to JSON across the remaining MCP tools.
 - `store_context` has been removed from the MCP surface. `remember_context` is now the single write tool and supports optional explicit `branch_state` for advanced admin workflows.
+- `get_consolidation_queue` has been removed from the MCP surface. WIP consolidation is now an internal maintenance workflow.
+- `fetch_context` no longer exposes `retrieval_text` in its public payload.
 
 Remaining near-term work:
 
-- remove or admin-gate `get_consolidation_queue`
 - add TTL policies for unbounded Firestore collections
-- simplify fetch/search payloads before investing in tiering and temporal validity
+- simplify search payloads before investing in tiering and temporal validity
 
 ---
 
@@ -67,7 +68,7 @@ Being a first-class MCP server is the right distribution strategy. Mem0 and Lett
 
 ### 2. `get_consolidation_queue` — remove entirely
 
-**Status:** Not started.
+**Status:** Completed on 2026-03-22.
 
 **Why cut:** This tool exposes an internal workflow concept ("consolidation") that doesn't match how any current agent memory system actually works in practice. The intended workflow is: agent stores rough notes as `wip` → later reviews the queue → consolidates into canonical `active` memories → deprecates the originals.
 
@@ -78,7 +79,7 @@ Problems:
 - Neither Mem0, Letta, Zep, nor OpenViking expose a "consolidation queue" concept. They all handle memory evolution automatically or not at all.
 - The `wip` branch state itself is fine to keep (useful for draft/scratch memories), but the explicit queue tool for reviewing them is over-engineering a workflow that won't happen organically
 
-**What to do:** Remove the tool. Keep `wip` as a valid `branch_state`. If consolidation matters later, build it as an automated server-side process (like Mem0's automatic memory evolution), not a client-facing tool. **This reduces the tool surface from 5 to 4.**
+**What changed:** The tool was removed from the MCP surface. `wip` remains a valid `branch_state`, but reviewing or consolidating WIP memories is now an internal maintenance workflow rather than a client-facing tool. This reduced the surface from 5 tools to 4.
 
 ---
 
@@ -116,11 +117,11 @@ Two collections grow without bound:
 
 ### 4. `retrieval_text` exposure in fetch responses
 
-**Status:** Not started.
+**Status:** Completed on 2026-03-22.
 
 For text memories, `retrieval_text` duplicates `content`. For multimodal memories, it's a Gemini-generated artifact the client can't meaningfully use. Exposing it leaks implementation detail.
 
-**Recommendation:** Remove `retrieval_text` from `fetch_context` responses. If debugging is needed, add a `debug: true` query parameter or a separate admin tool.
+**What changed:** `fetch_context` now returns canonical `content` plus public metadata only. Internal `retrieval_text` is still stored for embeddings and storage internals, but it is no longer part of the public MCP payload.
 
 ### 5. Search result redundancy
 
@@ -206,6 +207,5 @@ These should be addressed regardless of strategic direction:
 | `search_context` | Semantic search with filters | read-only |
 | `fetch_context` | Get full content by ID | read-only |
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
-| `get_consolidation_queue` | Read WIP backlog | likely next cut |
 
-The current surface is down from 6 tools to 5. The next likely reduction is removing `get_consolidation_queue`, which would leave a 4-tool surface.
+The current MCP surface is down from 6 tools to 4.
