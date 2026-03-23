@@ -17,7 +17,17 @@ This means MetaCortex will never include connectors (GDrive, Gmail, Notion), ing
 
 MetaCortex is a well-architected MCP memory server in rapid early development. The core — vector search, idempotent writes, client profile scoping, multimodal pipeline — is solid. But the 6-tool surface has redundancy, some features won't scale on Firestore, and the competitive landscape reveals both gaps to close and differentiators to double down on.
 
-This plan recommends cutting 2 tools, rethinking 3 features, and investing in 2 new capabilities that would give MetaCortex a defensible position.
+Progress since this plan was drafted:
+
+- SSE transport has been removed. Streamable HTTP is now the only supported transport.
+- Response formats have been normalized to JSON across the remaining MCP tools.
+- `store_context` has been removed from the MCP surface. `remember_context` is now the single write tool and supports optional explicit `branch_state` for advanced admin workflows.
+
+Remaining near-term work:
+
+- remove or admin-gate `get_consolidation_queue`
+- add TTL policies for unbounded Firestore collections
+- simplify fetch/search payloads before investing in tiering and temporal validity
 
 ---
 
@@ -42,18 +52,22 @@ Being a first-class MCP server is the right distribution strategy. Mem0 and Lett
 
 ## CUT — Features to Eliminate
 
-### 1. `remember_context` — merge into `store_context`
+### 1. `store_context` — remove from MCP surface
 
-**Why cut:** `remember_context` is a pure pass-through wrapper over `store_context`. It maps `topic → module_name` and `draft → branch_state`, then calls `storeContext()`. The "friendly API for chat clients" justification doesn't hold up:
+**Status:** Completed on 2026-03-22.
 
-- Agents are perfectly capable of passing `module_name` and `branch_state` directly
-- The terminology split (`topic` vs `module_name`) actively confuses clients who see one name in writes and another in search results
-- The response formats differ (JSON vs flat text) for no good reason
-- It restricts `branch_state` to only `active`/`wip`, which means agents can't use `merged` or `deprecated` through the "friendly" tool
+**Why cut:** Two write tools with overlapping behavior create contract drift, duplicate testing, and needless client complexity. The public-facing schema should use terms clients understand (`topic`, `draft`, `remember`) while still allowing explicit lifecycle control for admin use cases.
 
-**What to do:** Collapse into a single `store_context` tool with optional fields that default sensibly (`module_name` defaults to `"general"`, `branch_state` defaults to `"active"`). The server `instructions` field can guide agents on common usage patterns. **This reduces the tool surface from 6 to 5.**
+- `remember_context` is the clearer public verb
+- `topic` is easier for clients than `module_name`
+- one write tool eliminates divergent schemas and examples
+- advanced lifecycle control still matters, so the surviving write tool must support explicit `branch_state`
+
+**What changed:** `store_context` was removed from the MCP tool surface. `remember_context` now handles both simple writes and advanced writes via optional `branch_state`. This reduced the tool surface from 6 to 5.
 
 ### 2. `get_consolidation_queue` — remove entirely
+
+**Status:** Not started.
 
 **Why cut:** This tool exposes an internal workflow concept ("consolidation") that doesn't match how any current agent memory system actually works in practice. The intended workflow is: agent stores rough notes as `wip` → later reviews the queue → consolidates into canonical `active` memories → deprecates the originals.
 
@@ -72,13 +86,17 @@ Problems:
 
 ### 1. SSE transport on Cloud Functions
 
+**Status:** Completed on 2026-03-22.
+
 **Problem:** SSE sessions are stored in a module-level `Map`. Cloud Functions runs multiple instances. An SSE connection on instance A won't be found when a subsequent POST lands on instance B. This is a fundamental mismatch between stateful SSE and stateless serverless.
 
 **Competitors' approach:** Most competitor servers either run on persistent processes (not serverless) or use only stateless transports.
 
-**Recommendation:** Deprecate SSE transport. Streamable HTTP (the primary transport) is stateless and works correctly on Cloud Functions. SSE was needed for older MCP clients but the ecosystem is moving to Streamable HTTP. If SSE must stay, document it as "single-instance only" and don't test it in production multi-instance scenarios.
+**What changed:** SSE transport and its message endpoints were removed. Streamable HTTP is now the only supported transport.
 
 ### 2. Unbounded Firestore collections
+
+**Status:** Not started.
 
 Two collections grow without bound:
 - `memory_vectors_write_fingerprints` — deduplication fingerprints with `expires_at` set but nothing deleting them
@@ -90,17 +108,23 @@ Two collections grow without bound:
 
 ### 3. Response format inconsistency
 
+**Status:** Completed on 2026-03-22.
+
 `store_context` and `deprecate_context` return flat key=value text. Everything else returns JSON. This is a tax on every client.
 
-**Recommendation:** Normalize everything to JSON. This is a breaking change for anyone parsing the current text responses, but the project is 10 days old — now is the time.
+**What changed:** All remaining MCP tools now return JSON payloads.
 
 ### 4. `retrieval_text` exposure in fetch responses
+
+**Status:** Not started.
 
 For text memories, `retrieval_text` duplicates `content`. For multimodal memories, it's a Gemini-generated artifact the client can't meaningfully use. Exposing it leaks implementation detail.
 
 **Recommendation:** Remove `retrieval_text` from `fetch_context` responses. If debugging is needed, add a `debug: true` query parameter or a separate admin tool.
 
 ### 5. Search result redundancy
+
+**Status:** Not started.
 
 Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients about which to use.
 
@@ -164,23 +188,24 @@ The closest competitor in philosophy is supermemory (also serverless, also MCP-c
 
 These should be addressed regardless of strategic direction:
 
-1. **`runtime.test.ts`** uses `MCP_AUTH_TOKEN` but code reads `MCP_ADMIN_TOKEN` — test passes only because dev shell has the right env var set. Will fail in clean CI.
-2. **CLAUDE.md** still says `MCP_AUTH_TOKEN` in the env var table — should be `MCP_ADMIN_TOKEN`.
-3. **CLAUDE.md** says function is `openBrainMcp` — actual export is `metaCortexMcp`.
-4. **CLAUDE.md** line counts and file descriptions are stale.
-5. **`WWW-Authenticate` realm** in `app.ts` still says `"firebase-open-brain"`.
-6. **Default `serviceName`** config still defaults to `"firebase-open-brain"`.
-7. **`gemini-3.1-flash-lite-preview`** multimodal model default — verify this model name actually exists.
+1. **Fixed:** `runtime.test.ts` used `MCP_AUTH_TOKEN` while code read `MCP_ADMIN_TOKEN`.
+2. **Fixed:** `CLAUDE.md` used `MCP_AUTH_TOKEN` in the env var table.
+3. **Fixed:** `CLAUDE.md` referred to `openBrainMcp` instead of `metaCortexMcp`.
+4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
+5. **Fixed:** `WWW-Authenticate` realm no longer says `"firebase-open-brain"`.
+6. **Fixed:** default `serviceName` no longer says `"firebase-open-brain"`.
+7. **Pending:** verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
 
 ---
 
-## Proposed Tool Surface (after cuts)
+## Current Tool Surface
 
 | Tool | Purpose | Annotations |
 |---|---|---|
-| `store_context` | Write memories (defaults: module_name="general", branch_state="active") | idempotent |
+| `remember_context` | Write memories (defaults: topic="general", branch_state="active") | idempotent |
 | `search_context` | Semantic search with filters | read-only |
 | `fetch_context` | Get full content by ID | read-only |
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
+| `get_consolidation_queue` | Read WIP backlog | likely next cut |
 
-Four tools. Clean, orthogonal, no redundancy. Server `instructions` field guides agents on when to use each.
+The current surface is down from 6 tools to 5. The next likely reduction is removing `get_consolidation_queue`, which would leave a 4-tool surface.

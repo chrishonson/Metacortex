@@ -64,7 +64,7 @@ if [[ -f functions/.env.prod ]]; then
   missing_keys=()
 
   grep -q '^GEMINI_API_KEY=' functions/.env.prod || missing_keys+=("GEMINI_API_KEY")
-  grep -q '^MCP_AUTH_TOKEN=' functions/.env.prod || missing_keys+=("MCP_AUTH_TOKEN")
+  grep -q '^MCP_ADMIN_TOKEN=' functions/.env.prod || missing_keys+=("MCP_ADMIN_TOKEN")
   grep -q '^GEMINI_EMBEDDING_DIMENSIONS=' functions/.env.prod || missing_keys+=("GEMINI_EMBEDDING_DIMENSIONS")
 
   if (( ${#missing_keys[@]} > 0 )); then
