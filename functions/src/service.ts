@@ -23,7 +23,7 @@ import type {
 } from "./types.js";
 import type { MemoryRepository } from "./memoryRepository.js";
 
-export class OpenBrainService {
+export class MetaCortexService {
   constructor(
     private readonly contentPreparer: MemoryContentPreparer,
     private readonly embeddings: EmbeddingClient,

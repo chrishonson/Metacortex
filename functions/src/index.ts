@@ -1,6 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 
-import { createOpenBrainApp } from "./app.js";
+import { createMetaCortexApp } from "./app.js";
 import { getConfig, getObserver, getRuntime } from "./runtime.js";
 
 export const metaCortexMcp = onRequest(
@@ -10,7 +10,7 @@ export const metaCortexMcp = onRequest(
     memory: "512MiB",
     invoker: "public"
   },
-  createOpenBrainApp({
+  createMetaCortexApp({
     getConfig,
     getObserver,
     getRuntime

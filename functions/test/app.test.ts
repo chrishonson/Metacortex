@@ -1,14 +1,14 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
-import { createOpenBrainApp } from "../src/app.js";
+import { createMetaCortexApp } from "../src/app.js";
 import { MissingConfigurationError } from "../src/config.js";
 import { createTestRuntime } from "./support/fakes.js";
 
-describe("createOpenBrainApp", () => {
+describe("createMetaCortexApp", () => {
   it("exposes a public health endpoint", async () => {
     const runtime = createTestRuntime();
-    const app = createOpenBrainApp({
+    const app = createMetaCortexApp({
       getConfig: () => runtime.config,
       getObserver: () => runtime.observer,
       getRuntime: () => runtime
@@ -22,7 +22,7 @@ describe("createOpenBrainApp", () => {
 
   it("rejects unauthorized MCP requests and records a request event", async () => {
     const runtime = createTestRuntime();
-    const app = createOpenBrainApp({
+    const app = createMetaCortexApp({
       getConfig: () => runtime.config,
       getObserver: () => runtime.observer,
       getRuntime: () => runtime
@@ -48,7 +48,7 @@ describe("createOpenBrainApp", () => {
   });
 
   it("surfaces configuration failures as 500s", async () => {
-    const app = createOpenBrainApp({
+    const app = createMetaCortexApp({
       getConfig: () => {
         throw new MissingConfigurationError("GEMINI_API_KEY is missing");
       },
@@ -76,7 +76,7 @@ describe("createOpenBrainApp", () => {
 
   it("blocks browser origins that are not allowlisted", async () => {
     const runtime = createTestRuntime();
-    const app = createOpenBrainApp({
+    const app = createMetaCortexApp({
       getConfig: () => runtime.config,
       getObserver: () => runtime.observer,
       getRuntime: () => runtime
@@ -117,7 +117,7 @@ describe("createOpenBrainApp", () => {
         }
       ]
     });
-    const app = createOpenBrainApp({
+    const app = createMetaCortexApp({
       getConfig: () => runtime.config,
       getObserver: () => runtime.observer,
       getRuntime: () => runtime

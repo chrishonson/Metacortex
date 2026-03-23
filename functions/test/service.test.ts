@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { OpenBrainService } from "../src/service.js";
+import { MetaCortexService } from "../src/service.js";
 import {
   createTestConfig,
   FakeMemoryContentPreparer,
@@ -8,13 +8,13 @@ import {
   KeywordEmbeddingClient
 } from "./support/fakes.js";
 
-describe("OpenBrainService", () => {
+describe("MetaCortexService", () => {
   function createService(overrides = {}) {
     const config = createTestConfig(overrides);
     const repository = new InMemoryMemoryRepository();
     const embeddings = new KeywordEmbeddingClient();
     const contentPreparer = new FakeMemoryContentPreparer();
-    const service = new OpenBrainService(contentPreparer, embeddings, repository, config);
+    const service = new MetaCortexService(contentPreparer, embeddings, repository, config);
 
     return { service, repository };
   }

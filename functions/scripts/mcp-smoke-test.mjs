@@ -13,7 +13,10 @@ function readArg(name, fallback) {
 }
 
 const url = readArg("url", process.env.MCP_BASE_URL);
-const token = readArg("token", process.env.MCP_AUTH_TOKEN);
+const token = readArg(
+  "token",
+  process.env.MCP_ADMIN_TOKEN ?? process.env.MCP_AUTH_TOKEN
+);
 const mode = readArg(
   "mode",
   process.env.MCP_SMOKE_MODE ?? "admin-read-write"
@@ -40,12 +43,14 @@ if (!url) {
 }
 
 if (!token) {
-  console.error("Missing MCP auth token. Pass --token or set MCP_AUTH_TOKEN.");
+  console.error(
+    "Missing MCP auth token. Pass --token or set MCP_ADMIN_TOKEN."
+  );
   process.exit(1);
 }
 
 const client = new Client({
-  name: "firebase-open-brain-smoke-test",
+  name: "metacortex-smoke-test",
   version: "0.1.0"
 });
 

@@ -9,7 +9,7 @@ import {
   buildFetchPayload,
   buildRememberPayload,
   buildSearchPayload,
-  OpenBrainService
+  MetaCortexService
 } from "./service.js";
 import {
   BRANCH_STATES,
@@ -17,8 +17,8 @@ import {
   type McpToolName
 } from "./types.js";
 
-export function createOpenBrainMcpServer(
-  service: OpenBrainService,
+export function createMetaCortexMcpServer(
+  service: MetaCortexService,
   config: Pick<AppConfig, "serviceName" | "serviceVersion" | "defaultFilterState"> & {
     observer: ToolCallObserver;
     clientId: string;

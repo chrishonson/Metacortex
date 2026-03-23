@@ -1,6 +1,6 @@
 # Security Notes
 
-Known security warnings for the deployed Firebase Open Brain service. These are documented for tracking — not yet resolved.
+Known security warnings for the deployed MetaCortex service. These are documented for tracking and not yet resolved.
 
 ---
 

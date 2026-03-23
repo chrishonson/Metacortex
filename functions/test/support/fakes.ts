@@ -20,7 +20,7 @@ import type {
 } from "../../src/types.js";
 import { MCP_TOOL_NAMES } from "../../src/types.js";
 import {
-  OpenBrainService
+  MetaCortexService
 } from "../../src/service.js";
 import type {
   MemoryRepository,
@@ -258,7 +258,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
   };
 
   return {
-    serviceName: "firebase-open-brain",
+    serviceName: "metacortex",
     serviceVersion: "0.1.0-test",
     authToken,
     geminiApiKey: "test-gemini-key",
@@ -281,7 +281,7 @@ export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
   const observer = new InMemoryToolCallObserver();
   const contentPreparer = new FakeMemoryContentPreparer();
   const embeddings = new KeywordEmbeddingClient();
-  const service = new OpenBrainService(
+  const service = new MetaCortexService(
     contentPreparer,
     embeddings,
     repository,

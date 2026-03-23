@@ -17,7 +17,7 @@
       "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
       "Bash(brew install fnm)",
       "Bash(fnm install 20)",
-      "Bash(npm --prefix /Users/nick/git/FirebaseOpenBrain/functions run build)"
+      "Bash(npm --prefix /Users/nick/git/metacortex/functions run build)"
     ]
   }
 }

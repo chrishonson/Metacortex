@@ -94,7 +94,7 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
       ...(input.error ? { error: input.error } : {})
     };
 
-    await this.persist("openBrainMcp tool event", event);
+    await this.persist("metaCortexMcp tool event", event);
   }
 
   async recordRequest(input: RecordRequestEventInput): Promise<void> {
@@ -113,7 +113,7 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
         : {})
     };
 
-    await this.persist("openBrainMcp request event", event);
+    await this.persist("metaCortexMcp request event", event);
   }
 
   private async persist(message: string, event: ObservabilityEvent): Promise<void> {
@@ -125,7 +125,7 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
         .doc(event.event_id)
         .set(event);
     } catch (error) {
-      console.error("openBrainMcp observability event persist failed", {
+      console.error("metaCortexMcp observability event persist failed", {
         event_id: event.event_id,
         event_type: event.event_type,
         client_id: event.client_id,

@@ -47,7 +47,7 @@ You need:
 If the repo is not bound to the right Firebase project yet:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase use --add
 ```
 
@@ -66,7 +66,7 @@ Recommended layout:
 Start from the template:
 
 ```bash
-cp /Users/nick/git/FirebaseOpenBrain/functions/.env.example /Users/nick/git/FirebaseOpenBrain/functions/.env
+cp /Users/nick/git/metacortex/functions/.env.example /Users/nick/git/metacortex/functions/.env
 ```
 
 Minimum required production values:
@@ -99,7 +99,7 @@ Origin config split:
 
 Important constraints:
 
-- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](/Users/nick/git/FirebaseOpenBrain/firestore.indexes.json)
+- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](../firestore.indexes.json)
 - if you change embedding models or dimensions after seeding data, do not mix vector spaces in the same collection
 - this codebase embeds text; image-backed memories are normalized into text before embedding
 
@@ -129,7 +129,7 @@ Keep each web-client token distinct from `MCP_ADMIN_TOKEN`. The admin token shou
 Run the preflight first:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 ./scripts/deploy-session-preflight.sh
 ```
 
@@ -145,7 +145,7 @@ That script checks:
 If you want a manual local round-trip before production:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 npm --prefix functions run serve
 ```
 
@@ -156,7 +156,7 @@ curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/healthz
 ```
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
+cd /Users/nick/git/metacortex/functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
 MCP_ADMIN_TOKEN="replace-me" \
 npm run smoke -- --mode admin-read-write
@@ -165,7 +165,7 @@ npm run smoke -- --mode admin-read-write
 Browser-client flow:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
+cd /Users/nick/git/metacortex/functions
 MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/clients/chatgpt-web/mcp" \
 MCP_ADMIN_TOKEN="replace-chatgpt-token" \
 MCP_SMOKE_MODE="browser-read-write" \
@@ -177,7 +177,7 @@ Repeat with `/clients/claude-web/mcp` and the Claude token to validate Claude se
 The automated tests and build can also be run directly:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 npm --prefix functions test
 npm --prefix functions run build
 ```
@@ -187,7 +187,7 @@ npm --prefix functions run build
 ### 1. Confirm the target project
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase use
 firebase projects:list
 ```
@@ -220,7 +220,7 @@ Also confirm the actual web-client registration values you will use:
 ### 3. Deploy Firestore indexes
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase deploy --only firestore:indexes
 ```
 
@@ -235,14 +235,14 @@ Wait until those indexes are fully built before trusting search results.
 ### 4. Deploy the function
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase deploy --only functions
 ```
 
 Or deploy both together:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase deploy --only firestore:indexes,functions
 ```
 
@@ -308,7 +308,7 @@ curl -i \
 ### 4. Authenticated admin MCP smoke test
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
+cd /Users/nick/git/metacortex/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
 MCP_ADMIN_TOKEN="<ADMIN_MCP_TOKEN>" \
 MCP_SMOKE_MODE="admin-read-write" \
@@ -331,7 +331,7 @@ This is the first proof that:
 ### 5. Authenticated browser MCP smoke test
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
+cd /Users/nick/git/metacortex/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
 MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
@@ -361,7 +361,7 @@ Confirm:
 - tool events include `tool_name`, `status`, `timestamp`, `latency_ms`, and a compact `request` / `response` or `error`
 - request rejections and degraded events use `event_type=request` with a `reason` such as `unauthorized`, `origin_not_allowed`, or `sse_capacity_exceeded`
 
-Cloud Logging should also contain structured `openBrainMcp tool event` and `openBrainMcp request event` entries for the same calls.
+Cloud Logging should also contain structured `metaCortexMcp tool event` and `metaCortexMcp request event` entries for the same calls.
 
 ### 7. Verify the written document
 
@@ -378,7 +378,7 @@ Confirm:
 ### 8. Optional multimodal browser smoke test
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain/functions
+cd /Users/nick/git/metacortex/functions
 MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
 MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
 MCP_SMOKE_MODE="browser-read-write" \
@@ -493,7 +493,7 @@ If browser clients get `403 Origin not allowed`:
 Useful commands:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 firebase functions:list
 ```
 

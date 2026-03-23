@@ -5,7 +5,7 @@ MetaCortex is a serverless MCP memory service backed by Firestore vector search 
 ![System Architecture](docs/graphics/architecture.png)
 
 > [!TIP]
-> **Brain & Body**: The Open Brain resides in the cloud as the intelligence core, while Nanobot acts as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
+> **Brain & Body**: MetaCortex resides in the cloud as the intelligence core, while Nanobot acts as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
 
 The practical target is a remote MCP server that chat clients such as ChatGPT web or Claude web can use for:
 
@@ -453,11 +453,11 @@ Search events do include a short `query_preview`, but the observability collecti
 
 ## Deployment
 
-Deployment playbook: [docs/DEPLOYMENT.md](/Users/nick/git/FirebaseOpenBrain/docs/DEPLOYMENT.md)
+Deployment playbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 For the next production deployment session, start with:
 
 ```bash
-cd /Users/nick/git/FirebaseOpenBrain
+cd /Users/nick/git/metacortex
 ./scripts/deploy-session-preflight.sh
 ```

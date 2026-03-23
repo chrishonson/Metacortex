@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import express from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createOpenBrainApp } from "../src/app.js";
+import { createMetaCortexApp } from "../src/app.js";
 import { createTestRuntime } from "./support/fakes.js";
 
 describe("MCP integration", () => {
@@ -29,7 +29,7 @@ describe("MCP integration", () => {
 
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
-      createOpenBrainApp({
+      createMetaCortexApp({
         getConfig: () => runtime.config,
         getObserver: () => runtime.observer,
         getRuntime: () => runtime
@@ -126,7 +126,7 @@ describe("MCP integration", () => {
   it("serves the legacy SSE transport", async () => {
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
-      createOpenBrainApp({
+      createMetaCortexApp({
         getConfig: () => runtime.config,
         getObserver: () => runtime.observer,
         getRuntime: () => runtime
@@ -212,7 +212,7 @@ describe("MCP integration", () => {
     });
 
     const baseUrl = await startServer(
-      createOpenBrainApp({
+      createMetaCortexApp({
         getConfig: () => runtime.config,
         getObserver: () => runtime.observer,
         getRuntime: () => runtime
@@ -311,7 +311,7 @@ describe("MCP integration", () => {
     });
 
     const baseUrl = await startServer(
-      createOpenBrainApp({
+      createMetaCortexApp({
         getConfig: () => runtime.config,
         getObserver: () => runtime.observer,
         getRuntime: () => runtime

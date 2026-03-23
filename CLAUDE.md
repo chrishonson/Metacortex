@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Firebase Open Brain is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes browser-friendly and admin MCP tools for remembering, searching, fetching, deprecating, and consolidating vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
+MetaCortex is a serverless MCP (Model Context Protocol) memory layer backed by Firestore vector search, deployed as a Firebase Cloud Functions 2nd Gen HTTP function. It exposes browser-friendly and admin MCP tools for remembering, searching, fetching, deprecating, and consolidating vector-embedded memories, with optional multimodal support (text + images normalized via Gemini).
 
 ## Common Commands
 
@@ -34,7 +34,7 @@ firebase deploy --only functions            # Deploy the function
 Smoke test (against local emulator or production):
 ```bash
 cd functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/openBrainMcp/mcp" \
+MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
 MCP_ADMIN_TOKEN="replace-me" \
 npm run smoke
 ```
@@ -79,12 +79,12 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `index.ts` | ~17 | Firebase Functions entry point, exports `openBrainMcp` (us-central1, 300s timeout, 512MiB) |
+| `index.ts` | ~17 | Firebase Functions entry point, exports `metaCortexMcp` (us-central1, 300s timeout, 512MiB) |
 | `app.ts` | ~344 | Express app: CORS, bearer auth, SSE session management, router for default + client-scoped endpoints |
 | `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
-| `service.ts` | ~161 | `OpenBrainService` — remember/store/search/fetch/deprecate/consolidation flows |
+| `service.ts` | ~161 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidation flows |
 | `observability.ts` | ~150 | Structured tool-event and request-event logging plus Firestore-backed `memory_events` audit trail |
 | `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
@@ -135,7 +135,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 
 **Required:**
 - `GEMINI_API_KEY` — Gemini API key for embeddings and multimodal
-- `MCP_AUTH_TOKEN` — Bearer token for default client auth
+- `MCP_ADMIN_TOKEN` — Bearer token for default client auth
 
 **Optional (with defaults):**
 
@@ -152,7 +152,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
 | `MAX_SSE_SESSIONS` | `25` | Max concurrent SSE sessions |
-| `SERVICE_NAME` | `firebase-open-brain` | Service identifier in responses |
+| `SERVICE_NAME` | `metacortex` | Service identifier in responses |
 | `SERVICE_VERSION` | `0.1.0` | Service version in responses |
 
 Template: `functions/.env.example` → copy to `functions/.env`

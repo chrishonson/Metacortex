@@ -20,7 +20,7 @@ describe("runtime caching", () => {
     process.env = {
       ...originalEnv,
       GEMINI_API_KEY: "gemini-key",
-      MCP_AUTH_TOKEN: "admin-token",
+      MCP_ADMIN_TOKEN: "admin-token",
       MCP_ALLOWED_ORIGINS: "https://admin.example",
       MCP_ALLOWED_TOOLS: "store_context,search_context",
       MCP_ALLOWED_FILTER_STATES: "active,merged,deprecated,wip",

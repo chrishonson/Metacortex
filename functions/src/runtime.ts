@@ -16,11 +16,11 @@ import {
   FirestoreMemoryRepository,
   type MemoryRepository
 } from "./memoryRepository.js";
-import { OpenBrainService } from "./service.js";
+import { MetaCortexService } from "./service.js";
 
 export interface RuntimeDependencies {
   config: AppConfig;
-  service: OpenBrainService;
+  service: MetaCortexService;
   observer: ToolCallObserver;
 }
 
@@ -56,7 +56,7 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
   );
   const observer = cachedObserver ?? new FirestoreToolCallObserver(firestore);
   cachedObserver = observer;
-  const service = new OpenBrainService(
+  const service = new MetaCortexService(
     contentPreparer,
     embeddings,
     repository,

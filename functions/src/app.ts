@@ -6,7 +6,7 @@ import express, { type Request, type Response } from "express";
 
 import { type AppConfig, type ClientProfile, MissingConfigurationError } from "./config.js";
 import { HttpError } from "./errors.js";
-import { createOpenBrainMcpServer } from "./mcpServer.js";
+import { createMetaCortexMcpServer } from "./mcpServer.js";
 import type { ToolCallObserver } from "./observability.js";
 import { type RuntimeDependencies } from "./runtime.js";
 
@@ -20,7 +20,7 @@ export interface CreateAppOptions {
   getRuntime: () => RuntimeDependencies;
 }
 
-export function createOpenBrainApp(options: CreateAppOptions) {
+export function createMetaCortexApp(options: CreateAppOptions) {
   const app = express();
   const sessions = new Map<string, ActiveSession>();
 
@@ -117,7 +117,7 @@ function registerMcpRoutes(
         "unauthorized",
         startedAt
       );
-      res.setHeader("WWW-Authenticate", 'Bearer realm="firebase-open-brain"');
+      res.setHeader("WWW-Authenticate", 'Bearer realm="metacortex"');
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
@@ -151,7 +151,7 @@ function registerMcpRoutes(
       return;
     }
 
-    const server = createOpenBrainMcpServer(runtime.service, {
+    const server = createMetaCortexMcpServer(runtime.service, {
       observer: runtime.observer,
       clientId: profile.id,
       serviceName: runtime.config.serviceName,
@@ -216,7 +216,7 @@ function registerMcpRoutes(
   router.post("/", async (req, res) => {
     const runtime = res.locals.runtime as RuntimeDependencies;
     const profile = res.locals.clientProfile as ClientProfile;
-    const server = createOpenBrainMcpServer(runtime.service, {
+    const server = createMetaCortexMcpServer(runtime.service, {
       observer: runtime.observer,
       clientId: profile.id,
       serviceName: runtime.config.serviceName,
@@ -337,7 +337,7 @@ function selectDefaultFilterState(
 
 function handleAppError(req: Request, res: Response, error: unknown): void {
   if (res.headersSent) {
-    console.warn("openBrainMcp error dropped (headers already sent)", {
+    console.warn("metaCortexMcp error dropped (headers already sent)", {
       method: req.method,
       path: req.originalUrl,
       error:
@@ -350,7 +350,7 @@ function handleAppError(req: Request, res: Response, error: unknown): void {
 
   const requestId = randomUUID();
 
-  console.error("openBrainMcp request failed", {
+  console.error("metaCortexMcp request failed", {
     requestId,
     method: req.method,
     path: req.originalUrl,
@@ -406,7 +406,7 @@ async function recordRequestEvent(
       latency_ms: startedAt ? Date.now() - startedAt : undefined
     });
   } catch (error) {
-    console.error("openBrainMcp request event failed", {
+    console.error("metaCortexMcp request event failed", {
       client_id: clientId,
       method: req.method,
       path: req.originalUrl,
