@@ -39,8 +39,7 @@ describe("runtime caching", () => {
           allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
         }
-      ]),
-      MAX_SSE_SESSIONS: "8"
+      ])
     };
   });
 
@@ -72,6 +71,5 @@ describe("runtime caching", () => {
     expect(runtime.config.clientProfiles[1]?.allowedOrigins).toEqual([
       "https://claude.ai"
     ]);
-    expect(runtime.config.maxSseSessions).toBe(8);
   });
 });

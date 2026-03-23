@@ -8,8 +8,7 @@ export const MEMORY_EVENT_COLLECTION = "memory_events";
 
 export type RequestEventReason =
   | "origin_not_allowed"
-  | "unauthorized"
-  | "sse_capacity_exceeded";
+  | "unauthorized";
 
 export interface ToolCallEventError {
   name: string;
@@ -36,7 +35,7 @@ export interface RequestEvent {
   client_id: string;
   method: string;
   path: string;
-  status: "rejected" | "degraded";
+  status: "rejected";
   status_code: number;
   reason: RequestEventReason;
   timestamp: number;
@@ -60,7 +59,7 @@ export interface RecordRequestEventInput {
   client_id: string;
   method: string;
   path: string;
-  status: "rejected" | "degraded";
+  status: "rejected";
   status_code: number;
   reason: RequestEventReason;
   latency_ms?: number;

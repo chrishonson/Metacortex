@@ -22,7 +22,6 @@ describe("loadConfig", () => {
       "wip"
     ]);
     expect(config.clientProfiles).toEqual([]);
-    expect(config.maxSseSessions).toBe(25);
   });
 
   it("rejects invalid branch state defaults", () => {
@@ -62,7 +61,6 @@ describe("loadConfig", () => {
           allowedFilterStates: ["active"]
         }
       ]),
-      MAX_SSE_SESSIONS: "8",
       MCP_ALLOWED_FILTER_STATES: "active,merged,deprecated,wip"
     });
 
@@ -97,7 +95,6 @@ describe("loadConfig", () => {
     expect(config.clientProfiles[2]?.allowedOrigins).toEqual([
       "https://claude.ai"
     ]);
-    expect(config.maxSseSessions).toBe(8);
   });
 
   it("rejects client profiles without explicit allowedTools", () => {

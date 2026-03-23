@@ -86,7 +86,6 @@ Recommended security and access defaults for the first release:
 MCP_ALLOWED_TOOLS=remember_context,store_context,search_context,fetch_context,deprecate_context,get_consolidation_queue
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
-MAX_SSE_SESSIONS=25
 SEARCH_RESULT_LIMIT=5
 DEFAULT_FILTER_STATE=active
 ```
@@ -106,7 +105,6 @@ Important constraints:
 Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy separate scoped client profiles from day one:
 
 - admin: `<FUNCTION_BASE_URL>/mcp`
-- admin SSE: `<FUNCTION_BASE_URL>/mcp/sse`
 - ChatGPT web: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
 - Claude web: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
 
@@ -252,11 +250,7 @@ The useful production routes are:
 
 - `<FUNCTION_BASE_URL>/healthz`
 - `<FUNCTION_BASE_URL>/mcp`
-- `<FUNCTION_BASE_URL>/mcp/sse`
-- `<FUNCTION_BASE_URL>/mcp/messages`
 - `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/sse`
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp/messages`
 
 ## Post-deploy verification
 
@@ -359,7 +353,7 @@ Confirm:
 - ChatGPT web calls are recorded with `client_id=chatgpt-web`
 - Claude web calls are recorded with `client_id=claude-web`
 - tool events include `tool_name`, `status`, `timestamp`, `latency_ms`, and a compact `request` / `response` or `error`
-- request rejections and degraded events use `event_type=request` with a `reason` such as `unauthorized`, `origin_not_allowed`, or `sse_capacity_exceeded`
+- request rejections use `event_type=request` with a `reason` such as `unauthorized` or `origin_not_allowed`
 
 Cloud Logging should also contain structured `metaCortexMcp tool event` and `metaCortexMcp request event` entries for the same calls.
 
@@ -419,14 +413,14 @@ After deployment, use these views together:
 - `memory_events` for client-attributed usage and audit history
 - Cloud Logging for request failures and structured tool-event logs
 
-`memory_events` is populated automatically by successful and failed tool calls plus ingress-level auth/CORS/degraded events. It is the easiest way to answer:
+`memory_events` is populated automatically by successful and failed tool calls plus ingress-level auth/CORS rejections. It is the easiest way to answer:
 
 - which client is writing memories
 - which client is searching or fetching most often
 - which memory ids are being returned or fetched repeatedly
 - how many searches return zero results
 - whether a specific client is generating repeated tool errors
-- whether a specific client is hitting repeated `401`, `403`, or SSE-capacity failures
+- whether a specific client is hitting repeated `401` or `403` failures
 
 The event payload is intentionally compact. It records ids, filters, counts, states, reasons, and latency rather than duplicating full memory bodies.
 

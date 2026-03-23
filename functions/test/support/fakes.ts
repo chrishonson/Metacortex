@@ -270,7 +270,6 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     defaultFilterState: "active",
     defaultClientProfile: overrides.defaultClientProfile ?? defaultClientProfile,
     clientProfiles: [],
-    maxSseSessions: 25,
     ...overrides
   };
 }

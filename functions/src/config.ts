@@ -26,7 +26,6 @@ export interface AppConfig {
   defaultFilterState: BranchState;
   defaultClientProfile: ClientProfile;
   clientProfiles: ClientProfile[];
-  maxSseSessions: number;
 }
 
 export class MissingConfigurationError extends Error {
@@ -275,11 +274,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     topK: parsePositiveInteger(env.SEARCH_RESULT_LIMIT, 5, "SEARCH_RESULT_LIMIT"),
     defaultFilterState: defaultFilterState as BranchState,
     defaultClientProfile,
-    clientProfiles,
-    maxSseSessions: parsePositiveInteger(
-      env.MAX_SSE_SESSIONS,
-      25,
-      "MAX_SSE_SESSIONS"
-    )
+    clientProfiles
   };
 }

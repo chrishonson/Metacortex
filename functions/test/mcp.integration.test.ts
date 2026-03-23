@@ -2,7 +2,6 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import express from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -179,75 +178,6 @@ describe("MCP integration", () => {
         superseded_by: "memory-3"
       },
       previous_state: "active"
-    });
-  });
-
-  it("serves the legacy SSE transport", async () => {
-    const runtime = createTestRuntime();
-    const baseUrl = await startServer(
-      createMetaCortexApp({
-        getConfig: () => runtime.config,
-        getObserver: () => runtime.observer,
-        getRuntime: () => runtime
-      }),
-      cleanup
-    );
-
-    const client = new Client({
-      name: "test-sse-client",
-      version: "1.0.0"
-    });
-    const transport = new SSEClientTransport(new URL(`${baseUrl}/mcp/sse`), {
-      eventSourceInit: {
-        fetch: globalThis.fetch,
-        headers: {
-          Authorization: "Bearer test-token"
-        }
-      },
-      requestInit: {
-        headers: {
-          Authorization: "Bearer test-token"
-        }
-      }
-    });
-
-    cleanup.push(async () => {
-      await client.close();
-    });
-
-    await client.connect(transport);
-
-    await client.callTool({
-      name: "store_context",
-      arguments: {
-        content: "Jetpack Compose settings screen screenshot.",
-        module_name: "jetpack-compose-ui",
-        branch_state: "active",
-        image_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
-        image_mime_type: "image/png",
-        artifact_refs: ["gs://bucket/settings-screen.png"]
-      }
-    });
-
-    const searchResult = await client.callTool({
-      name: "search_context",
-      arguments: {
-        query: "android compose screenshot",
-        filter_state: "active"
-      }
-    });
-
-    expect(parseJsonTextContent(searchResult)).toMatchObject({
-      matches: [
-        {
-          id: "memory-1",
-          summary: expect.stringContaining("Jetpack Compose"),
-          metadata: {
-            modality: "mixed",
-            artifact_refs: ["gs://bucket/settings-screen.png"]
-          }
-        }
-      ]
     });
   });
 

@@ -120,11 +120,7 @@ That means the practical image flow is:
 ## Endpoints
 
 - Default Streamable HTTP MCP endpoint: `/metaCortexMcp/mcp`
-- Default legacy SSE MCP endpoint: `/metaCortexMcp/mcp/sse`
-- Default legacy SSE message endpoint: `/metaCortexMcp/mcp/messages`
 - Client-scoped Streamable HTTP MCP endpoint: `/metaCortexMcp/clients/<clientId>/mcp`
-- Client-scoped legacy SSE endpoint: `/metaCortexMcp/clients/<clientId>/mcp/sse`
-- Client-scoped legacy SSE message endpoint: `/metaCortexMcp/clients/<clientId>/mcp/messages`
 
 Security model:
 
@@ -171,7 +167,7 @@ MetaCortex will validate the token from the URL and reject unauthenticated reque
 
 ### Connecting to Claude
 
-Depending on your Claude client (e.g., experimental web extensions, custom UIs, or future Claude Desktop SSE support), you can configure the connection in two ways:
+Depending on your Claude client (e.g., experimental web extensions or custom UIs), you can configure the connection in two ways:
 
 **Option 1: Standard Headers (Preferred)**
 - **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
@@ -363,7 +359,7 @@ After deployment, there are three places to look:
 - `memory_events` in Firestore shows client-attributed tool usage over time
 - Cloud Logging shows request failures and structured tool-event logs
 
-`memory_events` records one document per tool call and one document per ingress rejection/degraded request. Events include:
+`memory_events` records one document per tool call and one document per ingress rejection. Events include:
 
 - `client_id`
 - `event_type`
@@ -380,8 +376,6 @@ Examples:
 - `fetch_context` events record which `document_id` was read
 - `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`
 - rejected browser/admin requests record `reason=origin_not_allowed` or `reason=unauthorized`
-- degraded SSE requests record `reason=sse_capacity_exceeded`
-
 Traceability is by client profile id, so:
 
 - admin endpoint traffic is attributed to `client_id=default`

@@ -52,9 +52,8 @@ HTTP → Express app (app.ts) → CORS check → Bearer auth → MCP server (mcp
 
 ### MCP Transport Modes
 
-Three transports, all available at both the default and per-client mount points:
-- `/mcp` (POST) — Streamable HTTP (primary, single request-reply)
-- `/mcp/sse` (GET) + `/mcp/messages` (POST) — Legacy SSE with session management
+One transport is supported at both the default and per-client mount points:
+- `/mcp` (POST) — Streamable HTTP (primary, stateless request-reply)
 
 ### Client Profile Scoping
 
@@ -80,7 +79,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | File | Lines | Purpose |
 |------|-------|---------|
 | `index.ts` | ~17 | Firebase Functions entry point, exports `metaCortexMcp` (us-central1, 300s timeout, 512MiB) |
-| `app.ts` | ~344 | Express app: CORS, bearer auth, SSE session management, router for default + client-scoped endpoints |
+| `app.ts` | ~344 | Express app: CORS, bearer auth, and router for default + client-scoped Streamable HTTP endpoints |
 | `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
@@ -114,7 +113,7 @@ Four test layers, all using vitest with in-memory fakes (no real Gemini/Firestor
 | `config.test.ts` | Config validation, env parsing, client profile JSON |
 | `service.test.ts` | Business logic with `InMemoryMemoryRepository` + `KeywordEmbeddingClient` |
 | `app.test.ts` | HTTP auth, CORS, bearer tokens, client profile routing (supertest) |
-| `mcp.integration.test.ts` | End-to-end MCP protocol via real MCP SDK client transports (StreamableHTTP + SSE) |
+| `mcp.integration.test.ts` | End-to-end MCP protocol via real MCP SDK Streamable HTTP transport |
 
 Test fakes in `functions/test/support/fakes.ts`:
 - `KeywordEmbeddingClient` — 6-dimensional vectors keyed on keywords (ktor, compose, android, ios, firebase, architecture), enables deterministic cosine similarity
@@ -151,7 +150,6 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist for the default admin `/mcp` endpoint only |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
-| `MAX_SSE_SESSIONS` | `25` | Max concurrent SSE sessions |
 | `SERVICE_NAME` | `metacortex` | Service identifier in responses |
 | `SERVICE_VERSION` | `0.1.0` | Service version in responses |
 
@@ -171,7 +169,7 @@ See `docs/DEPLOYMENT.md` for the deployment playbook.
 - **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
 - **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
 - **Firestore indexes**: Three composite indexes on `memory_vectors` — `metadata.module_name` + `embedding`, `metadata.branch_state` + `embedding`, and `metadata.branch_state` + `metadata.module_name` + `embedding` (all 768-dim FLAT)
-- **Observability collection**: `memory_events` stores one audit record per tool call and one per ingress rejection/degraded request, including `client_id`, `event_type`, `status`, `latency_ms`, and compact request/response or reason metadata
+- **Observability collection**: `memory_events` stores one audit record per tool call and one per ingress rejection request, including `client_id`, `event_type`, `status`, `latency_ms`, and compact request/response or reason metadata
 - **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
 
 ## TypeScript Configuration
