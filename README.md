@@ -32,11 +32,16 @@ This project is set up for these workflows:
 
 ## Tool strategy
 
-There are two tool layers in this repo.
+The current MCP surface is intentionally split between:
 
-### Browser-friendly tools
+- a 3-tool client-facing contract for browser-hosted chat clients
+- a 1-tool admin-only maintenance surface for operators
 
-These are the tools you should expose to read/write chat clients first:
+That means the server currently exposes 4 MCP tools total, but normal browser clients should only see 3 of them.
+
+### Client-facing tools
+
+This is the public/browser contract:
 
 - `remember_context`
   The single write tool for normal chat use and advanced admin writes. The client supplies the memory text, optional topic, optional `draft=true` or explicit `branch_state`, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
@@ -47,7 +52,7 @@ These are the tools you should expose to read/write chat clients first:
 
 ### Admin and maintenance tools
 
-These are still useful, but they are not the first tools to expose to browser-hosted chat clients:
+This remains on the server, but it should stay off browser-hosted client profiles:
 
 - `deprecate_context`
   Soft-delete obsolete memories.
@@ -132,6 +137,8 @@ Recommended browser read/write toolset:
 - `remember_context`
 - `search_context`
 - `fetch_context`
+
+This 3-tool browser contract is the intended v1 public surface.
 
 ## Browser Client Setup
 
@@ -341,7 +348,7 @@ Recommended usage:
 1. Browser clients save durable memories with `remember_context`.
 2. Use `draft=true` only for provisional notes that should not appear in normal active search.
 3. WIP review and consolidation stay in internal maintenance workflows.
-4. After writing the canonical replacement, admins can mark obsolete records with `deprecate_context`.
+4. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
 
 Current lifecycle behavior:
 

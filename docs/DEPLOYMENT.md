@@ -21,6 +21,10 @@ The deploy path in this repo currently assumes:
 - embedding output pinned to `768` dimensions
 - embedding model pinned to `text-embedding-004`
 - multimodal normalization model pinned to `gemini-3.1-flash-lite-preview`
+- total MCP surface of 4 tools
+- public/browser toolset of 3 tools: `remember_context`, `search_context`, `fetch_context`
+- admin-only maintenance tool: `deprecate_context`
+- WIP consolidation handled internally, not through a public MCP tool
 
 For the first production release, if `memory_vectors` is empty, no embedding migration is required.
 
@@ -80,7 +84,7 @@ GEMINI_EMBEDDING_DIMENSIONS=768
 MEMORY_COLLECTION=memory_vectors
 ```
 
-Recommended security and access defaults for the first release:
+Recommended admin endpoint defaults for the first release:
 
 ```dotenv
 MCP_ALLOWED_TOOLS=remember_context,search_context,fetch_context,deprecate_context
@@ -113,6 +117,8 @@ Recommended browser read/write toolset:
 - `remember_context`
 - `search_context`
 - `fetch_context`
+
+Do not add `deprecate_context` to browser-hosted client profiles. Keep it on the admin endpoint only.
 
 Recommended web client profile shape:
 
@@ -340,7 +346,7 @@ Expected:
 
 Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
 
-This is the first proof that each web-facing toolset is usable end to end.
+This is the first proof that the 3-tool client-facing browser contract is usable end to end.
 
 ### 6. Verify observability events
 
