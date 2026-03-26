@@ -5,13 +5,20 @@ MetaCortex is a serverless MCP memory service backed by Firestore vector search 
 ![System Architecture](docs/graphics/architecture.png)
 
 > [!TIP]
-> **Brain & Body**: MetaCortex resides in the cloud as the intelligence core, while Nanobot acts as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
+> **Brain & Body**: MetaCortex resides in the cloud as the memory core, while Autonomous agents such as OpenClaw act as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
 
 The practical target is a remote MCP server that chat clients such as ChatGPT web or Claude web can use for:
 
 - searching what the project already knows
 - saving new durable memories from chat
 - fetching the full stored memory behind a search result
+
+## Usage in ChatGPT web
+https://github.com/user-attachments/assets/23db7dff-7946-405c-8a47-29f438684f32
+
+## Using and exporting memories from Claude web
+<img width="919" height="467" alt="Screenshot 2026-03-20 at 4 53 53 PM" src="https://github.com/user-attachments/assets/61d10918-2731-47fe-b8de-a7e339c92313" />
+
 
 ## Important constraint
 
