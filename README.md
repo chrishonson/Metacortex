@@ -42,7 +42,7 @@ This project is set up for these workflows:
 The current MCP surface is intentionally split between:
 
 - a 3-tool client-facing contract for browser-hosted chat clients
-- a 1-tool admin-only maintenance surface for operators
+- a smaller admin-only maintenance surface documented later in this README
 
 That means the server currently exposes 4 MCP tools total, but normal browser clients should only see 3 of them.
 
@@ -51,48 +51,25 @@ That means the server currently exposes 4 MCP tools total, but normal browser cl
 This is the public/browser contract:
 
 - `remember_context`
-  The single write tool for normal chat use and advanced admin writes. The client supplies the memory text, optional topic, optional `draft=true` or explicit `branch_state`, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
+  The single write tool for normal chat use. The client supplies the memory text, optional topic, optional `draft=true` for rough notes, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
 - `search_context`
   Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
   Fetch one memory by `id` after `remember_context` or `search_context`.
 
-### Admin and maintenance tools
-
-This remains on the server, but it should stay off browser-hosted client profiles:
-
-- `deprecate_context`
-  Soft-delete obsolete memories.
-
-WIP consolidation is currently an internal maintenance workflow, not a public MCP tool.
-
 ## Why `remember_context` Is The Write Tool
 
-`remember_context` keeps the public write surface simple while still supporting advanced lifecycle control when needed:
+`remember_context` keeps the public write surface simple:
 
 - `topic` is the public label and maps to the stored `module_name` internally
-- omitted `branch_state` stores canonical memory as `active`
+- normal writes store canonical memory as `active`
 - `draft=true` stores draft material as `wip`
-- explicit `branch_state` is available for advanced admin workflows such as `merged`
+
+Explicit lifecycle overrides and cleanup flows are part of the admin maintenance surface described later in this README.
 
 ## Metadata model
 
-These fields exist in stored records because they help maintenance and filtering.
-
-### `branch_state`
-
-Lifecycle state for a stored memory:
-
-- `active`
-  Canonical memory that normal search should return
-- `wip`
-  Draft memory awaiting consolidation
-- `merged`
-  Incorporated memory that is no longer the main active record
-- `deprecated`
-  Obsolete memory kept only for history/audit
-
-For browser clients, prefer `remember_context` with its defaults and use `draft=true` only when the user is explicitly saving rough notes. Admin flows can set `branch_state` explicitly when needed.
+The main public metadata field is `topic`. Stored records also carry lifecycle metadata such as `branch_state`, but that is primarily for admin cleanup and filtering and is documented later in [Admin Cleanup And Consolidation](#admin-cleanup-and-consolidation).
 
 ### `topic`
 
@@ -347,25 +324,50 @@ Write behavior that matters in production:
 `remember_context` defaults:
 
 - omitted `topic` becomes `general`
-- omitted `draft` and omitted `branch_state` store `branch_state=active`
+- omitted `draft` and omitted lifecycle overrides store `branch_state=active`
 - `draft=true` stores `branch_state=wip`
-- explicit `branch_state` overrides the default lifecycle state
-- `draft` and `branch_state` are mutually exclusive
 
-## Lifecycle And Maintenance
+Explicit lifecycle overrides are part of the admin maintenance surface described later in this README.
+
+## Admin Cleanup And Consolidation
+
+This section is for operators using the admin endpoint. Browser-hosted clients can usually ignore it.
+
+Admin-only maintenance surface:
+
+- `deprecate_context`
+  Soft-delete obsolete memories by setting `branch_state=deprecated` and recording `superseded_by`.
+
+Internal maintenance workflow:
+
+- WIP review and consolidation are internal workflows, not part of the public browser contract.
+
+Lifecycle states:
+
+- `active`
+  Canonical memory that normal search should return.
+- `wip`
+  Draft memory awaiting consolidation.
+- `merged`
+  Incorporated memory that is no longer the main active record.
+- `deprecated`
+  Obsolete memory kept only for history and audit.
 
 Recommended usage:
 
 1. Browser clients save durable memories with `remember_context`.
 2. Use `draft=true` only for provisional notes that should not appear in normal active search.
 3. WIP review and consolidation stay in internal maintenance workflows.
-4. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
+4. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
+5. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
 
 Current lifecycle behavior:
 
 - `remember_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
+- `draft` and `branch_state` are mutually exclusive
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
 - `merged` exists as a searchable historical state for explicit admin writes
+- client profiles can restrict visible lifecycle states through `allowedFilterStates`
 
 ## Observability
 
