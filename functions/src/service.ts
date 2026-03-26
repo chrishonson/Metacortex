@@ -126,8 +126,8 @@ export class MetaCortexService {
   }
 
   async fetchContext(input: FetchContextInput): Promise<FetchContextResult> {
-    const documentId = normalizeRequiredText(input.document_id, "document_id");
-    const item = await this.repository.get(documentId);
+    const id = normalizeRequiredText(input.id, "id");
+    const item = await this.repository.get(id);
 
     if (!item) {
       throw new HttpError(404, "Document not found");
@@ -138,13 +138,13 @@ export class MetaCortexService {
 
   async deprecateContext(input: DeprecateContextInput): Promise<DeprecateContextResult> {
     const { previousState } = await this.repository.deprecate(
-      input.document_id,
-      input.superseding_document_id
+      input.id,
+      input.superseding_id
     );
 
     return {
-      document_id: input.document_id,
-      superseding_document_id: input.superseding_document_id,
+      id: input.id,
+      superseding_id: input.superseding_id,
       previous_state: previousState
     };
   }
@@ -222,9 +222,9 @@ export function buildDeprecatePayload(
 ): Record<string, unknown> {
   return {
     item: {
-      id: result.document_id,
+      id: result.id,
       branch_state: "deprecated",
-      superseded_by: result.superseding_document_id
+      superseded_by: result.superseding_id
     },
     previous_state: result.previous_state
   };

@@ -150,18 +150,18 @@ try {
   console.log(searchText);
 
   if (mode === "browser-read-write") {
-    const documentId = extractDocumentId(searchText);
+    const memoryId = extractMemoryId(searchText);
 
-    if (!documentId) {
+    if (!memoryId) {
       throw new Error(
-        "browser-read-write mode expected search_context to return a document id"
+        "browser-read-write mode expected search_context to return an id"
       );
     }
 
     const fetchResult = await client.callTool({
       name: "fetch_context",
       arguments: {
-        document_id: documentId
+        id: memoryId
       }
     });
 
@@ -188,7 +188,7 @@ function ensureTools(toolNames, required) {
   }
 }
 
-function extractDocumentId(searchText) {
+function extractMemoryId(searchText) {
   const payload = JSON.parse(searchText);
   return payload.matches?.[0]?.id;
 }

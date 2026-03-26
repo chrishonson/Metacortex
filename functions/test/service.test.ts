@@ -170,12 +170,12 @@ describe("MetaCortexService", () => {
       branch_state: "active"
     });
     const result = await service.deprecateContext({
-      document_id: stored.id,
-      superseding_document_id: replacement.id
+      id: stored.id,
+      superseding_id: replacement.id
     });
 
-    expect(result.document_id).toBe(stored.id);
-    expect(result.superseding_document_id).toBe(replacement.id);
+    expect(result.id).toBe(stored.id);
+    expect(result.superseding_id).toBe(replacement.id);
     expect(result.previous_state).toBe("active");
   });
 
@@ -186,18 +186,18 @@ describe("MetaCortexService", () => {
       module_name: "kmp-networking",
       branch_state: "active"
     });
-    const fetched = await service.fetchContext({ document_id: stored.id });
+    const fetched = await service.fetchContext({ id: stored.id });
 
     expect(fetched.item.id).toBe(stored.id);
     expect(fetched.item.content).toBe(stored.content);
   });
 
-  it("fetches rejects unknown document id", async () => {
+  it("fetches rejects unknown id", async () => {
     const { service } = createService();
 
-    await expect(
-      service.fetchContext({ document_id: "nonexistent" })
-    ).rejects.toThrow("Document not found");
+    await expect(service.fetchContext({ id: "nonexistent" })).rejects.toThrow(
+      "Document not found"
+    );
   });
 
   it("returns empty matches when no documents match", async () => {

@@ -42,7 +42,7 @@ interface FirestoreMemoryDocument {
 }
 
 interface FirestoreWriteFingerprintDocument {
-  document_id: string;
+  id: string;
   expires_at: number;
   updated_at: number;
 }
@@ -73,7 +73,7 @@ export class FirestoreMemoryRepository implements MemoryRepository {
 
         if (fingerprint.expires_at >= now) {
           const existingSnapshot = await transaction.get(
-            this.firestore.collection(this.collectionName).doc(fingerprint.document_id)
+            this.firestore.collection(this.collectionName).doc(fingerprint.id)
           );
 
           if (existingSnapshot.exists) {
@@ -97,7 +97,7 @@ export class FirestoreMemoryRepository implements MemoryRepository {
         ...(params.media ? { media: params.media } : {})
       });
       transaction.set(fingerprintRef, {
-        document_id: docRef.id,
+        id: docRef.id,
         expires_at: now + WRITE_FINGERPRINT_WINDOW_MS,
         updated_at: now
       });

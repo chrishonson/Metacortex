@@ -83,6 +83,16 @@ describe("MCP integration", () => {
         })
       }
     });
+    expect(
+      tools.tools.find(tool => tool.name === "fetch_context")
+    ).toMatchObject({
+      description: expect.stringContaining("returned by remember_context"),
+      inputSchema: {
+        properties: expect.objectContaining({
+          id: expect.any(Object)
+        })
+      }
+    });
     expect(tools.tools.map(tool => tool.name)).not.toContain("get_consolidation_queue");
 
     const rememberResult = await client.callTool({
@@ -151,8 +161,8 @@ describe("MCP integration", () => {
     const deprecateResult = await client.callTool({
       name: "deprecate_context",
       arguments: {
-        document_id: "memory-1",
-        superseding_document_id: "memory-2"
+        id: "memory-1",
+        superseding_id: "memory-2"
       }
     });
 
@@ -395,7 +405,7 @@ describe("MCP integration", () => {
     const fetchResult = await client.callTool({
       name: "fetch_context",
       arguments: {
-        document_id: "memory-1"
+        id: "memory-1"
       }
     });
 
@@ -419,7 +429,7 @@ describe("MCP integration", () => {
         tool_name: "remember_context",
         status: "success",
         response: {
-          document_id: "memory-1",
+          id: "memory-1",
           topic: "kmp-networking",
           branch_state: "active"
         }
@@ -440,7 +450,7 @@ describe("MCP integration", () => {
         tool_name: "fetch_context",
         status: "success",
         response: {
-          document_id: "memory-1",
+          id: "memory-1",
           topic: "kmp-networking",
           branch_state: "active"
         }

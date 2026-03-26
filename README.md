@@ -30,8 +30,8 @@ This project is set up for these workflows:
 
 1. A chat client asks, "What do we already know about auth/session handling?"
    The model calls `search_context`.
-2. The search results include document ids and external artifact refs when available.
-   The model can call `fetch_context` for the one result it wants in full.
+2. The search results include stable `id` values and external artifact refs when available.
+   The model can call `fetch_context` with that same `id` for the one result it wants in full.
 3. A user says, "Remember that we use Ktor for shared Android and iOS networking."
    The model calls `remember_context`.
 4. A user shares a screenshot and says to save it for later retrieval.
@@ -53,9 +53,9 @@ This is the public/browser contract:
 - `remember_context`
   The single write tool for normal chat use and advanced admin writes. The client supplies the memory text, optional topic, optional `draft=true` or explicit `branch_state`, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
 - `search_context`
-  Vector search over stored memories. Results include document ids and artifact refs when available.
+  Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
-  Fetch one memory by document id after `search_context`.
+  Fetch one memory by `id` after `remember_context` or `search_context`.
 
 ### Admin and maintenance tools
 
@@ -224,6 +224,8 @@ Typical result:
 }
 ```
 
+Use `item.id` directly with `fetch_context`.
+
 Image-backed memory with an external asset reference:
 
 ```json
@@ -290,11 +292,13 @@ If nothing matches, the result is:
 
 ### `fetch_context`
 
+Preferred input: pass the same `id` returned by `remember_context` or `search_context`.
+
 Example input:
 
 ```json
 {
-  "document_id": "abc123"
+  "id": "abc123"
 }
 ```
 
@@ -337,7 +341,7 @@ Write behavior that matters in production:
 - `image_mime_type` is required whenever `image_base64` is provided
 - images are normalized into retrieval text and embedded as text; raw image bytes are not stored for download
 - if you want the real asset later, store it elsewhere and include `artifact_refs`
-- exact duplicate writes within the current idempotency window are replay-safe and reuse the existing document id
+- exact duplicate writes within the current idempotency window are replay-safe and reuse the existing memory `id`
 - duplicate suppression is intentionally light and based on the normalized write fingerprint, not semantic similarity
 
 `remember_context` defaults:
@@ -383,10 +387,11 @@ After deployment, there are three places to look:
 
 Examples:
 
-- `remember_context` events record the written `document_id`, `topic`, `branch_state`, and `modality`
+- public tool payloads use `id` for fetchable memory identifiers
+- `remember_context` events record the written `id`, `topic`, `branch_state`, and `modality`
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
-- `fetch_context` events record which `document_id` was read
-- `deprecate_context` events record `document_id`, `superseding_document_id`, and `previous_state`
+- `fetch_context` events record which `id` was read
+- `deprecate_context` events record `id`, `superseding_id`, and `previous_state`
 - rejected browser/admin requests record `reason=origin_not_allowed` or `reason=unauthorized`
 Traceability is by client profile id, so:
 

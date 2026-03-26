@@ -90,7 +90,7 @@ export interface SearchContextResult {
 }
 
 export interface FetchContextInput {
-  document_id: string;
+  id: string;
 }
 
 export interface FetchContextResult {
@@ -98,13 +98,13 @@ export interface FetchContextResult {
 }
 
 export interface DeprecateContextInput {
-  document_id: string;
-  superseding_document_id: string;
+  id: string;
+  superseding_id: string;
 }
 
 export interface DeprecateContextResult {
-  document_id: string;
-  superseding_document_id: string;
+  id: string;
+  superseding_id: string;
   previous_state: BranchState;
 }
 

@@ -342,7 +342,7 @@ Expected:
 
 - `remember_context` succeeds
 - `search_context` returns a result with `id=...`
-- `fetch_context` returns the full stored record content and metadata
+- `fetch_context` accepts that same `id` and returns the full stored record content and metadata
 
 Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
 
@@ -395,7 +395,7 @@ Expected:
 - `remember_context` accepts the image-backed memory
 - returned JSON metadata includes `modality=mixed` when both text and image are present
 - `search_context` returns a summary with the same `id=...`
-- `fetch_context` returns the same `artifact_refs`
+- `fetch_context` accepts that same `id` and returns the same `artifact_refs`
 
 ## Token Management
 

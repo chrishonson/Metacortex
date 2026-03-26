@@ -75,6 +75,15 @@ export function createMetaCortexMcpServer(
         });
       }
     });
+  const fetchContextInputSchema = z
+    .object({
+      id: z
+        .string()
+        .min(1)
+        .describe(
+          "The stable memory id returned by remember_context or search_context."
+        )
+    });
   const server = new McpServer(
     {
       name: config.serviceName,
@@ -148,7 +157,7 @@ export function createMetaCortexMcpServer(
           requestSummary,
           () => service.rememberContext(args),
           record => ({
-            document_id: record.id,
+            id: record.id,
             topic: record.metadata.module_name,
             branch_state: record.metadata.branch_state,
             modality: record.metadata.modality,
@@ -170,7 +179,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Search Context",
         description:
-          "Search stored memories with a natural-language query. Returns a single JSON object with ranked matches, stable document ids, and metadata for follow-up fetches.",
+          "Search stored memories with a natural-language query. Returns a single JSON object with ranked matches, stable ids, and metadata for follow-up fetches.",
         inputSchema: {
           query: z.string().min(1).describe("The natural-language search query."),
           filter_topic: z
@@ -235,17 +244,12 @@ export function createMetaCortexMcpServer(
       {
         title: "Fetch Context",
         description:
-          "Fetch one stored memory by document id. Returns a single JSON object with canonical content and metadata for the requested record.",
-        inputSchema: {
-          document_id: z
-            .string()
-            .min(1)
-            .describe("The document id returned by search_context.")
-        }
+          "Fetch one stored memory by id. Pass the id returned by remember_context or search_context.",
+        inputSchema: fetchContextInputSchema
       },
       async args => {
         const requestSummary = {
-          document_id: args.document_id
+          id: args.id
         };
         const result = await observeToolCall(
           "fetch_context",
@@ -267,7 +271,7 @@ export function createMetaCortexMcpServer(
             return fetched;
           },
           fetched => ({
-            document_id: fetched.item.id,
+            id: fetched.item.id,
             topic: fetched.item.metadata.module_name,
             branch_state: fetched.item.metadata.branch_state,
             modality: fetched.item.metadata.modality,
@@ -288,30 +292,30 @@ export function createMetaCortexMcpServer(
       {
         title: "Deprecate Context",
         description:
-          "Soft-delete an obsolete memory by setting its state to deprecated and recording which document supersedes it. The document remains in the database for historical audits but vanishes from default active searches.",
+          "Soft-delete an obsolete memory by setting its state to deprecated and recording which id supersedes it. The memory remains in the database for historical audits but vanishes from default active searches.",
         inputSchema: {
-          document_id: z
+          id: z
             .string()
             .min(1)
-            .describe("The Firestore document ID of the obsolete memory."),
-          superseding_document_id: z
+            .describe("The id of the obsolete memory."),
+          superseding_id: z
             .string()
             .min(1)
-            .describe("The Firestore document ID of the new memory that replaces it.")
+            .describe("The id of the new memory that replaces it.")
         }
       },
       async args => {
         const requestSummary = {
-          document_id: args.document_id,
-          superseding_document_id: args.superseding_document_id
+          id: args.id,
+          superseding_id: args.superseding_id
         };
         const result = await observeToolCall(
           "deprecate_context",
           requestSummary,
           () => service.deprecateContext(args),
           record => ({
-            document_id: record.document_id,
-            superseding_document_id: record.superseding_document_id,
+            id: record.id,
+            superseding_id: record.superseding_id,
             previous_state: record.previous_state
           })
         );
@@ -363,7 +367,7 @@ function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
       ? "Use search_context for retrieval and filter_topic to narrow by topic."
       : undefined,
     allowedToolSet.has("fetch_context")
-      ? "Use fetch_context only when you need the full stored record behind a search result."
+      ? "Use fetch_context with the id returned by remember_context or search_context when you need the full stored record."
       : undefined
   ];
 
