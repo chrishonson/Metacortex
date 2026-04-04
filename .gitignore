@@ -12,6 +12,7 @@ functions/coverage
 functions/.env
 functions/.env.prod
 functions/.env.local
+journey-kit/dist/
 
 # AI tool directories
 .adal/

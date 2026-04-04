@@ -2,6 +2,10 @@
 
 MetaCortex is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
 
+## Why Metacortex?
+
+Persistent memory across any MCP client (ChatGPT web, Claude, etc.) with zero infrastructure management.
+
 ![System Architecture](docs/graphics/architecture.png)
 
 > [!TIP]
