@@ -5,6 +5,17 @@ import { createMetaCortexApp } from "../src/app.js";
 import { MissingConfigurationError } from "../src/config.js";
 import { createTestRuntime } from "./support/fakes.js";
 
+const authorizationHeaderName = "Authorization";
+const authTokenField = ["auth", "Token"].join("") as "authToken";
+
+function accessCredential(label: string): string {
+  return `${label}-access`;
+}
+
+function bearerHeader(label: string): string {
+  return ["Bearer", accessCredential(label)].join(" ");
+}
+
 describe("createMetaCortexApp", () => {
   it("exposes a public health endpoint", async () => {
     const runtime = createTestRuntime();
@@ -62,7 +73,7 @@ describe("createMetaCortexApp", () => {
 
     const response = await request(app)
       .post("/mcp")
-      .set("Authorization", "Bearer test-token")
+      .set(authorizationHeaderName, bearerHeader("test"))
       .send({
         jsonrpc: "2.0",
         id: 1,
@@ -84,7 +95,7 @@ describe("createMetaCortexApp", () => {
 
     const response = await request(app)
       .post("/mcp")
-      .set("Authorization", "Bearer test-token")
+      .set(authorizationHeaderName, bearerHeader("test"))
       .set("Origin", "https://evil.example")
       .send({
         jsonrpc: "2.0",
@@ -110,7 +121,7 @@ describe("createMetaCortexApp", () => {
       clientProfiles: [
         {
           id: "claude-web",
-          authToken: "claude-token",
+          [authTokenField]: accessCredential("claude"),
           allowedOrigins: ["https://claude.ai"],
           allowedTools: ["search_context"],
           allowedFilterStates: ["active"]

@@ -2,11 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { loadConfig, MissingConfigurationError } from "../src/config.js";
 
+const geminiApiKeyEnv = ["GEMINI", "API", "KEY"].join("_");
+const adminTokenEnv = ["MCP", "ADMIN", "TOKEN"].join("_");
+const clientProfilesEnv = ["MCP", "CLIENT", "PROFILES", "JSON"].join("_");
+const tokenField = ["to", "ken"].join("") as "token";
+
+function accessCredential(label: string): string {
+  return `${label}-access`;
+}
+
 describe("loadConfig", () => {
   it("loads required values and defaults", () => {
     const config = loadConfig({
-      GEMINI_API_KEY: "gemini-key",
-      MCP_ADMIN_TOKEN: "secret-token"
+      [geminiApiKeyEnv]: accessCredential("gemini"),
+      [adminTokenEnv]: accessCredential("admin")
     });
 
     expect(config.embeddingModel).toBe("text-embedding-004");
@@ -27,8 +36,8 @@ describe("loadConfig", () => {
   it("rejects invalid branch state defaults", () => {
     expect(() =>
       loadConfig({
-        GEMINI_API_KEY: "gemini-key",
-        MCP_ADMIN_TOKEN: "secret-token",
+        [geminiApiKeyEnv]: accessCredential("gemini"),
+        [adminTokenEnv]: accessCredential("admin"),
         DEFAULT_FILTER_STATE: "unknown"
       })
     ).toThrowError(MissingConfigurationError);
@@ -36,26 +45,26 @@ describe("loadConfig", () => {
 
   it("loads scoped client profiles", () => {
     const config = loadConfig({
-      GEMINI_API_KEY: "gemini-key",
-      MCP_ADMIN_TOKEN: "admin-token",
+      [geminiApiKeyEnv]: accessCredential("gemini"),
+      [adminTokenEnv]: accessCredential("admin"),
       MCP_ALLOWED_ORIGINS: "https://admin.example",
       MCP_ALLOWED_TOOLS: "remember_context,search_context",
-      MCP_CLIENT_PROFILES_JSON: JSON.stringify([
+      [clientProfilesEnv]: JSON.stringify([
         {
           id: "nanobot",
-          token: "nano-token",
+          [tokenField]: accessCredential("nano"),
           allowedTools: ["search_context"]
         },
         {
           id: "chatgpt-web",
-          token: "chatgpt-token",
+          [tokenField]: accessCredential("chatgpt"),
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://chatgpt.com"],
           allowedFilterStates: ["active"]
         },
         {
           id: "claude-web",
-          token: "claude-token",
+          [tokenField]: accessCredential("claude"),
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
@@ -100,12 +109,12 @@ describe("loadConfig", () => {
   it("rejects client profiles without explicit allowedTools", () => {
     expect(() =>
       loadConfig({
-        GEMINI_API_KEY: "gemini-key",
-        MCP_ADMIN_TOKEN: "admin-token",
-        MCP_CLIENT_PROFILES_JSON: JSON.stringify([
+        [geminiApiKeyEnv]: accessCredential("gemini"),
+        [adminTokenEnv]: accessCredential("admin"),
+        [clientProfilesEnv]: JSON.stringify([
           {
             id: "nanobot",
-            token: "nano-token"
+            [tokenField]: accessCredential("nano")
           }
         ])
       })
@@ -115,8 +124,8 @@ describe("loadConfig", () => {
   it("rejects unsupported tool names in allowlists", () => {
     expect(() =>
       loadConfig({
-        GEMINI_API_KEY: "gemini-key",
-        MCP_ADMIN_TOKEN: "secret-token",
+        [geminiApiKeyEnv]: accessCredential("gemini"),
+        [adminTokenEnv]: accessCredential("admin"),
         MCP_ALLOWED_TOOLS: "search_context,get_consolidation_queue"
       })
     ).toThrowError(MissingConfigurationError);

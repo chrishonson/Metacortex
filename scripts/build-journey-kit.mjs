@@ -36,6 +36,11 @@ const SECTION_MINIMUMS = new Map([
 
 const SOURCE_FILE_MANIFEST = [
   {
+    path: ".node-version",
+    role: "config",
+    description: "Pinned Node.js major version expected by the bundled verification and functions workflow."
+  },
+  {
     path: "firebase.json",
     role: "config",
     description: "Firebase configuration for Firestore, Cloud Functions, and emulator ports."
@@ -56,6 +61,11 @@ const SOURCE_FILE_MANIFEST = [
     description: "Pre-deploy checks for env files, index dimensions, tests, build output, and Firebase target state."
   },
   {
+    path: "scripts/verify-journey-kit-install.mjs",
+    role: "script",
+    description: "Root verification entrypoint that runs local tests/build and optional deployed smoke validation."
+  },
+  {
     path: "functions/.env.example",
     role: "config",
     description: "Template environment file documenting the required MetaCortex runtime variables."
@@ -64,11 +74,6 @@ const SOURCE_FILE_MANIFEST = [
     path: "functions/package.json",
     role: "config",
     description: "Functions package manifest with runtime scripts and dependencies."
-  },
-  {
-    path: "functions/package-lock.json",
-    role: "config",
-    description: "Locked npm dependency graph for the bundled Cloud Functions workspace."
   },
   {
     path: "functions/tsconfig.json",
@@ -305,6 +310,7 @@ export function writeJourneyKitBundle(bundle, outputPath = defaultOutputPath) {
 function buildManifest(frontmatter, sections, fileManifest) {
   const description = normalizeInlineWhitespace(sections.get("Goal") ?? "");
   const failures = frontmatter.failuresOvercome ?? frontmatter.failures ?? [];
+  const timestamp = new Date().toISOString();
 
   return {
     schemaVersion: "1.0.0",
@@ -333,7 +339,25 @@ function buildManifest(frontmatter, sections, fileManifest) {
     selfContained: frontmatter.selfContained === true,
     orgRequired: frontmatter.orgRequired === true,
     requiredResources: frontmatter.requiredResources ?? [],
-    environment: frontmatter.environment ?? {}
+    environment: normalizeEnvironment(frontmatter.environment ?? {}),
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+}
+
+function normalizeEnvironment(environment) {
+  return {
+    ...environment,
+    ...(Array.isArray(environment.os)
+      ? {
+          os: environment.os.join(", ")
+        }
+      : {}),
+    ...(Array.isArray(environment.platforms)
+      ? {
+          platforms: environment.platforms
+        }
+      : {})
   };
 }
 
@@ -465,6 +489,18 @@ function validateBundle(bundle) {
 
   if (bundle.manifest.fileManifest.length !== Object.keys(bundle.srcFiles).length) {
     throw new Error("fileManifest must contain one entry for every srcFiles item.");
+  }
+
+  if (bundle.manifest.verification?.command !== "node scripts/verify-journey-kit-install.mjs") {
+    throw new Error("Manifest verification.command must point to node scripts/verify-journey-kit-install.mjs.");
+  }
+
+  if (!bundle.srcFiles["scripts/verify-journey-kit-install.mjs"]) {
+    throw new Error("Bundle must include scripts/verify-journey-kit-install.mjs in srcFiles.");
+  }
+
+  if (!bundle.srcFiles[".node-version"]) {
+    throw new Error("Bundle must include .node-version in srcFiles.");
   }
 
   for (const fileEntry of bundle.manifest.fileManifest) {

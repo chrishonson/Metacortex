@@ -16,9 +16,9 @@
     "gemini"
   ],
   "model": {
-    "provider": "anthropic",
-    "name": "claude-sonnet-4-6",
-    "hosting": "cloud API — requires an Anthropic API key and a Claude-capable agent runtime"
+    "provider": "openai",
+    "name": "gpt-5.4",
+    "hosting": "cloud API — requires an OpenAI-hosted GPT-5.4 capable agent runtime"
   },
   "tools": [
     "terminal",
@@ -189,8 +189,8 @@
     "kits": []
   },
   "verification": {
-    "command": "npm --prefix functions test && npm --prefix functions run build",
-    "expected": "Vitest passes and TypeScript compiles the Firebase function into functions/lib."
+    "command": "node scripts/verify-journey-kit-install.mjs",
+    "expected": "Runs local test and build checks, then runs deployed smoke validation when MCP_BASE_URL and MCP_ADMIN_TOKEN are present."
   },
   "selfContained": true,
   "orgRequired": false,
@@ -231,7 +231,7 @@ The install flow assumes you can deploy Cloud Functions and then register the re
 
 ### Models
 
-MetaCortex is verified here with `claude-sonnet-4-6` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite-preview` for image-to-text normalization before embedding.
+MetaCortex is verified here with `gpt-5.4` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite-preview` for image-to-text normalization before embedding.
 
 ### Services
 
@@ -259,32 +259,42 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
    cp functions/.env.example functions/.env.prod
    ```
 
-   Set at minimum:
+   Use the bundled template as the source of truth for the full variable list. Replace the placeholder values for:
 
-   ```dotenv
-   GEMINI_API_KEY=replace-me
-   MCP_ADMIN_TOKEN=replace-me
-   GEMINI_EMBEDDING_MODEL=text-embedding-004
-   GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite-preview
-   GEMINI_EMBEDDING_DIMENSIONS=768
-   MEMORY_COLLECTION=memory_vectors
-   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
+   - `GEMINI_API_KEY`
+   - `MCP_ADMIN_TOKEN`
+   - scoped client tokens inside `MCP_CLIENT_PROFILES_JSON`
+
+   Keep these non-secret defaults aligned with the shipped Firebase indexes and code:
+
+   - `GEMINI_EMBEDDING_MODEL`: `text-embedding-004`
+   - `GEMINI_MULTIMODAL_MODEL`: `gemini-3.1-flash-lite-preview`
+   - `GEMINI_EMBEDDING_DIMENSIONS`: `768`
+   - `MEMORY_COLLECTION`: `memory_vectors`
+
+3. Authenticate the Firebase CLI and bind the bundle to the target project because `.firebaserc` is not shipped:
+
+   ```bash
+   firebase login
+   firebase use --add
    ```
 
-3. Run the bundled preflight to catch git-state, env, index-dimension, test, and build issues before deploy:
+   If you already know the alias or project binding, `firebase use <alias>` is sufficient.
+
+4. Run the bundled preflight to catch git-state, env, index-dimension, test, and build issues before deploy:
 
    ```bash
    ./scripts/deploy-session-preflight.sh
    ```
 
-4. Deploy Firestore indexes first, then deploy the function:
+5. Deploy Firestore rules and indexes first, then deploy the function:
 
    ```bash
-   firebase deploy --only firestore:indexes
+   firebase deploy --only firestore:rules,firestore:indexes
    firebase deploy --only functions
    ```
 
-5. Capture the deployed function base URL and register scoped browser endpoints instead of the admin endpoint:
+6. Capture the deployed function base URL and register scoped browser endpoints instead of the admin endpoint:
 
    ```text
    https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<CHATGPT_TOKEN>
@@ -297,22 +307,23 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
    https://<FUNCTION_BASE_URL>/mcp
    ```
 
-6. Run smoke tests against the deployed service. Start with admin validation, then verify one scoped browser endpoint:
+7. Run smoke tests against the deployed service. Start with admin validation, then verify one scoped browser endpoint:
 
    ```bash
-   MCP_BASE_URL="https://<FUNCTION_BASE_URL>/mcp" \
-   MCP_ADMIN_TOKEN="<ADMIN_TOKEN>" \
-   npm --prefix functions run smoke -- --mode admin-read-write
+   npm --prefix functions run smoke -- \
+     --url "https://<FUNCTION_BASE_URL>/mcp" \
+     --token "<ADMIN_TOKEN>" \
+     --mode admin-read-write
    ```
 
    ```bash
-   MCP_BASE_URL="https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-   MCP_ADMIN_TOKEN="<CHATGPT_TOKEN>" \
-   MCP_SMOKE_MODE="browser-read-write" \
-   npm --prefix functions run smoke
+   npm --prefix functions run smoke -- \
+     --url "https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
+     --token "<CHATGPT_TOKEN>" \
+     --mode browser-read-write
    ```
 
-7. Register the matching values in ChatGPT and Claude. ChatGPT should use the tokenized URL and "No Authentication"; Claude can use either bearer auth or the tokenized URL if the client UI does not support headers.
+8. Register the matching values in ChatGPT and Claude. ChatGPT should use the tokenized URL and "No Authentication"; Claude can use either bearer auth or the tokenized URL if the client UI does not support headers.
 
 ## Outputs
 
@@ -326,14 +337,24 @@ The main operational mistakes are predictable: trying to deploy on Spark, lettin
 
 ## Validation
 
-Run the repo checks before or after deploy:
+Local verification should always pass before you deploy:
 
 ```bash
-npm --prefix functions test
-npm --prefix functions run build
+node scripts/verify-journey-kit-install.mjs
 ```
 
-Then run the production smoke tests against the actual deployed base URL. A successful run lists the expected tools, creates a memory when write access is allowed, and returns searchable results from the deployed service.
+That script runs `npm --prefix functions test` and `npm --prefix functions run build`. If `MCP_BASE_URL` and `MCP_ADMIN_TOKEN` are not set, it exits successfully after the local checks and reports that deployed smoke verification was skipped.
+
+Once a real endpoint exists, rerun the same root verification entrypoint with the deployment env vars set:
+
+```bash
+npm --prefix functions run smoke -- \
+  --url "https://<FUNCTION_BASE_URL>/mcp" \
+  --token "<ADMIN_TOKEN>" \
+  --mode admin-read-write
+```
+
+Or export `MCP_BASE_URL` plus `MCP_ADMIN_TOKEN` first and run the root verifier. In that mode the script performs the same local checks and then runs the bundled smoke validation. A successful run lists the expected tools, creates a memory when write access is allowed, and returns searchable results from the deployed service.
 
 ## Constraints
 

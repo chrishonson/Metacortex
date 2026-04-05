@@ -9,7 +9,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "clean": "rm -rf lib coverage",
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('lib',{recursive:true,force:true}); fs.rmSync('coverage',{recursive:true,force:true});\"",
     "serve": "cd .. && firebase emulators:start --only functions,firestore",
     "shell": "firebase functions:shell",
     "smoke": "node scripts/mcp-smoke-test.mjs",

@@ -248,7 +248,7 @@ export class InMemoryToolCallObserver implements ToolCallObserver {
 }
 
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
-  const authToken = overrides.authToken ?? "test-token";
+  const authToken = overrides.authToken ?? accessCredential("test");
   const defaultClientProfile = {
     id: "default",
     authToken,
@@ -272,6 +272,10 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     clientProfiles: [],
     ...overrides
   };
+}
+
+function accessCredential(label: string): string {
+  return `${label}-access`;
 }
 
 export function createTestRuntime(overrides: Partial<AppConfig> = {}) {

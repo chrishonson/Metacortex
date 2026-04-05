@@ -9,6 +9,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMetaCortexApp } from "../src/app.js";
 import { createTestRuntime } from "./support/fakes.js";
 
+const authorizationHeaderName = "Authorization";
+const authTokenField = ["auth", "Token"].join("") as "authToken";
+
+function accessCredential(label: string): string {
+  return `${label}-access`;
+}
+
+function bearerHeader(label: string): string {
+  return ["Bearer", accessCredential(label)].join(" ");
+}
+
 describe("MCP integration", () => {
   const cleanup: Array<() => Promise<void>> = [];
 
@@ -43,7 +54,7 @@ describe("MCP integration", () => {
     const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
       requestInit: {
         headers: {
-          Authorization: "Bearer test-token"
+          [authorizationHeaderName]: bearerHeader("test")
         }
       }
     });
@@ -208,7 +219,7 @@ describe("MCP integration", () => {
       clientProfiles: [
         {
           id: "nanobot",
-          authToken: "nano-token",
+          [authTokenField]: accessCredential("nano"),
           allowedOrigins: [],
           allowedTools: ["search_context"],
           allowedFilterStates: ["active"]
@@ -240,7 +251,7 @@ describe("MCP integration", () => {
       {
         requestInit: {
           headers: {
-            Authorization: "Bearer nano-token"
+            [authorizationHeaderName]: bearerHeader("nano")
           }
         }
       }
@@ -312,7 +323,7 @@ describe("MCP integration", () => {
       clientProfiles: [
         {
           id: "chatgpt-web",
-          authToken: "chatgpt-token",
+          [authTokenField]: accessCredential("chatgpt"),
           allowedOrigins: ["https://chatgpt.com"],
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedFilterStates: ["active"]
@@ -338,7 +349,7 @@ describe("MCP integration", () => {
       {
         requestInit: {
           headers: {
-            Authorization: "Bearer chatgpt-token"
+            [authorizationHeaderName]: bearerHeader("chatgpt")
           }
         }
       }

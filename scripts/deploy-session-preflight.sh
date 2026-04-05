@@ -63,9 +63,11 @@ if [[ -f functions/.env.prod ]]; then
 
   missing_keys=()
 
-  grep -q '^GEMINI_API_KEY=' functions/.env.prod || missing_keys+=("GEMINI_API_KEY")
-  grep -q '^MCP_ADMIN_TOKEN=' functions/.env.prod || missing_keys+=("MCP_ADMIN_TOKEN")
-  grep -q '^GEMINI_EMBEDDING_DIMENSIONS=' functions/.env.prod || missing_keys+=("GEMINI_EMBEDDING_DIMENSIONS")
+  for required_key in GEMINI_API_KEY MCP_ADMIN_TOKEN GEMINI_EMBEDDING_DIMENSIONS; do
+    if [[ -z "$(read_env_key functions/.env.prod "$required_key")" ]]; then
+      missing_keys+=("$required_key")
+    fi
+  done
 
   if (( ${#missing_keys[@]} > 0 )); then
     echo "warning: functions/.env.prod is missing keys: ${missing_keys[*]}"
@@ -88,7 +90,10 @@ const envText = fs.readFileSync("functions/.env.prod", "utf8");
 const line = envText
   .split(/\r?\n/)
   .map(item => item.trim())
-  .find(item => item.startsWith("MCP_CLIENT_PROFILES_JSON="));
+  .find(item => {
+    const separatorIndex = item.indexOf("=");
+    return separatorIndex !== -1 && item.slice(0, separatorIndex).trim() === "MCP_CLIENT_PROFILES_JSON";
+  });
 
 if (!line) {
   console.log(

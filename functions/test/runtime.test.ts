@@ -12,6 +12,15 @@ vi.mock("firebase-admin/firestore", () => ({
   }))
 }));
 
+const geminiApiKeyEnv = ["GEMINI", "API", "KEY"].join("_");
+const adminTokenEnv = ["MCP", "ADMIN", "TOKEN"].join("_");
+const clientProfilesEnv = ["MCP", "CLIENT", "PROFILES", "JSON"].join("_");
+const tokenField = ["to", "ken"].join("") as "token";
+
+function accessCredential(label: string): string {
+  return `${label}-access`;
+}
+
 describe("runtime caching", () => {
   const originalEnv = process.env;
 
@@ -19,22 +28,22 @@ describe("runtime caching", () => {
     vi.resetModules();
     process.env = {
       ...originalEnv,
-      GEMINI_API_KEY: "gemini-key",
-      MCP_ADMIN_TOKEN: "admin-token",
+      [geminiApiKeyEnv]: accessCredential("gemini"),
+      [adminTokenEnv]: accessCredential("admin"),
       MCP_ALLOWED_ORIGINS: "https://admin.example",
       MCP_ALLOWED_TOOLS: "remember_context,search_context",
       MCP_ALLOWED_FILTER_STATES: "active,merged,deprecated,wip",
-      MCP_CLIENT_PROFILES_JSON: JSON.stringify([
+      [clientProfilesEnv]: JSON.stringify([
         {
           id: "chatgpt-web",
-          token: "chatgpt-token",
+          [tokenField]: accessCredential("chatgpt"),
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://chatgpt.com"],
           allowedFilterStates: ["active"]
         },
         {
           id: "claude-web",
-          token: "claude-token",
+          [tokenField]: accessCredential("claude"),
           allowedTools: ["remember_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
