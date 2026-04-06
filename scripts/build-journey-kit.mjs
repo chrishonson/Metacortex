@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..");
 const JOURNEY_KIT_DIR = path.join(REPO_ROOT, "journey-kit");
 const KIT_MD_PATH = path.join(JOURNEY_KIT_DIR, "kit.md");
+const README_PATH = path.join(JOURNEY_KIT_DIR, "README.md");
 export const defaultOutputPath = path.join(
   JOURNEY_KIT_DIR,
   "dist",
@@ -33,6 +34,14 @@ const SECTION_MINIMUMS = new Map([
   ["Failures Overcome", 30],
   ["Validation", 20]
 ]);
+
+const README_REQUIRED_HEADINGS = [
+  "Quick Start",
+  "When to Use",
+  "How It Works",
+  "Setup",
+  "Inputs & Outputs"
+];
 
 const SOURCE_FILE_MANIFEST = [
   {
@@ -258,11 +267,13 @@ function main() {
 
 export function buildJourneyKitBundle() {
   const kitSource = readUtf8(KIT_MD_PATH);
+  const readmeSource = readUtf8(README_PATH);
   const { frontmatter, body } = parseKitMd(kitSource);
   const sections = extractSections(body);
 
   validateFrontmatter(frontmatter);
   validateSections(sections);
+  validateReadme(readmeSource, frontmatter);
 
   const srcFiles = {};
   const fileManifest = [];
@@ -291,6 +302,7 @@ export function buildJourneyKitBundle() {
   const bundle = {
     manifest,
     kitDoc: normalizeTrailingNewline(kitSource),
+    readme: normalizeTrailingNewline(readmeSource),
     skillFiles: {},
     toolFiles: {},
     examples,
@@ -463,7 +475,33 @@ function validateSections(sections) {
   }
 }
 
+function validateReadme(readme, frontmatter) {
+  const normalized = normalizeTrailingNewline(readme);
+
+  if (!normalized.startsWith("# ")) {
+    throw new Error("journey-kit/README.md must start with a level-1 heading.");
+  }
+
+  for (const heading of README_REQUIRED_HEADINGS) {
+    const pattern = new RegExp(`^##\\s+${escapeRegExp(heading)}$`, "m");
+    if (!pattern.test(normalized)) {
+      throw new Error(`journey-kit/README.md is missing required section \"## ${heading}\".`);
+    }
+  }
+
+  const expectedQuickStart = `journey install agentnightshift/${frontmatter.slug}`;
+  if (!normalized.includes(expectedQuickStart)) {
+    throw new Error(
+      `journey-kit/README.md must include the Quick Start command "${expectedQuickStart}".`
+    );
+  }
+}
+
 function validateBundle(bundle) {
+  if (!bundle.readme || normalizeInlineWhitespace(bundle.readme).length < 200) {
+    throw new Error("Bundle readme is missing or too short.");
+  }
+
   if (!bundle.manifest.description) {
     throw new Error("Generated manifest description is empty. Fill out the ## Goal section.");
   }
@@ -542,6 +580,7 @@ function validateBundle(bundle) {
 function collectBundleStringEntries(bundle) {
   const entries = [
     { location: "kitDoc", content: bundle.kitDoc },
+    { location: "readme", content: bundle.readme },
     ...Object.entries(bundle.examples).map(([name, content]) => ({
       location: `examples/${name}`,
       content
@@ -620,6 +659,10 @@ function normalizeInlineWhitespace(text) {
 
 function normalizeTrailingNewline(text) {
   return `${text.replace(/\s+$/, "")}\n`;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function parseArgs(argv) {

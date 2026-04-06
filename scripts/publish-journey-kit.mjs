@@ -26,6 +26,7 @@ async function main() {
   const outputPath = resolveOutputPath(args.out ?? defaultOutputPath);
 
   const bundle = buildJourneyKitBundle();
+  const importBundle = buildImportBundle(bundle);
   writeJourneyKitBundle(bundle, outputPath);
 
   const whoami = await fetchJson(new URL("/api/auth/whoami", baseUrl), {
@@ -48,10 +49,11 @@ async function main() {
   }
 
   const payload = {
-    bundle,
+    bundle: importBundle,
     author,
     visibility,
     changelog,
+    releaseNotes: changelog,
     ...(args.skipRelease ? { skipRelease: true } : {})
   };
 
@@ -65,6 +67,20 @@ async function main() {
   });
 
   const kitRef = `${result.kit?.owner ?? author}/${result.kit?.slug ?? bundle.manifest.slug}`;
+  const kitOwner = result.kit?.owner ?? author;
+  const kitSlug = result.kit?.slug ?? bundle.manifest.slug;
+
+  if (typeof bundle.readme === "string" && bundle.readme.trim().length > 0) {
+    await fetchJson(new URL(`/api/auth/kits/${kitOwner}/${kitSlug}/readme`, baseUrl), {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ readme: bundle.readme })
+    });
+  }
+
   console.log(`Published ${kitRef}`);
   console.log(`Revision: ${result.revisionId}`);
 
@@ -80,7 +96,16 @@ async function main() {
     console.log(`Indexing: ${result.indexing.status}`);
   }
 
+  if (typeof bundle.readme === "string" && bundle.readme.trim().length > 0) {
+    console.log("README: synced");
+  }
+
   console.log(`Bundle snapshot written to ${path.relative(REPO_ROOT, outputPath)}`);
+}
+
+function buildImportBundle(bundle) {
+  const { readme, ...importBundle } = bundle;
+  return importBundle;
 }
 
 async function fetchJson(url, init) {
