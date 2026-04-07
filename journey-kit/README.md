@@ -1,4 +1,6 @@
-# MetaCortex MCP Memory on Firebase
+# Persistent Memory for ChatGPT + Claude — Serverless Firebase MCP Memory
+
+Your agents finally remember everything across sessions — no local DB, no Docker, just Firebase vector search + scoped browser endpoints.
 
 MetaCortex gives browser-based assistants a shared, durable memory layer without asking you to run your own vector database or long-lived backend. This kit packages the proven Firebase deployment workflow so you can stand up one remote MCP memory service, connect ChatGPT and Claude to scoped endpoints, and let multiple clients remember, search, and fetch the same project knowledge.
 

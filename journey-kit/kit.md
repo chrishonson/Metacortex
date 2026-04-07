@@ -2,9 +2,9 @@
 {
   "schema": "kit/1.0",
   "slug": "metacortex-mcp-memory-firebase",
-  "title": "MetaCortex MCP Memory on Firebase",
+  "title": "Persistent Memory for ChatGPT + Claude — Serverless Firebase MCP Memory",
   "summary": "Deploy MetaCortex on Firebase to give ChatGPT, Claude, and other MCP clients durable searchable memory over Streamable HTTP MCP.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "tags": [
     "mcp",
@@ -211,7 +211,7 @@
 }
 ---
 
-# MetaCortex MCP Memory on Firebase
+# Persistent Memory for ChatGPT + Claude — Serverless Firebase MCP Memory
 
 ## Goal
 
