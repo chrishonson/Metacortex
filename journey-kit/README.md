@@ -21,11 +21,23 @@ After install, Journey will place the kit files in your workspace, guide you thr
 
 ## How It Works
 
-1. The kit installs the exact Firebase config, Functions code, Firestore indexes, and verification scripts that were used to validate MetaCortex.
-2. You bind the kit to your Firebase project, add Gemini and bearer-token secrets, and deploy the bundled indexes and Cloud Function.
-3. MetaCortex exposes a protected admin MCP endpoint plus scoped browser client endpoints for ChatGPT and Claude.
-4. Clients use `remember_context`, `search_context`, and `fetch_context` over Streamable HTTP MCP while Firestore stores canonical memory records and vector embeddings.
-5. The bundled verifier runs local tests and build checks first, then optionally exercises the deployed endpoint with a smoke test when deployment credentials are present.
+### 1. Chat clients use a narrow memory contract
+
+The bundled browser profile exposes `remember_context` so a user can store project facts without opening the full admin surface.
+
+### 2. Retrieval stays on the same remote backend
+
+Scoped clients use the same remote memory backend for `search_context` and `fetch_context`. ChatGPT and Claude follow the same server-side retrieval path, each with its own token and origin allowlist.
+
+### 3. Firestore stores canonical memory plus vectors
+
+MetaCortex writes canonical text, retrieval metadata, and the vector embedding into Firestore so memory stays durable and searchable without a separate vector database.
+
+### 4. Scoped client profiles keep browser access safe
+
+The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints with their own token, origin allowlist, and restricted tool list.
+
+![Scoped client profile routing](https://raw.githubusercontent.com/chrishonson/Metacortex/main/docs/graphics/scoped-client-endpoints.svg)
 
 > [!IMPORTANT]
 > Browser clients should use scoped client profiles, not the admin endpoint. Keep maintenance tools such as `deprecate_context` off public browser connections.

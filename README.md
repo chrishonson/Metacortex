@@ -6,8 +6,6 @@ MetaCortex is a serverless MCP memory service backed by Firestore vector search 
 
 Persistent memory across any MCP client (ChatGPT web, Claude, etc.) with zero infrastructure management.
 
-![System Architecture](docs/graphics/architecture.png)
-
 > [!TIP]
 > **Brain & Body**: MetaCortex resides in the cloud as the memory core, while Autonomous agents such as OpenClaw act as its local manifest (body). See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
 
@@ -17,11 +15,25 @@ The practical target is a remote MCP server that chat clients such as ChatGPT we
 - saving new durable memories from chat
 - fetching the full stored memory behind a search result
 
-## Usage in ChatGPT web
-https://github.com/user-attachments/assets/23db7dff-7946-405c-8a47-29f438684f32
+## How It Works
 
-## Using and exporting memories from Claude web
-<img width="919" height="467" alt="Screenshot 2026-03-20 at 4 53 53 PM" src="https://github.com/user-attachments/assets/61d10918-2731-47fe-b8de-a7e339c92313" />
+### 1. Chat clients use a narrow memory contract
+
+MetaCortex gives browser clients a three-tool memory contract. The first write comes through `remember_context`, which stores canonical text and lifecycle metadata on the server side.
+
+### 2. Retrieval stays on the same remote backend
+
+The same scoped MCP contract makes retrieval available later through `search_context` and `fetch_context`. ChatGPT and Claude both follow the same server-side retrieval flow, each with its own token and origin allowlist.
+
+### 3. Firestore stores durable memory records plus vectors
+
+Every saved memory lands in Firestore with searchable metadata and the corresponding vector embedding. That keeps the retrieval layer serverless while still exposing durable semantic search.
+
+### 4. Scoped client profiles keep browser access safe
+
+Browser clients never connect to the admin surface directly. Each client profile gets its own endpoint, token, origin allowlist, and allowed tool list so public chat surfaces only see the read/write tools they actually need.
+
+![Scoped client profile routing](docs/graphics/scoped-client-endpoints.svg)
 
 
 ## Important constraint
@@ -143,6 +155,8 @@ Use separate client profiles per browser client:
 
 - `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
 - `claude-web` with `allowedOrigins=["https://claude.ai"]`
+
+For agent-based clients such as OpenClaw, use a dedicated non-browser scoped profile instead of the admin endpoint. A recommended operating model is documented in [docs/OPENCLAW_MEMORY_OPS.md](docs/OPENCLAW_MEMORY_OPS.md).
 
 ### Connecting to ChatGPT
 
@@ -360,10 +374,11 @@ Lifecycle states:
 Recommended usage:
 
 1. Browser clients save durable memories with `remember_context`.
-2. Use `draft=true` only for provisional notes that should not appear in normal active search.
-3. WIP review and consolidation stay in internal maintenance workflows.
-4. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
-5. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
+2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `remember_context`, `search_context`, and `fetch_context` only.
+3. Use `draft=true` only for provisional notes that should not appear in normal active search.
+4. WIP review and consolidation stay in internal maintenance workflows.
+5. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
+6. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
 
 Current lifecycle behavior:
 
