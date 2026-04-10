@@ -126,7 +126,15 @@ Recommended web client profile shape:
 MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
-Keep each web-client token distinct from `MCP_ADMIN_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
+For non-browser agent clients such as OpenClaw, add a separate scoped profile instead of reusing the admin token. Recommended shape:
+
+```dotenv
+MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
+```
+
+Use `allowedOrigins: []` only when the OpenClaw runtime is a headless or non-browser client that does not send an `Origin` header. If the runtime sends `Origin` because it runs inside Electron, a WebView, or another browser-like environment, replace the empty list with the exact origin value or values emitted by that client.
+
+Keep each scoped-client token distinct from `MCP_ADMIN_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
 
 ## Local verification
 
@@ -410,6 +418,7 @@ Rotation and revocation rules:
 - revoke a client by removing the profile or replacing its token and redeploying functions
 - do not reuse `MCP_ADMIN_TOKEN` for browser-hosted clients
 - if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
+- if OpenClaw should be revoked independently from browser clients, give it its own scoped `openclaw` profile
 
 ## Observability
 
