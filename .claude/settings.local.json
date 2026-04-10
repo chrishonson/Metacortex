@@ -17,7 +17,13 @@
       "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
       "Bash(brew install fnm)",
       "Bash(fnm install 20)",
-      "Bash(npm --prefix /Users/nick/git/metacortex/functions run build)"
+      "Bash(npm --prefix /Users/nick/git/metacortex/functions run build)",
+      "mcp__4a6fe675-2698-42b9-8de8-64317b8e9222__search_context",
+      "Skill(browse)",
+      "Skill(browse:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebSearch",
+      "WebFetch(domain:arxiv.org)"
     ]
   }
 }

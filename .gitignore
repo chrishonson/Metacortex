@@ -47,3 +47,4 @@ journey-kit/dist/
 .zencoder/
 skills/
 skills-lock.json
+.gstack/

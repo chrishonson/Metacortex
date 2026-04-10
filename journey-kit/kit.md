@@ -3,17 +3,24 @@
   "schema": "kit/1.0",
   "slug": "metacortex-mcp-memory-firebase",
   "title": "Persistent Memory for ChatGPT + Claude — Serverless Firebase MCP Memory",
-  "summary": "Deploy MetaCortex on Firebase to give ChatGPT, Claude, and other MCP clients durable searchable memory over Streamable HTTP MCP.",
-  "version": "1.0.1",
+  "summary": "MCP memory for every agent: deploy MetaCortex on Firebase for durable searchable context over Streamable HTTP MCP endpoints.",
+  "version": "1.0.2",
   "license": "MIT",
   "tags": [
     "mcp",
     "memory",
+    "mcp-memory",
     "firebase",
     "firestore",
     "chatgpt",
     "claude",
-    "gemini"
+    "gemini",
+    "firebase-memory",
+    "persistent-context",
+    "vector-search",
+    "chatgpt-memory",
+    "claude-memory",
+    "serverless-mcp"
   ],
   "model": {
     "provider": "openai",
@@ -215,7 +222,13 @@
 
 ## Goal
 
-Stand up MetaCortex as a remote, durable MCP memory service on Firebase so browser-hosted assistants and other MCP clients can remember, search, and fetch project memory over Streamable HTTP.
+MCP memory that works everywhere — MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
+
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+
+Used daily by the author as their personal MCP memory brain. Already powers multiple agents across ChatGPT and Claude in production.
+
+Full source and documentation: https://github.com/chrishonson/Metacortex
 
 ## When to Use
 
