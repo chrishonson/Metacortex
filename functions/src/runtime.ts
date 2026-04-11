@@ -9,6 +9,10 @@ import {
   type MemoryContentPreparer
 } from "./embeddings.js";
 import {
+  GeminiMergeClient,
+  type LlmMergeClient
+} from "./merging.js";
+import {
   FirestoreToolCallObserver,
   type ToolCallObserver
 } from "./observability.js";
@@ -50,6 +54,10 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
     apiKey: config.geminiApiKey,
     model: config.multimodalModel
   });
+  const mergeClient: LlmMergeClient = new GeminiMergeClient({
+    apiKey: config.geminiApiKey,
+    model: config.multimodalModel
+  });
   const repository: MemoryRepository = new FirestoreMemoryRepository(
     firestore,
     config.memoryCollection
@@ -60,7 +68,8 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
     contentPreparer,
     embeddings,
     repository,
-    config
+    config,
+    mergeClient
   );
 
   return {
