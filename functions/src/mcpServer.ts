@@ -6,6 +6,7 @@ import { HttpError } from "./errors.js";
 import { normalizeOptionalText } from "./normalize.js";
 import type { ToolCallObserver } from "./observability.js";
 import {
+  buildConsolidatePayload,
   buildDeprecatePayload,
   buildFetchPayload,
   buildRememberPayload,
@@ -327,6 +328,57 @@ export function createMetaCortexMcpServer(
     );
   }
 
+  if (allowedTools.has("consolidate_context")) {
+    server.registerTool(
+      "consolidate_context",
+      {
+        title: "Consolidate Context",
+        description:
+          "Merge multiple related memories into one canonical active memory. By default, consolidates all WIP (draft) memories for a topic. Pass source_ids to consolidate specific memories regardless of their current state. Deprecates all source memories and links them to the merged result.",
+        inputSchema: {
+          topic: z
+            .string()
+            .optional()
+            .describe(
+              "Topic whose WIP memory queue will be consolidated. Defaults to general. Ignored when source_ids is provided — in that case topic labels the merged output."
+            ),
+          source_ids: z
+            .array(z.string().min(1))
+            .optional()
+            .describe(
+              "Explicit list of memory ids to consolidate. When provided, these memories are merged regardless of their branch_state. At least 2 ids required."
+            )
+        }
+      },
+      async args => {
+        const requestSummary = {
+          topic: normalizeOptionalText(args.topic) ?? "general",
+          source_ids: args.source_ids ?? [],
+          source_id_count: args.source_ids?.length ?? 0
+        };
+        const result = await observeToolCall(
+          "consolidate_context",
+          requestSummary,
+          () =>
+            service.consolidateContext({
+              topic: args.topic,
+              source_ids: args.source_ids
+            }),
+          record => ({
+            merged_id: record.merged_id,
+            topic: record.topic,
+            source_count: record.source_count,
+            deprecated_ids: record.deprecated_ids
+          })
+        );
+
+        return {
+          content: [jsonTextContent(buildConsolidatePayload(result))]
+        };
+      }
+    );
+  }
+
   return server;
 }
 
@@ -368,6 +420,9 @@ function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
       : undefined,
     allowedToolSet.has("fetch_context")
       ? "Use fetch_context with the id returned by remember_context or search_context when you need the full stored record."
+      : undefined,
+    allowedToolSet.has("consolidate_context")
+      ? "Use consolidate_context to merge WIP draft memories into one canonical active memory, or pass source_ids to consolidate specific memories."
       : undefined
   ];
 
