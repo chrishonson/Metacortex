@@ -67,6 +67,7 @@ describe("MCP integration", () => {
 
     const tools = await client.listTools();
     expect(tools.tools.map(tool => tool.name).sort()).toEqual([
+      "consolidate_context",
       "deprecate_context",
       "fetch_context",
       "remember_context",
@@ -316,6 +317,55 @@ describe("MCP integration", () => {
         status_code: 403
       }
     });
+  });
+
+  it("consolidates wip memories via consolidate_context tool", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: { [authorizationHeaderName]: bearerHeader("test") }
+      }
+    });
+    cleanup.push(async () => { await client.close(); });
+    await client.connect(transport);
+
+    await client.callTool({
+      name: "remember_context",
+      arguments: { content: "Draft: use Ktor for Android.", topic: "kmp-networking", draft: true }
+    });
+    await client.callTool({
+      name: "remember_context",
+      arguments: { content: "Draft: Ktor supports multiplatform.", topic: "kmp-networking", draft: true }
+    });
+
+    const rawResult = await client.callTool({
+      name: "consolidate_context",
+      arguments: { topic: "kmp-networking" }
+    });
+
+    expect(rawResult.isError).toBeFalsy();
+
+    const payload = parseJsonTextContent(rawResult) as {
+      item: { merged_id: string; topic: string; branch_state: string };
+      deprecated_ids: string[];
+      source_count: number;
+    };
+
+    expect(payload.item.topic).toBe("kmp-networking");
+    expect(payload.item.branch_state).toBe("active");
+    expect(payload.source_count).toBe(2);
+    expect(payload.deprecated_ids).toHaveLength(2);
+    expect(typeof payload.item.merged_id).toBe("string");
   });
 
   it("supports ChatGPT web remember, search, and fetch flows", async () => {
