@@ -2,7 +2,8 @@ export const MCP_TOOL_NAMES = [
   "remember_context",
   "search_context",
   "fetch_context",
-  "deprecate_context"
+  "deprecate_context",
+  "consolidate_context"
 ] as const;
 
 export const BRANCH_STATES = [
@@ -121,4 +122,17 @@ export interface ConsolidationQueueItem {
 export interface ConsolidationQueueResult {
   items: ConsolidationQueueItem[];
   filter_topic?: string;
+}
+
+export interface ConsolidateContextInput {
+  topic?: string;
+  source_ids?: string[];
+}
+
+export interface ConsolidateContextResult {
+  merged_id: string;
+  merged_content: string;
+  deprecated_ids: string[];
+  topic: string;
+  source_count: number;
 }
