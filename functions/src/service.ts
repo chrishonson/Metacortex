@@ -6,8 +6,11 @@ import type {
   MemoryContentPreparer
 } from "./embeddings.js";
 import { HttpError } from "./errors.js";
+import type { LlmMergeClient } from "./merging.js";
 import { normalizeOptionalText } from "./normalize.js";
 import type {
+  ConsolidateContextInput,
+  ConsolidateContextResult,
   ConsolidationQueueInput,
   ConsolidationQueueResult,
   DeprecateContextInput,
@@ -28,7 +31,8 @@ export class MetaCortexService {
     private readonly contentPreparer: MemoryContentPreparer,
     private readonly embeddings: EmbeddingClient,
     private readonly repository: MemoryRepository,
-    private readonly config: Pick<AppConfig, "defaultFilterState" | "topK">
+    private readonly config: Pick<AppConfig, "defaultFilterState" | "topK">,
+    private readonly mergeClient: LlmMergeClient
   ) {}
 
   async storeContext(input: StoreContextInput): Promise<StoreContextResult> {
@@ -164,6 +168,61 @@ export class MetaCortexService {
       filter_topic: filterTopic
     };
   }
+
+  async consolidateContext(
+    input: ConsolidateContextInput
+  ): Promise<ConsolidateContextResult> {
+    const topic = normalizeOptionalText(input.topic) ?? "general";
+
+    let sources: Array<{ id: string; content: string }>;
+
+    if (input.source_ids && input.source_ids.length > 0) {
+      const fetched = await Promise.all(
+        input.source_ids.map(id => this.repository.get(id))
+      );
+
+      for (const doc of fetched) {
+        if (!doc) {
+          throw new HttpError(404, "Document not found");
+        }
+      }
+
+      sources = (fetched as NonNullable<(typeof fetched)[number]>[]).map(doc => ({
+        id: doc.id,
+        content: doc.content
+      }));
+    } else {
+      const queue = await this.getConsolidationQueue({ topic });
+      sources = queue.items.map(item => ({ id: item.id, content: item.content }));
+    }
+
+    if (sources.length < 2) {
+      throw new HttpError(
+        422,
+        `At least 2 source memories are required for consolidation. Found: ${sources.length}.`
+      );
+    }
+
+    const { mergedContent } = await this.mergeClient.merge({ topic, sources });
+
+    const stored = await this.storeContext({
+      content: mergedContent,
+      module_name: topic,
+      branch_state: "active"
+    });
+
+    await Promise.all(
+      sources.map(source => this.repository.deprecate(source.id, stored.id))
+    );
+
+    return {
+      merged_id: stored.id,
+      merged_content: stored.content,
+      deprecated_ids: sources.map(source => source.id),
+      topic,
+      source_count: sources.length
+    };
+  }
 }
 
 function normalizeRequiredText(value: string, fieldName: string): string {
@@ -227,6 +286,21 @@ export function buildDeprecatePayload(
       superseded_by: result.superseding_id
     },
     previous_state: result.previous_state
+  };
+}
+
+export function buildConsolidatePayload(
+  result: ConsolidateContextResult
+): Record<string, unknown> {
+  return {
+    item: {
+      merged_id: result.merged_id,
+      merged_content: result.merged_content,
+      topic: result.topic,
+      branch_state: "active"
+    },
+    deprecated_ids: result.deprecated_ids,
+    source_count: result.source_count
   };
 }
 

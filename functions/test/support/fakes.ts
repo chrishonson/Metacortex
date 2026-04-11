@@ -6,6 +6,7 @@ import type {
   MemoryPreparationInput,
   PreparedMemoryContent
 } from "../../src/embeddings.js";
+import type { LlmMergeClient, MergeMemoriesRequest, MergeMemoriesResult } from "../../src/merging.js";
 import type {
   ObservabilityEvent,
   RecordToolCallEventInput,
@@ -95,6 +96,16 @@ export class FakeMemoryContentPreparer implements MemoryContentPreparer {
         mime_type: input.imageMimeType!
       }
     };
+  }
+}
+
+export class FakeLlmMergeClient implements LlmMergeClient {
+  async merge(request: MergeMemoriesRequest): Promise<MergeMemoriesResult> {
+    const mergedContent = request.sources
+      .map(source => source.content)
+      .join("\n\n");
+
+    return { mergedContent };
   }
 }
 
@@ -284,11 +295,13 @@ export function createTestRuntime(overrides: Partial<AppConfig> = {}) {
   const observer = new InMemoryToolCallObserver();
   const contentPreparer = new FakeMemoryContentPreparer();
   const embeddings = new KeywordEmbeddingClient();
+  const mergeClient = new FakeLlmMergeClient();
   const service = new MetaCortexService(
     contentPreparer,
     embeddings,
     repository,
-    config
+    config,
+    mergeClient
   );
 
   return {

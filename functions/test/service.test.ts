@@ -4,6 +4,7 @@ import { MetaCortexService } from "../src/service.js";
 import {
   createTestConfig,
   FakeMemoryContentPreparer,
+  FakeLlmMergeClient,
   InMemoryMemoryRepository,
   KeywordEmbeddingClient
 } from "./support/fakes.js";
@@ -14,7 +15,8 @@ describe("MetaCortexService", () => {
     const repository = new InMemoryMemoryRepository();
     const embeddings = new KeywordEmbeddingClient();
     const contentPreparer = new FakeMemoryContentPreparer();
-    const service = new MetaCortexService(contentPreparer, embeddings, repository, config);
+    const mergeClient = new FakeLlmMergeClient();
+    const service = new MetaCortexService(contentPreparer, embeddings, repository, config, mergeClient);
 
     return { service, repository };
   }
@@ -233,5 +235,125 @@ describe("MetaCortexService", () => {
     expect(result.items.length).toBe(1);
     expect(result.items[0]?.content).toContain("Draft networking");
     expect(result.filter_topic).toBe("kmp-networking");
+  });
+
+  describe("consolidateContext", () => {
+    it("merges wip memories for a topic and deprecates the sources", async () => {
+      const { service } = createService();
+
+      await service.storeContext({
+        content: "Draft note A about networking.",
+        module_name: "kmp-networking",
+        branch_state: "wip"
+      });
+      await service.storeContext({
+        content: "Draft note B about networking.",
+        module_name: "kmp-networking",
+        branch_state: "wip"
+      });
+
+      const result = await service.consolidateContext({ topic: "kmp-networking" });
+
+      expect(result.topic).toBe("kmp-networking");
+      expect(result.source_count).toBe(2);
+      expect(result.deprecated_ids).toHaveLength(2);
+      expect(result.merged_content).toContain("Draft note A");
+      expect(result.merged_content).toContain("Draft note B");
+
+      const merged = await service.fetchContext({ id: result.merged_id });
+      expect(merged.item.metadata.branch_state).toBe("active");
+      expect(merged.item.metadata.module_name).toBe("kmp-networking");
+
+      for (const id of result.deprecated_ids) {
+        const deprecated = await service.fetchContext({ id });
+        expect(deprecated.item.metadata.branch_state).toBe("deprecated");
+        expect(deprecated.item.metadata.superseded_by).toBe(result.merged_id);
+      }
+    });
+
+    it("merges explicit source_ids regardless of branch_state", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Active learning goal: Xcode literacy.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+      const b = await service.storeContext({
+        content: "Active learning goal: Kubernetes basics.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+
+      const result = await service.consolidateContext({
+        topic: "learning",
+        source_ids: [a.id, b.id]
+      });
+
+      expect(result.source_count).toBe(2);
+      expect(result.deprecated_ids).toContain(a.id);
+      expect(result.deprecated_ids).toContain(b.id);
+      expect(result.merged_content).toContain("Xcode");
+      expect(result.merged_content).toContain("Kubernetes");
+    });
+
+    it("defaults topic to general when not provided", async () => {
+      const { service } = createService();
+
+      await service.storeContext({
+        content: "General draft note 1.",
+        module_name: "general",
+        branch_state: "wip"
+      });
+      await service.storeContext({
+        content: "General draft note 2.",
+        module_name: "general",
+        branch_state: "wip"
+      });
+
+      const result = await service.consolidateContext({});
+
+      expect(result.topic).toBe("general");
+      expect(result.source_count).toBe(2);
+    });
+
+    it("throws 422 when fewer than 2 sources are available", async () => {
+      const { service } = createService();
+
+      await service.storeContext({
+        content: "Only one draft.",
+        module_name: "kmp-networking",
+        branch_state: "wip"
+      });
+
+      await expect(
+        service.consolidateContext({ topic: "kmp-networking" })
+      ).rejects.toThrow("At least 2 source memories are required");
+    });
+
+    it("throws 422 when topic queue is empty", async () => {
+      const { service } = createService();
+
+      await expect(
+        service.consolidateContext({ topic: "kmp-networking" })
+      ).rejects.toThrow("At least 2 source memories are required");
+    });
+
+    it("throws 404 when an explicit source_id does not exist", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Real memory.",
+        module_name: "general",
+        branch_state: "active"
+      });
+
+      await expect(
+        service.consolidateContext({
+          topic: "general",
+          source_ids: [a.id, "nonexistent-id"]
+        })
+      ).rejects.toThrow("Document not found");
+    });
   });
 });
