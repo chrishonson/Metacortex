@@ -60,7 +60,7 @@ The current MCP surface is intentionally split between:
 - a 3-tool client-facing contract for browser-hosted chat clients
 - a smaller admin-only maintenance surface documented later in this README
 
-That means the server currently exposes 4 MCP tools total, but normal browser clients should only see 3 of them.
+That means the server currently exposes 5 MCP tools total, but normal browser clients should only see 3 of them.
 
 ### Client-facing tools
 
@@ -355,10 +355,8 @@ Admin-only maintenance surface:
 
 - `deprecate_context`
   Soft-delete obsolete memories by setting `branch_state=deprecated` and recording `superseded_by`.
-
-Internal maintenance workflow:
-
-- WIP review and consolidation are internal workflows, not part of the public browser contract.
+- `consolidate_context`
+  Merge multiple related memories into one canonical active memory via LLM. By default merges all WIP memories for a topic. Pass `source_ids` to consolidate specific memories regardless of their current state. All source memories are deprecated and linked to the merged result.
 
 Lifecycle states:
 
@@ -376,7 +374,7 @@ Recommended usage:
 1. Browser clients save durable memories with `remember_context`.
 2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `remember_context`, `search_context`, and `fetch_context` only.
 3. Use `draft=true` only for provisional notes that should not appear in normal active search.
-4. WIP review and consolidation stay in internal maintenance workflows.
+4. Use `consolidate_context` to merge a batch of WIP drafts or fragmented active memories into one canonical record.
 5. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
 6. After writing the canonical replacement, admins can mark obsolete records with the admin-only `deprecate_context` tool.
 
@@ -385,6 +383,7 @@ Current lifecycle behavior:
 - `remember_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
 - `draft` and `branch_state` are mutually exclusive
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
+- `consolidate_context` calls Gemini to merge N source memories into one, stores the result as `active`, and deprecates all sources with `superseded_by` pointing to the merged id
 - `merged` exists as a searchable historical state for explicit admin writes
 - client profiles can restrict visible lifecycle states through `allowedFilterStates`
 

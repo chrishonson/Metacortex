@@ -71,6 +71,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
+| `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
 ### Key Source Files (all under `functions/src/`)
 
@@ -80,8 +81,9 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `app.ts` | ~344 | Express app: CORS, bearer auth, and router for default + client-scoped Streamable HTTP endpoints |
 | `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
-| `runtime.ts` | ~83 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
-| `service.ts` | ~161 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidation flows |
+| `merging.ts` | ~74 | `LlmMergeClient` interface + `GeminiMergeClient` — calls Gemini to merge N memory contents into one |
+| `runtime.ts` | ~95 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
+| `service.ts` | ~230 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidate flows |
 | `observability.ts` | ~150 | Structured tool-event and request-event logging plus Firestore-backed `memory_events` audit trail |
 | `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
