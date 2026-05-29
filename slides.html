@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetaCortex Presentation — Serverless MCP Memory</title>
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Premium Styling System */
+    :root {
+      --bg-base: #090d16;
+      --bg-darker: #05070c;
+      --bg-glass: rgba(13, 20, 35, 0.65);
+      --border-glass: rgba(255, 255, 255, 0.07);
+      --color-text-primary: #f3f4f6;
+      --color-text-secondary: #9ca3af;
+      --color-text-muted: #6b7280;
+      
+      --brand-primary: #06b6d4; /* Cyan */
+      --brand-secondary: #a855f7; /* Purple */
+      --brand-accent: #3b82f6; /* Blue */
+      
+      --gradient-brand: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+      --gradient-bg: linear-gradient(135deg, var(--bg-base) 0%, var(--bg-darker) 100%);
+      --glow-shadow: 0 0 40px rgba(6, 182, 212, 0.15);
+      
+      --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-darker);
+      background-image: var(--gradient-bg);
+      color: var(--color-text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    .ambient-glow {
+      position: absolute;
+      width: 40vw;
+      height: 40vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, rgba(168, 85, 247, 0.04) 50%, rgba(0, 0, 0, 0) 100%);
+      top: -10vw;
+      right: -10vw;
+      z-index: 0;
+      pointer-events: none;
+      filter: blur(80px);
+    }
+
+    .ambient-glow-2 {
+      position: absolute;
+      width: 45vw;
+      height: 45vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(168, 85, 247, 0.06) 0%, rgba(59, 130, 246, 0.03) 60%, rgba(0, 0, 0, 0) 100%);
+      bottom: -15vw;
+      left: -15vw;
+      z-index: 0;
+      pointer-events: none;
+      filter: blur(80px);
+    }
+
+    /* Header Bar */
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 3rem;
+      border-bottom: 1px solid var(--border-glass);
+      background: rgba(5, 7, 12, 0.4);
+      backdrop-filter: blur(8px);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      font-size: 1.5rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .logo-text {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-size: 1.25rem;
+    }
+
+    .header-badge {
+      font-size: 0.75rem;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      color: var(--brand-primary);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Progress Tracker */
+    .progress-bar-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      z-index: 20;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 9%;
+      background: var(--gradient-brand);
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Main Slides Workspace */
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem 3rem;
+      position: relative;
+      z-index: 5;
+    }
+
+    .slides-container {
+      width: 100%;
+      max-width: 1200px;
+      height: 100%;
+      max-height: 700px;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(50px);
+      transition: var(--transition-smooth);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      z-index: 2;
+    }
+
+    .slide.prev {
+      transform: translateX(-50px);
+    }
+
+    /* Slide Design Aesthetics */
+    .slide-layout-center {
+      text-align: center;
+      align-items: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .slide-layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+      height: 100%;
+    }
+
+    .slide-layout-three-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      align-items: stretch;
+      margin-top: 1.5rem;
+    }
+
+    /* Typography & Hierarchy */
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    h2 span {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 1.25rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 2rem;
+      font-weight: 300;
+      line-height: 1.5;
+    }
+
+    .section-title-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--brand-primary);
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      display: block;
+    }
+
+    /* Glass Cards */
+    .card {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: var(--transition-smooth);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-brand);
+      opacity: 0;
+      transition: var(--transition-smooth);
+    }
+
+    .card:hover {
+      border-color: rgba(6, 182, 212, 0.25);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1.25rem;
+      display: inline-block;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: var(--color-text-primary);
+    }
+
+    .card-desc {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--color-text-secondary);
+    }
+
+    /* Bullet List Elements */
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .bullet-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+
+    .bullet-marker {
+      color: var(--brand-primary);
+      font-weight: bold;
+      font-size: 1.2rem;
+      line-height: 1;
+      margin-top: 0.1rem;
+    }
+
+    .bullet-text strong {
+      color: var(--color-text-primary);
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    .bullet-text span {
+      color: var(--color-text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Media Embed Layouts */
+    .media-container {
+      width: 100%;
+      height: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--border-glass);
+      overflow: hidden;
+      background: var(--bg-darker);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+
+    .media-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #06080e;
+    }
+
+    .media-video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* Code Block Display */
+    .code-container {
+      background: rgba(5, 7, 12, 0.85);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 1.5rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      color: #34d399; /* Green hue */
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+    }
+
+    /* Footer Controls */
+    footer {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 3rem;
+      border-top: 1px solid var(--border-glass);
+      background: rgba(5, 7, 12, 0.4);
+      backdrop-filter: blur(8px);
+    }
+
+    .slide-counter {
+      font-size: 0.9rem;
+      color: var(--color-text-muted);
+      font-weight: 500;
+    }
+
+    .slide-counter span {
+      color: var(--brand-primary);
+      font-weight: 700;
+    }
+
+    .navigation-dots {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .dot.active {
+      background: var(--brand-primary);
+      width: 24px;
+      border-radius: 9999px;
+    }
+
+    .navigation-buttons {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .nav-btn {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      color: var(--color-text-primary);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition-smooth);
+    }
+
+    .nav-btn:hover {
+      border-color: rgba(6, 182, 212, 0.4);
+      background: rgba(6, 182, 212, 0.05);
+      color: var(--brand-primary);
+    }
+
+    .nav-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Dual Display Screen Grid */
+    .dual-screenshot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      height: 100%;
+    }
+
+    .screenshot-caption {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      margin-top: 0.5rem;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .tech-badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 4px;
+      color: var(--color-text-secondary);
+      font-family: 'Fira Code', monospace;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow"></div>
+  <div class="ambient-glow-2"></div>
+
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Header Section -->
+  <header>
+    <div class="logo-container">
+      <span class="logo-icon">🧠</span>
+      <span class="logo-text">MetaCortex</span>
+    </div>
+    <span class="header-badge" id="slideTopicBadge">Overview</span>
+  </header>
+
+  <!-- Main Slides Space -->
+  <main>
+    <div class="slides-container">
+
+      <!-- Slide 1: Title -->
+      <section class="slide active" data-topic="Introduction">
+        <div class="slide-layout-center">
+          <span class="section-title-label">Model Context Protocol</span>
+          <h1>MetaCortex</h1>
+          <p class="slide-subtitle">The Serverless, Long-Term Memory Core designed for autonomous AI agents and cross-client developer workflows.</p>
+          <div style="margin-top: 1rem;">
+            <span class="tech-badge">TypeScript</span>
+            <span class="tech-badge">Firestore Vector Search</span>
+            <span class="tech-badge">Cloud Functions</span>
+            <span class="tech-badge">Gemini</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 3rem;">
+            Press <strong style="color: var(--brand-primary);">Right Arrow</strong> or <strong style="color: var(--brand-primary);">Space</strong> to navigate.
+          </p>
+        </div>
+      </section>
+
+      <!-- Slide 2: The Chatbot Memory Trap -->
+      <section class="slide" data-topic="The Problem">
+        <span class="section-title-label">Part 1: The Problem</span>
+        <h2>The <span>Chatbot Memory Trap</span></h2>
+        <p class="slide-subtitle">Consumer chatbot built-in memories fail developer requirements in three critical ways:</p>
+        
+        <div class="slide-layout-two-col">
+          <div class="card">
+            <span class="card-icon">🔏</span>
+            <h3 class="card-title">Walled Gardens</h3>
+            <p class="card-desc">Siloed vendor locks. A memory saved in ChatGPT is invisible to Claude Desktop, locked out of Cursor, and entirely unavailable to your terminal-based scripts.</p>
+          </div>
+          
+          <div class="card">
+            <span class="card-icon">📦</span>
+            <h3 class="card-title">The Black Box</h3>
+            <p class="card-desc">You don't own your knowledge. No API to query, back up, export, or audit your private corporate knowledge. You cannot clean or restore states.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 3: Brain & Body Paradigm -->
+      <section class="slide" data-topic="Architecture">
+        <div class="slide-layout-grid">
+          <div>
+            <span class="section-title-label">Part 2: The Solution Architecture</span>
+            <h2>The <span>Brain & Body</span> Metaphor</h2>
+            <p class="slide-subtitle">Dividing long-term memory logic from local physical environment execution.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">✓</span>
+                <div class="bullet-text">
+                  <strong>The Brain: MetaCortex</strong>
+                  <span>Cloud-hosted, secure serverless memory core holding unified knowledge representations.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">✓</span>
+                <div class="bullet-text">
+                  <strong>The Body: Nanobot / OpenClaw</strong>
+                  <span>Local autonomous agents that run on your machine, edit your code, execute commands, and use the Brain to recall things like:
+                  <ul>
+                    <li> decisions</li>
+                    <li> preferences</li>
+                    <li> goals</li>
+                  </ul>
+                </div>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="media-container">
+            <img src="docs/graphics/architecture.png" class="media-img" alt="MetaCortex Architecture Diagram">
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 4: Standardizing Memory (MCP) -->
+      <section class="slide" data-topic="Implementation">
+        <div class="slide-layout-grid">
+          <div class="media-container" style="background: rgba(13,20,35,0.4); padding: 1.5rem;">
+            <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 1rem;">
+              <div class="card" style="padding: 1.25rem;">
+                <strong style="color: var(--brand-primary); display:block; margin-bottom:0.25rem;">Firebase Cloud Functions 2nd Gen</strong>
+                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Scales to absolute zero, keeping operating costs at $0.00.</span>
+              </div>
+              <div class="card" style="padding: 1.25rem;">
+                <strong style="color: var(--brand-secondary); display:block; margin-bottom:0.25rem;">Firestore Native Vector Search</strong>
+                <span style="font-size:0.85rem; color: var(--color-text-secondary);">No expensive Pinecone instances. Store 768-dim vectors directly in documents.</span>
+              </div>
+              <div class="card" style="padding: 1.25rem;">
+                <strong style="color: var(--brand-accent); display:block; margin-bottom:0.25rem;">Model Context Protocol (MCP)</strong>
+                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Open standard from Anthropic. Natively plug memory into ChatGPT or Claude Desktop.</span>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <span class="section-title-label">Part 2: Under the Hood</span>
+            <h2>Built on <span>Open Standards</span></h2>
+            <p class="slide-subtitle">A highly performant serverless stack with infinite horizontal scaling and zero idle hosting fees.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">→</span>
+                <div class="bullet-text">
+                  <strong>Multimodal Image Normalization</strong>
+                  <span>Gemini models normalize wireframes and screenshots into unified text before indexing.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">→</span>
+                <div class="bullet-text">
+                  <strong>Timing-Safe Token Auth</strong>
+                  <span>Allows multiple client keys, secure Bearer tokens, and origin check filters.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 5: The Solution in Practice — Demos -->
+      <section class="slide" data-topic="Demos">
+        <div class="slide-layout-grid">
+          <div>
+            <span class="section-title-label">Part 3: Solution in Practice</span>
+            <h2>Watching It <span>Work Live</span></h2>
+            <p class="slide-subtitle">See how a local terminal agent or standard chat interface binds to the serverless MCP core.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">⚡</span>
+                <div class="bullet-text">
+                  <strong>Real-time Recall & Write</strong>
+                  <span>Writing a memory compiles local variables and stores the vector embedding instantaneously.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">⚡</span>
+                <div class="bullet-text">
+                  <strong>High-Speed Retrieval</strong>
+                  <span>Under-the-hood vector indexing returns near-zero latency semantic matches.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="media-container">
+            <video class="media-video" controls loop muted autoplay>
+              <source src="docs/graphics/Screen Recording 2026-03-17 at 8.26.45 AM.mov" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 6: Inside the Chatbot Session -->
+      <section class="slide" data-topic="Interface Visuals">
+        <span class="section-title-label">Part 3: The Session Console</span>
+        <h2>Inside the <span>Active Chat Session</span></h2>
+        <p class="slide-subtitle">How developers audit, query, and verify memory scopes and client endpoints.</p>
+        
+        <div class="dual-screenshot-grid">
+          <div>
+            <div class="media-container" style="height: 380px;">
+              <img src="docs/graphics/Screenshot 2026-03-20 at 4.53.53 PM.png" class="media-img" alt="Memory Search Logs Screenshot">
+            </div>
+            <p class="screenshot-caption">Auditing semantic search parameters, query variables, and direct Firestore memory scores.</p>
+          </div>
+          
+          <div>
+            <div class="media-container" style="height: 380px;">
+              <img src="docs/graphics/Screenshot 2026-03-20 at 4.58.00 PM.png" class="media-img" alt="Scoped Client Settings Screenshot">
+            </div>
+            <p class="screenshot-caption">Client profile overrides, custom domain CORS permissions, and allowed tool lists configuration.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 7: Context Congestion & Divergence -->
+      <section class="slide" data-topic="Scaling Challenges">
+        <span class="section-title-label">Part 4: The Core Challenges of Scaling</span>
+        <h2>Scaling Beyond the <span>Context Limits</span></h2>
+        <p class="slide-subtitle">Dumping raw directories into giant context windows introduces three modern architectural bottlenecks:</p>
+        
+        <div class="slide-layout-three-col">
+          <div class="card">
+            <span class="card-icon">⚡</span>
+            <h3 class="card-title">Context Congestion</h3>
+            <p class="card-desc">Massive contexts increase noise and dilute LLM attention, leading to reasoning degradation, increased processing latency, and huge token bills.</p>
+          </div>
+          
+          <div class="card">
+            <span class="card-icon">📡</span>
+            <h3 class="card-title">Session Divergence</h3>
+            <p class="card-desc">Frontend, backend, and infrastructure threads exist in parallel silos. Divergent threads have no way to synchronize critical design changes.</p>
+          </div>
+          
+          <div class="card">
+            <span class="card-icon">⏳</span>
+            <h3 class="card-title">Knowledge Decay</h3>
+            <p class="card-desc">Without pruning, long chat records contain stale, contradictory decisions. The model struggles to resolve outdated code choices.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 8: LLM-Driven Consolidation Hygiene -->
+      <section class="slide" data-topic="Hygiene">
+        <div class="slide-layout-grid">
+          <div>
+            <span class="section-title-label">Part 4: Memory Hygiene</span>
+            <h2>LLM-Driven <span>Consolidation</span></h2>
+            <p class="slide-subtitle">MetaCortex utilizes an isolated background thread to actively clean and deduplicate your knowledge tree.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">✓</span>
+                <div class="bullet-text">
+                  <strong>The WIP Queue</strong>
+                  <span>Passive, raw memories are initially written to the database under the `wip` state.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">✓</span>
+                <div class="bullet-text">
+                  <strong>Automated LLM Merges</strong>
+                  <span>A daily cron worker compiles WIP threads and directs Gemini to merge them into a single canonical active fact sheet.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">✓</span>
+                <div class="bullet-text">
+                  <strong>Soft-Deprecation Links</strong>
+                  <span>Deprecated source files remain auditable via a git-like `superseded_by` relationship pointer.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="card" style="padding: 1.5rem;">
+            <span style="font-size: 0.8rem; color: var(--brand-primary); font-family: 'Fira Code', monospace; display: block; margin-bottom: 0.5rem;">// service.ts</span>
+            <div class="code-container" style="font-size: 0.75rem; max-height: 350px;">
+async consolidateContext(input) {
+  const sources = await this.getQueue();
+  
+  // Call Gemini to merge facts
+  const { mergedContent } = 
+    await this.mergeClient.merge(sources);
+
+  const stored = await this.storeContext({
+    content: mergedContent,
+    branch_state: "active"
+  });
+
+  // Soft-deprecate old sources
+  await Promise.all(
+    sources.map(s => this.deprecate(s.id, stored.id))
+  );
+}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 9: API & Endpoint Boundaries -->
+      <section class="slide" data-topic="Security Details">
+        <div class="slide-layout-grid">
+          <div class="media-container" style="background: transparent; border: none; box-shadow: none;">
+            <img src="docs/graphics/scoped-client-endpoints.svg" style="width: 90%; height: 90%; object-fit: contain;" alt="Scoped Endpoint Flow Diagram">
+          </div>
+          
+          <div>
+            <span class="section-title-label">Part 5: Standard Developer API</span>
+            <h2>Granular <span>Security Bounds</span></h2>
+            <p class="slide-subtitle">Enforcing clean permissions at the HTTP boundary via client profiles.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">🔑</span>
+                <div class="bullet-text">
+                  <strong>The 5-Tool Core API</strong>
+                  <span>`remember_context`, `search_context`, `fetch_context`, `deprecate_context`, and `consolidate_context`.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">🔑</span>
+                <div class="bullet-text">
+                  <strong>Scoped Endpoints</strong>
+                  <span>Chat bots can only read/write `"active"` memories on customized scoped client paths. They are barred from administrative deletion.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 10: Seamless Cloud Deployment with Journey Kit -->
+      <section class="slide" data-topic="Deployment">
+        <div class="slide-layout-grid">
+          <div>
+            <span class="section-title-label">Part 5: Production Deployment</span>
+            <h2>Deploy Instantly via <span>Journey Kit</span></h2>
+            <p class="slide-subtitle">Install, provision, and configure the entire memory layer with a single terminal command.</p>
+            
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-marker">🚀</span>
+                <div class="bullet-text">
+                  <strong>The Package Standard</strong>
+                  <span>Pre-compiled, pre-tested slice containing Functions, Firestore rules, and indexes.</span>
+                </div>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-marker">🚀</span>
+                <div class="bullet-text">
+                  <strong>Guided Configuration</strong>
+                  <span>Journey automatically guides you through Firebase project setup, Gemini API key linkage, and client profile creation.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="card" style="padding: 1.5rem;">
+            <span style="font-size: 0.8rem; color: var(--brand-primary); font-family: 'Fira Code', monospace; display: block; margin-bottom: 0.5rem;">// Install the packaged memory kit</span>
+            <div class="code-container" style="color: #38bdf8; font-size: 0.9rem;">
+# Install the MetaCortex memory kit
+journey install agentnightshift/metacortex-mcp-memory-firebase
+
+# The packaged kit bootstraps:
+# - Pre-configured Firestore composite indexes
+# - Pre-compiled HTTP endpoint functions
+# - Scoped browser settings & verification scripts
+            </div>
+            <div class="badge-row">
+              <span class="tech-badge">journey-kit</span>
+              <span class="tech-badge">One-Click Setup</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 11: Summary & Next Steps -->
+      <section class="slide" data-topic="Conclusion">
+        <div class="slide-layout-center">
+          <span class="section-title-label">Summary & Next Steps</span>
+          <h2>Give Your Agents a <span>Durable Brain</span></h2>
+          <p class="slide-subtitle">Unlock unified state tracking, eliminate context congestion, and bridge silos across all developer tools.</p>
+          
+          <div class="card" style="width: 100%; max-width: 600px; text-align: left; padding: 1.5rem; margin-top: 1rem;">
+            <strong style="display: block; margin-bottom: 0.5rem; color: var(--brand-primary);">🚀 Quickstart Roadmap:</strong>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.95rem;">
+              <li>1. Install the MetaCortex package: `journey install agentnightshift/...`</li>
+              <li>2. Follow the prompt commands to configure your Gemini API Key.</li>
+              <li>3. Open `journey-kit/README.md` to instantly plug in ChatGPT, Claude, and your local Nanobot agents.</li>
+            </ul>
+          </div>
+          
+          <p style="font-size: 1.1rem; font-weight: 600; color: var(--brand-secondary); margin-top: 2rem;">
+            Ready to integrate? Let's build!
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer Navigation -->
+  <footer>
+    <div class="slide-counter">
+      Slide <span id="currentSlideNum">1</span> of <span id="totalSlidesNum">11</span>
+    </div>
+    
+    <div class="navigation-dots" id="navigationDots">
+      <!-- Dots injected dynamically -->
+    </div>
+    
+    <div class="navigation-buttons">
+      <button class="nav-btn" id="prevBtn">← Previous</button>
+      <button class="nav-btn" id="nextBtn">Next →</button>
+    </div>
+  </footer>
+
+  <script>
+    // State Tracking
+    const slides = document.querySelectorAll('.slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const currentSlideNum = document.getElementById('currentSlideNum');
+    const totalSlidesNum = document.getElementById('totalSlidesNum');
+    const progressBar = document.getElementById('progressBar');
+    const slideTopicBadge = document.getElementById('slideTopicBadge');
+    const navigationDots = document.getElementById('navigationDots');
+    
+    let currentSlideIndex = 0;
+    const totalSlides = slides.length;
+    
+    totalSlidesNum.textContent = totalSlides;
+
+    // Create Navigation Dots
+    slides.forEach((slide, idx) => {
+      const dot = document.createElement('div');
+      dot.classList.add('dot');
+      if (idx === 0) dot.classList.add('active');
+      dot.addEventListener('click', () => navigateToSlide(idx));
+      navigationDots.appendChild(dot);
+    });
+
+    const dots = document.querySelectorAll('.dot');
+
+    // Update Layout for current slide
+    function updateSlideUI() {
+      slides.forEach((slide, idx) => {
+        slide.classList.remove('active', 'prev');
+        if (idx === currentSlideIndex) {
+          slide.classList.add('active');
+          const topic = slide.getAttribute('data-topic') || 'Overview';
+          slideTopicBadge.textContent = topic;
+        } else if (idx < currentSlideIndex) {
+          slide.classList.add('prev');
+        }
+      });
+
+      // Update dots
+      dots.forEach((dot, idx) => {
+        dot.classList.remove('active');
+        if (idx === currentSlideIndex) {
+          dot.classList.add('active');
+        }
+      });
+
+      // Slide numbers and progress
+      currentSlideNum.textContent = currentSlideIndex + 1;
+      const progressPercent = ((currentSlideIndex + 1) / totalSlides) * 100;
+      progressBar.style.width = `${progressPercent}%`;
+
+      // Handle video auto-play on Slide 5
+      const currentSlide = slides[currentSlideIndex];
+      const video = currentSlide.querySelector('video');
+      if (video) {
+        video.currentTime = 0;
+        video.play().catch(err => console.log("Autoplay blocked by browser. User interaction needed."));
+      } else {
+        // Pause any other slide's videos
+        document.querySelectorAll('video').forEach(v => v.pause());
+      }
+    }
+
+    function navigateToSlide(index) {
+      if (index >= 0 && index < totalSlides) {
+        currentSlideIndex = index;
+        updateSlideUI();
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlideIndex < totalSlides - 1) {
+        currentSlideIndex++;
+      } else {
+        currentSlideIndex = 0; // Loop back to start
+      }
+      updateSlideUI();
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        currentSlideIndex--;
+      } else {
+        currentSlideIndex = totalSlides - 1; // Loop back to end
+      }
+      updateSlideUI();
+    }
+
+    // Button Events
+    nextBtn.addEventListener('click', nextSlide);
+    prevBtn.addEventListener('click', prevSlide);
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', (event) => {
+      switch (event.code) {
+        case 'ArrowRight':
+        case 'Space':
+        case 'PageDown':
+          event.preventDefault();
+          nextSlide();
+          break;
+        case 'ArrowLeft':
+        case 'PageUp':
+          event.preventDefault();
+          prevSlide();
+          break;
+        case 'Home':
+          event.preventDefault();
+          navigateToSlide(0);
+          break;
+        case 'End':
+          event.preventDefault();
+          navigateToSlide(totalSlides - 1);
+          break;
+      }
+    });
+
+    // Initialize UI
+    updateSlideUI();
+
+  </script>
+</body>
+</html>
