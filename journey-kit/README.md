@@ -1,4 +1,4 @@
-# 🧠 MetaCortex — MCP Memory for ChatGPT, Claude & Every Agent
+# MetaCortex — MCP Memory for ChatGPT, Claude & Every Agent
 
 > **Deploy once. Your agents remember everything.**
 
@@ -12,7 +12,7 @@ MetaCortex turns any Firebase project into a production-grade, shared memory lay
 
 No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
 
-> 🧪 **Used daily by the author as their personal MCP memory brain.**
+> 🧪 **Used daily by the author as their personal MCP memory backend.**
 > Already powers multiple agents across ChatGPT & Claude in production.
 
 ## Quick Start

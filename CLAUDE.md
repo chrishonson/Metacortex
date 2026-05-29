@@ -77,18 +77,19 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `index.ts` | ~17 | Firebase Functions entry point, exports `metaCortexMcp` (us-central1, 300s timeout, 512MiB) |
-| `app.ts` | ~344 | Express app: CORS, bearer auth, and router for default + client-scoped Streamable HTTP endpoints |
-| `config.ts` | ~287 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
+| `index.ts` | ~18 | Firebase Functions entry point, exports `metaCortexMcp` (us-central1, 300s timeout, 512MiB) |
+| `app.ts` | ~327 | Express app: CORS, bearer auth, and router for default + client-scoped Streamable HTTP endpoints |
+| `config.ts` | ~279 | `loadConfig()` with env validation, `ClientProfile` parsing from JSON, `MissingConfigurationError` |
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `merging.ts` | ~74 | `LlmMergeClient` interface + `GeminiMergeClient` — calls Gemini to merge N memory contents into one |
-| `runtime.ts` | ~95 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
-| `service.ts` | ~230 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidate flows |
+| `runtime.ts` | ~107 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
+| `service.ts` | ~401 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidate flows |
 | `observability.ts` | ~150 | Structured tool-event and request-event logging plus Firestore-backed `memory_events` audit trail |
-| `embeddings.ts` | ~191 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
-| `memoryRepository.ts` | ~137 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
-| `types.ts` | ~111 | Enums (`ARTIFACT_TYPES`, `BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
-| `mcpServer.ts` | ~245 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates` |
+| `embeddings.ts` | ~195 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
+| `normalize.ts` | ~8 | Shared text-normalization helper |
+| `memoryRepository.ts` | ~228 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
+| `types.ts` | ~138 | Enums (`BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
+| `mcpServer.ts` | ~447 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates` |
 
 ### Data Flow
 
@@ -100,14 +101,17 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
 
+**consolidate_context**: Topic (default WIP queue) or explicit `source_ids` → gather source memories → Gemini merge of N contents into one → store merged result as `active` → deprecate every source with `superseded_by` pointing to the merged ID
+
 ### Testing Approach
 
-Four test layers, all using vitest with in-memory fakes (no real Gemini/Firestore calls):
+Five test layers, all using vitest with in-memory fakes (no real Gemini/Firestore calls):
 
 | Test | Scope |
 |------|-------|
 | `config.test.ts` | Config validation, env parsing, client profile JSON |
 | `service.test.ts` | Business logic with `InMemoryMemoryRepository` + `KeywordEmbeddingClient` |
+| `runtime.test.ts` | Runtime dependency injection: lazy creation and caching of config, service, and observer |
 | `app.test.ts` | HTTP auth, CORS, bearer tokens, client profile routing (supertest) |
 | `mcp.integration.test.ts` | End-to-end MCP protocol via real MCP SDK Streamable HTTP transport |
 
@@ -142,12 +146,12 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
 | `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
-| `MCP_ALLOWED_TOOLS` | all six tools | Comma-separated tool allowlist for default client |
+| `MCP_ALLOWED_TOOLS` | all five tools | Comma-separated tool allowlist for default client |
 | `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist for the default admin `/mcp` endpoint only |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
 | `SERVICE_NAME` | `metacortex` | Service identifier in responses |
-| `SERVICE_VERSION` | `0.1.0` | Service version in responses |
+| `SERVICE_VERSION` | `0.3.0` | Service version in responses |
 
 Template: `functions/.env.example` → copy to `functions/.env`
 

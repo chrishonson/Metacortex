@@ -219,8 +219,8 @@ describe("MCP integration", () => {
     const runtime = createTestRuntime({
       clientProfiles: [
         {
-          id: "nanobot",
-          [authTokenField]: accessCredential("nano"),
+          id: "autonomous-agent",
+          [authTokenField]: accessCredential("agent"),
           allowedOrigins: [],
           allowedTools: ["search_context"],
           allowedFilterStates: ["active"]
@@ -244,15 +244,15 @@ describe("MCP integration", () => {
     );
 
     const client = new Client({
-      name: "nanobot-client",
+      name: "autonomous-agent-client",
       version: "1.0.0"
     });
     const transport = new StreamableHTTPClientTransport(
-      new URL(`${baseUrl}/clients/nanobot/mcp`),
+      new URL(`${baseUrl}/clients/autonomous-agent/mcp`),
       {
         requestInit: {
           headers: {
-            [authorizationHeaderName]: bearerHeader("nano")
+            [authorizationHeaderName]: bearerHeader("agent")
           }
         }
       }
@@ -309,7 +309,7 @@ describe("MCP integration", () => {
     );
 
     expect(runtime.observer.listEvents().at(-1)).toMatchObject({
-      client_id: "nanobot",
+      client_id: "autonomous-agent",
       tool_name: "search_context",
       status: "error",
       error: {

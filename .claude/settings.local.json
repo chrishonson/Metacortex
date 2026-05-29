@@ -23,7 +23,18 @@
       "Skill(browse:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch",
-      "WebFetch(domain:arxiv.org)"
+      "WebFetch(domain:arxiv.org)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(rm /Users/nick/git/metacortex/.git/index.lock)",
+      "Bash(git -C /Users/nick/git/metacortex add functions/src/types.ts)",
+      "Bash(git -C /Users/nick/git/metacortex commit -m \"feat\\(types\\): add consolidate_context to MCP_TOOL_NAMES and add I/O types\")",
+      "Bash(npm --prefix /Users/nick/git/metacortex/functions test -- --reporter=verbose)",
+      "Bash(npm --prefix /Users/nick/git/metacortex/functions test)",
+      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse goto *)",
+      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse text *)",
+      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse wait *)",
+      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse useragent *)"
     ]
   }
 }

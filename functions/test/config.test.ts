@@ -51,8 +51,8 @@ describe("loadConfig", () => {
       MCP_ALLOWED_TOOLS: "remember_context,search_context",
       [clientProfilesEnv]: JSON.stringify([
         {
-          id: "nanobot",
-          [tokenField]: accessCredential("nano"),
+          id: "autonomous-agent",
+          [tokenField]: accessCredential("agent"),
           allowedTools: ["search_context"]
         },
         {
@@ -81,7 +81,7 @@ describe("loadConfig", () => {
       "search_context"
     ]);
     expect(config.clientProfiles.map(profile => profile.id)).toEqual([
-      "nanobot",
+      "autonomous-agent",
       "chatgpt-web",
       "claude-web"
     ]);
@@ -113,8 +113,8 @@ describe("loadConfig", () => {
         [adminTokenEnv]: accessCredential("admin"),
         [clientProfilesEnv]: JSON.stringify([
           {
-            id: "nanobot",
-            [tokenField]: accessCredential("nano")
+            id: "autonomous-agent",
+            [tokenField]: accessCredential("agent")
           }
         ])
       })

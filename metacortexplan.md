@@ -193,8 +193,8 @@ These should be addressed regardless of strategic direction:
 2. **Fixed:** `CLAUDE.md` used `MCP_AUTH_TOKEN` in the env var table.
 3. **Fixed:** `CLAUDE.md` referred to `openBrainMcp` instead of `metaCortexMcp`.
 4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
-5. **Fixed:** `WWW-Authenticate` realm no longer says `"firebase-open-brain"`.
-6. **Fixed:** default `serviceName` no longer says `"firebase-open-brain"`.
+5. **Fixed:** `WWW-Authenticate` realm no longer uses the old placeholder service name.
+6. **Fixed:** default `serviceName` no longer uses the old placeholder service name.
 7. **Pending:** verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
 
 ---
