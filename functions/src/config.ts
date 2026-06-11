@@ -20,6 +20,7 @@ export interface AppConfig {
   geminiApiKey: string;
   embeddingModel: string;
   multimodalModel: string;
+  generationVertexLocation: string;
   embeddingDimensions: number;
   memoryCollection: string;
   topK: number;
@@ -264,7 +265,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     geminiApiKey: requireEnv(env, "GEMINI_API_KEY"),
     embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "text-embedding-004",
     multimodalModel:
-      env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite-preview",
+      env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite",
+    generationVertexLocation:
+      env.GEMINI_GENERATION_VERTEX_LOCATION?.trim() || "global",
     embeddingDimensions: parsePositiveInteger(
       env.GEMINI_EMBEDDING_DIMENSIONS,
       768,

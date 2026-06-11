@@ -81,9 +81,37 @@ export function createMetaCortexMcpServer(
       id: z
         .string()
         .min(1)
+        .optional()
         .describe(
           "The stable memory id returned by remember_context or search_context."
+        ),
+      document_id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          "Compatibility alias for id. Prefer id for new clients."
         )
+    })
+    .superRefine((value, ctx) => {
+      const id = normalizeOptionalText(value.id);
+      const documentId = normalizeOptionalText(value.document_id);
+
+      if (!id && !documentId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["id"],
+          message: "Provide id or document_id"
+        });
+      }
+
+      if (id && documentId && id !== documentId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["document_id"],
+          message: "id and document_id must match when both are provided"
+        });
+      }
     });
   const server = new McpServer(
     {
@@ -250,7 +278,8 @@ export function createMetaCortexMcpServer(
       },
       async args => {
         const requestSummary = {
-          id: args.id
+          id: args.id ?? args.document_id,
+          used_document_id_alias: Boolean(args.document_id && !args.id)
         };
         const result = await observeToolCall(
           "fetch_context",

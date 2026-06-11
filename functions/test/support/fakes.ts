@@ -220,10 +220,13 @@ export class InMemoryToolCallObserver implements ToolCallObserver {
   private readonly events: ObservabilityEvent[] = [];
 
   async record(input: RecordToolCallEventInput): Promise<void> {
+    const timestamp = input.timestamp ?? Date.now();
+
     this.events.push({
       event_id: `event-${this.nextId++}`,
       event_type: "tool_call",
-      timestamp: input.timestamp ?? Date.now(),
+      timestamp,
+      expires_at: new Date(timestamp + 90 * 24 * 60 * 60 * 1000),
       client_id: input.client_id,
       tool_name: input.tool_name,
       status: input.status,
@@ -237,10 +240,13 @@ export class InMemoryToolCallObserver implements ToolCallObserver {
   }
 
   async recordRequest(input: RecordRequestEventInput): Promise<void> {
+    const timestamp = input.timestamp ?? Date.now();
+
     this.events.push({
       event_id: `event-${this.nextId++}`,
       event_type: "request",
-      timestamp: input.timestamp ?? Date.now(),
+      timestamp,
+      expires_at: new Date(timestamp + 90 * 24 * 60 * 60 * 1000),
       client_id: input.client_id,
       method: input.method,
       path: input.path,
@@ -274,7 +280,8 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     authToken,
     geminiApiKey: "test-gemini-key",
     embeddingModel: "text-embedding-004",
-    multimodalModel: "gemini-3.1-flash-lite-preview",
+    multimodalModel: "gemini-3.1-flash-lite",
+    generationVertexLocation: "global",
     embeddingDimensions: 768,
     memoryCollection: "memory_vectors",
     topK: 5,

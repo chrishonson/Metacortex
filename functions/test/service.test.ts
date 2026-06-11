@@ -194,6 +194,38 @@ describe("MetaCortexService", () => {
     expect(fetched.item.content).toBe(stored.content);
   });
 
+  it("fetches a stored document by document_id compatibility alias", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "Ktor networking pattern.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const fetched = await service.fetchContext({ document_id: stored.id });
+
+    expect(fetched.item.id).toBe(stored.id);
+    expect(fetched.item.content).toBe(stored.content);
+  });
+
+  it("rejects conflicting fetch id aliases", async () => {
+    const { service } = createService();
+
+    await expect(
+      service.fetchContext({
+        id: "memory-1",
+        document_id: "memory-2"
+      })
+    ).rejects.toThrow("id and document_id must match");
+  });
+
+  it("rejects fetch without an id", async () => {
+    const { service } = createService();
+
+    await expect(service.fetchContext({})).rejects.toThrow(
+      "id or document_id must be provided"
+    );
+  });
+
   it("fetches rejects unknown id", async () => {
     const { service } = createService();
 

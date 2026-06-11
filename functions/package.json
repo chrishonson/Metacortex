@@ -10,9 +10,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"const fs=require('fs'); fs.rmSync('lib',{recursive:true,force:true}); fs.rmSync('coverage',{recursive:true,force:true});\"",
+    "backfill:ttl": "node scripts/backfill-firestore-ttl.mjs",
     "serve": "cd .. && firebase emulators:start --only functions,firestore",
     "shell": "firebase functions:shell",
     "smoke": "node scripts/mcp-smoke-test.mjs",
+    "validate:models": "node scripts/validate-models.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
   },

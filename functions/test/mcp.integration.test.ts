@@ -101,7 +101,8 @@ describe("MCP integration", () => {
       description: expect.stringContaining("returned by remember_context"),
       inputSchema: {
         properties: expect.objectContaining({
-          id: expect.any(Object)
+          id: expect.any(Object),
+          document_id: expect.any(Object)
         })
       }
     });
@@ -138,7 +139,8 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(parseJsonTextContent(searchResult)).toMatchObject({
+    const searchPayload = parseJsonTextContent(searchResult);
+    expect(searchPayload).toMatchObject({
       matches: [
         {
           id: "memory-1",
@@ -154,6 +156,7 @@ describe("MCP integration", () => {
         filter_state: "active"
       }
     });
+    expect(searchPayload.matches?.[0]).not.toHaveProperty("content_preview");
 
     const replacementResult = await client.callTool({
       name: "remember_context",
@@ -275,7 +278,8 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(parseJsonTextContent(searchResult)).toMatchObject({
+    const scopedSearchPayload = parseJsonTextContent(searchResult);
+    expect(scopedSearchPayload).toMatchObject({
       matches: [
         {
           id: "memory-1",
@@ -283,6 +287,7 @@ describe("MCP integration", () => {
         }
       ]
     });
+    expect(scopedSearchPayload.matches?.[0]).not.toHaveProperty("content_preview");
     const disallowedResult = await client.callTool({
       name: "remember_context",
       arguments: {
@@ -466,7 +471,7 @@ describe("MCP integration", () => {
     const fetchResult = await client.callTool({
       name: "fetch_context",
       arguments: {
-        id: "memory-1"
+        document_id: "memory-1"
       }
     });
 
@@ -482,6 +487,19 @@ describe("MCP integration", () => {
     });
     expect(parseJsonTextContent(fetchResult)).not.toHaveProperty(
       "item.retrieval_text"
+    );
+
+    const conflictingFetchResult = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: "memory-1",
+        document_id: "memory-2"
+      }
+    });
+
+    expect(conflictingFetchResult.isError).toBe(true);
+    expect(textContent(conflictingFetchResult)).toContain(
+      "id and document_id must match"
     );
 
     expect(runtime.observer.listEvents()).toMatchObject([

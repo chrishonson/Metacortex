@@ -24,11 +24,13 @@ Progress since this plan was drafted:
 - `store_context` has been removed from the MCP surface. `remember_context` is now the single write tool and supports optional explicit `branch_state` for advanced admin workflows.
 - `get_consolidation_queue` has been removed from the MCP surface. WIP consolidation is now an internal maintenance workflow.
 - `fetch_context` no longer exposes `retrieval_text` in its public payload.
+- `search_context` now returns `summary` only and no longer exposes a redundant `content_preview`.
+- Firestore TTL-ready fields, backfill tooling, and TTL deployment scripts now cover write fingerprints and audit events.
+- The multimodal default moved from the shut-down `gemini-3.1-flash-lite-preview` model to stable `gemini-3.1-flash-lite`.
 
-Remaining near-term work:
+Remaining strategic work:
 
-- add TTL policies for unbounded Firestore collections
-- simplify search payloads before investing in tiering and temporal validity
+- invest in context tiering, temporal validity, provenance, and action event-sourcing after the hardening release
 
 ---
 
@@ -97,15 +99,16 @@ Problems:
 
 ### 2. Unbounded Firestore collections
 
-**Status:** Not started.
+**Status:** Completed on 2026-06-11.
 
 Two collections grow without bound:
 - `memory_vectors_write_fingerprints` — deduplication fingerprints with `expires_at` set but nothing deleting them
 - `memory_events` — observability/audit trail with no TTL
 
-**Recommendation:**
-- Enable Firestore TTL policies on both collections. Fingerprints can expire after 30 days (if you're going to store a duplicate, it'll happen within hours, not months). Events can expire after 90 days.
-- Add a `limit` parameter to `getConsolidationQueue` (if you keep it) or any future list operations.
+**What changed:**
+- Fingerprint writes now store numeric `dedupe_expires_at` for the 15-minute duplicate window and Date-valued `expires_at` for 30-day Firestore TTL.
+- `memory_events` keeps numeric `timestamp` and adds Date-valued `expires_at` for 90-day Firestore TTL.
+- Added dry-run/write backfill tooling and a `gcloud` TTL deployment script for the production project.
 
 ### 3. Response format inconsistency
 
@@ -125,11 +128,11 @@ For text memories, `retrieval_text` duplicates `content`. For multimodal memorie
 
 ### 5. Search result redundancy
 
-**Status:** Not started.
+**Status:** Completed on 2026-06-11.
 
 Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients about which to use.
 
-**Recommendation:** Keep only `content_preview` (or rename to `preview`). If the agent wants the full content, it calls `fetch_context`. Two levels of truncation serve no purpose.
+**What changed:** `search_context` now returns `summary` only. If the agent wants the full content, it calls `fetch_context`.
 
 ---
 
@@ -139,13 +142,13 @@ Each search result includes both `summary` (220 chars) and `content_preview` (40
 
 **Why:** OpenViking's most compelling idea is that not all context needs to be loaded at full fidelity. Their L0/L1/L2 system (100-token abstract → 2k-token overview → full content) claims 95% token cost reduction.
 
-MetaCortex already has a primitive version of this: `search_context` returns truncated previews, and `fetch_context` returns full content. But it's not designed as a tiered system — it's an accident of truncation.
+MetaCortex already has a primitive version of this: `search_context` returns summaries, and `fetch_context` returns full content. But it's not designed as a tiered system yet.
 
 **Proposal:** When storing a memory, use Gemini to generate:
 - A `summary` field (~100 tokens) stored alongside the full content
 - The existing `content` (full fidelity) remains for fetch
 
-Search results return the summary. Agents call `fetch_context` only when they need the full thing. This is achievable with one additional Gemini call at write time and gives you OpenViking's core token-efficiency benefit without their filesystem complexity.
+Search results already return the summary. Future tiering work can improve the quality and structure of those summaries with one additional Gemini call at write time, giving you OpenViking's core token-efficiency benefit without their filesystem complexity.
 
 **Effort:** Medium. One new field in the Firestore schema, one Gemini call in the write path, update search response format.
 
@@ -195,7 +198,7 @@ These should be addressed regardless of strategic direction:
 4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
 5. **Fixed:** `WWW-Authenticate` realm no longer uses the old placeholder service name.
 6. **Fixed:** default `serviceName` no longer uses the old placeholder service name.
-7. **Pending:** verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
+7. **Fixed:** replaced the shut-down `gemini-3.1-flash-lite-preview` multimodal model default with stable `gemini-3.1-flash-lite` and added live model validation.
 
 ---
 
@@ -209,3 +212,9 @@ These should be addressed regardless of strategic direction:
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
 
 The current MCP surface is down from 6 tools to 4.
+
+---
+
+## Completed Work
+
+* **Roadmap Hardening Release:** Added Firestore TTL-ready fields and scripts, removed `content_preview` from search payloads, added `document_id` fetch compatibility, updated Gemini multimodal defaults, deployed production TTL policies, and verified production smoke tests. (Completed: 2026-06-11)

@@ -91,7 +91,8 @@ export interface SearchContextResult {
 }
 
 export interface FetchContextInput {
-  id: string;
+  id?: string;
+  document_id?: string;
 }
 
 export interface FetchContextResult {

@@ -130,7 +130,7 @@ export class MetaCortexService {
   }
 
   async fetchContext(input: FetchContextInput): Promise<FetchContextResult> {
-    const id = normalizeRequiredText(input.id, "id");
+    const id = resolveFetchContextId(input);
     const item = await this.repository.get(id);
 
     if (!item) {
@@ -235,6 +235,23 @@ function normalizeRequiredText(value: string, fieldName: string): string {
   return normalized;
 }
 
+function resolveFetchContextId(input: FetchContextInput): string {
+  const id = normalizeOptionalText(input.id);
+  const documentId = normalizeOptionalText(input.document_id);
+
+  if (id && documentId && id !== documentId) {
+    throw new HttpError(400, "id and document_id must match when both are provided");
+  }
+
+  const resolved = id ?? documentId;
+
+  if (!resolved) {
+    throw new HttpError(400, "id or document_id must be provided");
+  }
+
+  return resolved;
+}
+
 export function buildSearchPayload(result: SearchContextResult): Record<string, unknown> {
   return {
     matches: result.matches.map(match => ({
@@ -243,7 +260,6 @@ export function buildSearchPayload(result: SearchContextResult): Record<string, 
       ...(typeof match.distance === "number"
         ? { score: distanceToScore(match.distance) }
         : {}),
-      content_preview: previewMemoryContent(match.content),
       metadata: buildPublicMetadata(match)
     })),
     applied_filters: {
@@ -376,16 +392,6 @@ function buildPublicMetadata(match: Pick<MemoryDocument, "metadata">): Record<st
 
 function distanceToScore(distance: number): number {
   return Math.max(0, Number((1 - distance).toFixed(6)));
-}
-
-function previewMemoryContent(value: string, limit = 400): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= limit) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, limit - 3)}...`;
 }
 
 function normalizePublicModality(value: string): "text" | "image" | "mixed" {
