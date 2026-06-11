@@ -16,30 +16,31 @@ This means MetaCortex will never include connectors (GDrive, Gmail, Notion), ing
 
 MetaCortex is a well-architected MCP memory server. The core — vector search, idempotent writes, client profile scoping, and multimodal pipeline — is solid. The tool surface has been simplified from 6 tools to 4. 
 
-The remaining work focuses on Firestore collection scaling, payload optimization, model validation, and proposed advanced features (context tiering, temporal validity).
+The first hardening release addressed Firestore collection scaling, payload optimization, and model validation. The remaining strategic work is focused on proposed advanced features (context tiering, temporal validity).
 
 ---
 
 ## Outstanding Tasks & Redesigns
 
 ### 1. Unbounded Firestore Collections (TTL Policies)
-* **Status:** Not started
+* **Status:** Implemented 2026-06-11
 * **Problem:** Two collections grow without bound:
   * `memory_vectors_write_fingerprints` (deduplication fingerprints)
   * `memory_events` (observability/audit trail)
-* **Recommendation:** 
-  * Enable Firestore TTL policies on both collections. Fingerprints can expire after 30 days. Events can expire after 90 days.
-  * In the codebase, ensure timestamps or expiration fields (e.g. `expires_at` in fingerprints, `timestamp` or a new `ttl` field in events) are stored as Firestore Timestamps or compatible fields so Firestore TTL policies can target them. Note that currently `expires_at` is stored as a number (epoch milliseconds), which Firestore TTL policies do not support natively (they require a Timestamp type). We should update the code to write `Timestamp` or a Firestore-compatible date format.
+* **Resolution:**
+  * New fingerprint writes store numeric `dedupe_expires_at` for the 15-minute duplicate window and Date-valued `expires_at` for 30-day Firestore TTL.
+  * New `memory_events` writes preserve numeric `timestamp` and add Date-valued `expires_at` for 90-day Firestore TTL.
+  * Added dry-run/write TTL backfill and `gcloud` TTL deployment scripts.
 
 ### 2. Search Result Redundancy
-* **Status:** Not started
+* **Status:** Implemented 2026-06-11
 * **Problem:** Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients.
-* **Recommendation:** Keep only `content_preview` (or rename to `preview`). If the agent wants the full content, it calls `fetch_context`.
+* **Resolution:** `search_context` now returns `summary` only. If the agent wants full content, it calls `fetch_context`.
 
 ### 3. Model Default Validation
-* **Status:** Pending
+* **Status:** Implemented 2026-06-11
 * **Problem:** Verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
-* **Recommendation:** Test and confirm model availability.
+* **Resolution:** Google shut down `gemini-3.1-flash-lite-preview` on 2026-05-25. The default is now stable `gemini-3.1-flash-lite`, with a live validation script.
 
 ---
 
@@ -96,7 +97,7 @@ These should be addressed regardless of strategic direction:
 4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
 5. **Fixed:** `WWW-Authenticate` realm no longer uses the old placeholder service name.
 6. **Fixed:** default `serviceName` no longer uses the old placeholder service name.
-7. **Pending:** verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
+7. **Fixed:** replaced the shut-down `gemini-3.1-flash-lite-preview` multimodal model default with stable `gemini-3.1-flash-lite` and added live model validation.
 
 ---
 
@@ -118,6 +119,7 @@ These should be addressed regardless of strategic direction:
 * **`store_context` Elimination:** Removed from MCP surface; `remember_context` is the unified write tool. (Completed: 2026-03-22)
 * **`get_consolidation_queue` Removal:** Removed from MCP surface; WIP queue is now an internal workflow. (Completed: 2026-03-22)
 * **`retrieval_text` Exposure Fix:** Removed `retrieval_text` from public `fetch_context` response to prevent leaking implementation details. (Completed: 2026-03-22)
+* **Roadmap Hardening Release:** Added Firestore TTL-ready fields and scripts, removed `content_preview` from search payloads, added `document_id` fetch compatibility, and updated Gemini multimodal default. (Completed: 2026-06-11)
 * **Codebase Bugs Fixed:**
   * Fixed environment variable naming mismatch (`MCP_ADMIN_TOKEN` vs `MCP_AUTH_TOKEN`).
   * Updated references in `CLAUDE.md` from `openBrainMcp` to `metaCortexMcp`.

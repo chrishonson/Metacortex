@@ -14,7 +14,10 @@ export interface LlmMergeClient {
 }
 
 export interface GeminiMergeClientOptions {
-  apiKey: string;
+  apiKey?: string;
+  vertexai?: boolean;
+  project?: string;
+  location?: string;
   model: string;
 }
 
@@ -22,7 +25,13 @@ export class GeminiMergeClient implements LlmMergeClient {
   private readonly client: GoogleGenAI;
 
   constructor(private readonly options: GeminiMergeClientOptions) {
-    this.client = new GoogleGenAI({ apiKey: options.apiKey });
+    this.client = options.vertexai
+      ? createVertexClient({
+          vertexai: true,
+          project: options.project,
+          location: options.location ?? "us-central1"
+        })
+      : new GoogleGenAI({ apiKey: options.apiKey! });
   }
 
   async merge(request: MergeMemoriesRequest): Promise<MergeMemoriesResult> {
@@ -71,4 +80,22 @@ function buildMergePrompt(request: MergeMemoriesRequest): string {
     "",
     sourceList
   ].join("\n");
+}
+
+function createVertexClient(options: {
+  vertexai: true;
+  project?: string;
+  location: string;
+}): GoogleGenAI {
+  const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+
+  delete process.env.GEMINI_API_KEY;
+
+  try {
+    return new GoogleGenAI(options);
+  } finally {
+    if (typeof originalGeminiApiKey === "string") {
+      process.env.GEMINI_API_KEY = originalGeminiApiKey;
+    }
+  }
 }

@@ -43,11 +43,13 @@ interface FirestoreMemoryDocument {
 
 interface FirestoreWriteFingerprintDocument {
   id: string;
-  expires_at: number;
-  updated_at: number;
+  dedupe_expires_at?: number;
+  expires_at?: unknown;
+  updated_at?: number;
 }
 
 const WRITE_FINGERPRINT_WINDOW_MS = 15 * 60 * 1000;
+const WRITE_FINGERPRINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class FirestoreMemoryRepository implements MemoryRepository {
   private readonly fingerprintCollectionName: string;
@@ -70,8 +72,9 @@ export class FirestoreMemoryRepository implements MemoryRepository {
 
       if (fingerprintSnapshot.exists) {
         const fingerprint = fingerprintSnapshot.data() as FirestoreWriteFingerprintDocument;
+        const dedupeExpiresAt = getDedupeExpiresAt(fingerprint);
 
-        if (fingerprint.expires_at >= now) {
+        if (typeof dedupeExpiresAt === "number" && dedupeExpiresAt >= now) {
           const existingSnapshot = await transaction.get(
             this.firestore.collection(this.collectionName).doc(fingerprint.id)
           );
@@ -98,7 +101,8 @@ export class FirestoreMemoryRepository implements MemoryRepository {
       });
       transaction.set(fingerprintRef, {
         id: docRef.id,
-        expires_at: now + WRITE_FINGERPRINT_WINDOW_MS,
+        dedupe_expires_at: now + WRITE_FINGERPRINT_WINDOW_MS,
+        expires_at: new Date(now + WRITE_FINGERPRINT_TTL_MS),
         updated_at: now
       });
 
@@ -208,6 +212,20 @@ export class FirestoreMemoryRepository implements MemoryRepository {
       };
     });
   }
+}
+
+function getDedupeExpiresAt(
+  fingerprint: FirestoreWriteFingerprintDocument
+): number | undefined {
+  if (typeof fingerprint.dedupe_expires_at === "number") {
+    return fingerprint.dedupe_expires_at;
+  }
+
+  if (typeof fingerprint.expires_at === "number") {
+    return fingerprint.expires_at;
+  }
+
+  return undefined;
 }
 
 function mapFirestoreDocument(

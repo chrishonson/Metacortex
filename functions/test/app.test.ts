@@ -56,6 +56,7 @@ describe("createMetaCortexApp", () => {
         reason: "unauthorized"
       })
     );
+    expect(runtime.observer.listEvents()[0]?.expires_at).toBeInstanceOf(Date);
   });
 
   it("surfaces configuration failures as 500s", async () => {
