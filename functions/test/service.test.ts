@@ -329,6 +329,47 @@ describe("MetaCortexService", () => {
       expect(result.merged_content).toContain("Kubernetes");
     });
 
+    it("deduplicates explicit source_ids before consolidation", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Active learning goal: Xcode literacy.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+      const b = await service.storeContext({
+        content: "Active learning goal: Kubernetes basics.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+
+      const result = await service.consolidateContext({
+        topic: "learning",
+        source_ids: [a.id, a.id, b.id]
+      });
+
+      expect(result.source_count).toBe(2);
+      expect(result.deprecated_ids).toEqual([a.id, b.id]);
+      expect(result.merged_content.match(/Xcode/g)).toHaveLength(1);
+    });
+
+    it("throws 422 when explicit source_ids collapse below 2 unique sources", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Active learning goal: Xcode literacy.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+
+      await expect(
+        service.consolidateContext({
+          topic: "learning",
+          source_ids: [a.id, a.id]
+        })
+      ).rejects.toThrow("At least 2 source memories are required");
+    });
+
     it("defaults topic to general when not provided", async () => {
       const { service } = createService();
 

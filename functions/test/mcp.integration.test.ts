@@ -373,6 +373,98 @@ describe("MCP integration", () => {
     expect(typeof payload.item.merged_id).toBe("string");
   });
 
+  it("rejects duplicate source_ids for consolidate_context", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: { [authorizationHeaderName]: bearerHeader("test") }
+      }
+    });
+    cleanup.push(async () => { await client.close(); });
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      name: "consolidate_context",
+      arguments: {
+        topic: "kmp-networking",
+        source_ids: ["memory-1", "memory-1"]
+      }
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textContent(result)).toContain("source_ids must be unique");
+  });
+
+  it("returns neutral 404 when fetch_context targets a disallowed branch state", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "chatgpt-web",
+          [authTokenField]: accessCredential("chatgpt"),
+          allowedOrigins: ["https://chatgpt.com"],
+          allowedTools: ["fetch_context"],
+          allowedFilterStates: ["active"]
+        }
+      ]
+    });
+    await runtime.service.storeContext({
+      content: "Deprecated networking note.",
+      module_name: "kmp-networking",
+      branch_state: "deprecated"
+    });
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({ name: "chatgpt-client", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/clients/chatgpt-web/mcp`),
+      {
+        requestInit: {
+          headers: {
+            [authorizationHeaderName]: bearerHeader("chatgpt")
+          }
+        }
+      }
+    );
+    cleanup.push(async () => { await client.close(); });
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: "memory-1"
+      }
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textContent(result)).toContain("Document not found");
+    expect(runtime.observer.listEvents().at(-1)).toMatchObject({
+      client_id: "chatgpt-web",
+      tool_name: "fetch_context",
+      status: "error",
+      error: {
+        message: "Document not found",
+        status_code: 404
+      }
+    });
+  });
+
   it("supports ChatGPT web remember, search, and fetch flows", async () => {
     const runtime = createTestRuntime({
       clientProfiles: [

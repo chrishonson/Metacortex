@@ -113,6 +113,36 @@ export function createMetaCortexMcpServer(
         });
       }
     });
+  const consolidateContextInputSchema = z
+    .object({
+      topic: z
+        .string()
+        .optional()
+        .describe(
+          "Topic whose WIP memory queue will be consolidated. Defaults to general. Ignored when source_ids is provided — in that case topic labels the merged output."
+        ),
+      source_ids: z
+        .array(z.string().min(1))
+        .optional()
+        .describe(
+          "Explicit list of unique memory ids to consolidate. When provided, these memories are merged regardless of their branch_state. At least 2 ids required."
+        )
+    })
+    .superRefine((value, ctx) => {
+      if (!value.source_ids) {
+        return;
+      }
+
+      const uniqueIds = new Set(value.source_ids);
+
+      if (uniqueIds.size !== value.source_ids.length) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["source_ids"],
+          message: "source_ids must be unique"
+        });
+      }
+    });
   const server = new McpServer(
     {
       name: config.serviceName,
@@ -293,8 +323,8 @@ export function createMetaCortexMcpServer(
               )
             ) {
               throw new HttpError(
-                403,
-                `branch_state '${fetched.item.metadata.branch_state}' is not allowed for this client`
+                404,
+                "Document not found"
               );
             }
 
@@ -364,20 +394,7 @@ export function createMetaCortexMcpServer(
         title: "Consolidate Context",
         description:
           "Merge multiple related memories into one canonical active memory. By default, consolidates all WIP (draft) memories for a topic. Pass source_ids to consolidate specific memories regardless of their current state. Deprecates all source memories and links them to the merged result.",
-        inputSchema: {
-          topic: z
-            .string()
-            .optional()
-            .describe(
-              "Topic whose WIP memory queue will be consolidated. Defaults to general. Ignored when source_ids is provided — in that case topic labels the merged output."
-            ),
-          source_ids: z
-            .array(z.string().min(1))
-            .optional()
-            .describe(
-              "Explicit list of memory ids to consolidate. When provided, these memories are merged regardless of their branch_state. At least 2 ids required."
-            )
-        }
+        inputSchema: consolidateContextInputSchema
       },
       async args => {
         const requestSummary = {

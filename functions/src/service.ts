@@ -177,8 +177,9 @@ export class MetaCortexService {
     let sources: Array<{ id: string; content: string }>;
 
     if (input.source_ids && input.source_ids.length > 0) {
+      const uniqueSourceIds = [...new Set(input.source_ids)];
       const fetched = await Promise.all(
-        input.source_ids.map(id => this.repository.get(id))
+        uniqueSourceIds.map(id => this.repository.get(id))
       );
 
       for (const doc of fetched) {

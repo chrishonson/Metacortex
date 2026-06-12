@@ -66,6 +66,8 @@ if (!write) {
 }
 
 async function backfillFingerprints(collection, batchLimit, shouldWrite) {
+  // This legacy backfill reads the collection in one pass; for collections above
+  // roughly 100k docs, switch to paginated reads with limit/startAfter.
   const snapshot = await collection.get();
   const updates = [];
   let skipped = 0;
@@ -120,6 +122,8 @@ async function backfillFingerprints(collection, batchLimit, shouldWrite) {
 }
 
 async function backfillEvents(collection, batchLimit, shouldWrite) {
+  // batchLimit controls write batching only; this read is intentionally unpaged.
+  // For large collections, page reads with query.limit(batchLimit).startAfter(lastDoc).
   const snapshot = await collection.get();
   const updates = [];
   let skipped = 0;
