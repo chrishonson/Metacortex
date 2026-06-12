@@ -5,6 +5,7 @@ import { Firestore } from "firebase-admin/firestore";
 import type { McpToolName } from "./types.js";
 
 export const MEMORY_EVENT_COLLECTION = "memory_events";
+const MEMORY_EVENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 export type RequestEventReason =
   | "origin_not_allowed"
@@ -23,6 +24,7 @@ export interface ToolCallEvent {
   tool_name: McpToolName;
   status: "success" | "error";
   timestamp: number;
+  expires_at: Date;
   latency_ms?: number;
   request: Record<string, unknown>;
   response?: Record<string, unknown>;
@@ -39,6 +41,7 @@ export interface RequestEvent {
   status_code: number;
   reason: RequestEventReason;
   timestamp: number;
+  expires_at: Date;
   latency_ms?: number;
 }
 
@@ -78,10 +81,12 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
   ) {}
 
   async record(input: RecordToolCallEventInput): Promise<void> {
+    const timestamp = input.timestamp ?? Date.now();
     const event: ToolCallEvent = {
       event_id: randomUUID(),
       event_type: "tool_call",
-      timestamp: input.timestamp ?? Date.now(),
+      timestamp,
+      expires_at: new Date(timestamp + MEMORY_EVENT_TTL_MS),
       client_id: input.client_id,
       tool_name: input.tool_name,
       status: input.status,
@@ -97,10 +102,12 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
   }
 
   async recordRequest(input: RecordRequestEventInput): Promise<void> {
+    const timestamp = input.timestamp ?? Date.now();
     const event: RequestEvent = {
       event_id: randomUUID(),
       event_type: "request",
-      timestamp: input.timestamp ?? Date.now(),
+      timestamp,
+      expires_at: new Date(timestamp + MEMORY_EVENT_TTL_MS),
       client_id: input.client_id,
       method: input.method,
       path: input.path,
@@ -116,13 +123,15 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
   }
 
   private async persist(message: string, event: ObservabilityEvent): Promise<void> {
-    console.info(message, event);
+    const sanitizedEvent = stripUndefined(event) as ObservabilityEvent;
+
+    console.info(message, sanitizedEvent);
 
     try {
       await this.firestore
         .collection(this.collectionName)
-        .doc(event.event_id)
-        .set(event);
+        .doc(sanitizedEvent.event_id)
+        .set(sanitizedEvent);
     } catch (error) {
       console.error("metaCortexMcp observability event persist failed", {
         event_id: event.event_id,
@@ -147,4 +156,30 @@ function serializeUnknownError(error: unknown): Record<string, unknown> {
   return {
     value: error
   };
+}
+
+function stripUndefined(value: unknown): unknown {
+  if (typeof value === "undefined") {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => stripUndefined(item))
+      .filter(item => typeof item !== "undefined");
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, item]) => [key, stripUndefined(item)] as const)
+        .filter(([, item]) => typeof item !== "undefined")
+    );
+  }
+
+  return value;
 }

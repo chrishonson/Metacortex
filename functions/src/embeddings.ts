@@ -44,7 +44,10 @@ export interface MemoryContentPreparer {
 }
 
 export interface GeminiMultimodalPreparerOptions {
-  apiKey: string;
+  apiKey?: string;
+  vertexai?: boolean;
+  project?: string;
+  location?: string;
   model: string;
 }
 
@@ -53,7 +56,7 @@ export class GeminiEmbeddingClient implements EmbeddingClient {
 
   constructor(private readonly options: GeminiEmbeddingClientOptions) {
     this.client = options.vertexai
-      ? new GoogleGenAI({
+      ? createVertexClient({
           vertexai: true,
           project: options.project,
           location: options.location ?? "us-central1"
@@ -92,9 +95,15 @@ export class GeminiMultimodalPreparer implements MemoryContentPreparer {
   private readonly client: GoogleGenAI;
 
   constructor(private readonly options: GeminiMultimodalPreparerOptions) {
-    this.client = new GoogleGenAI({
-      apiKey: options.apiKey
-    });
+    this.client = options.vertexai
+      ? createVertexClient({
+          vertexai: true,
+          project: options.project,
+          location: options.location ?? "us-central1"
+        })
+      : new GoogleGenAI({
+          apiKey: options.apiKey!
+        });
   }
 
   async prepare(input: MemoryPreparationInput): Promise<PreparedMemoryContent> {
@@ -192,4 +201,22 @@ function buildImageNormalizationPrompt(
     "Do not speculate beyond the image and provided context.",
     "Return plain text only."
   ].join("\n\n");
+}
+
+function createVertexClient(options: {
+  vertexai: true;
+  project?: string;
+  location: string;
+}): GoogleGenAI {
+  const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+
+  delete process.env.GEMINI_API_KEY;
+
+  try {
+    return new GoogleGenAI(options);
+  } finally {
+    if (typeof originalGeminiApiKey === "string") {
+      process.env.GEMINI_API_KEY = originalGeminiApiKey;
+    }
+  }
 }

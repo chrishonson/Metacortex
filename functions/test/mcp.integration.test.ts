@@ -101,7 +101,8 @@ describe("MCP integration", () => {
       description: expect.stringContaining("returned by remember_context"),
       inputSchema: {
         properties: expect.objectContaining({
-          id: expect.any(Object)
+          id: expect.any(Object),
+          document_id: expect.any(Object)
         })
       }
     });
@@ -138,7 +139,8 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(parseJsonTextContent(searchResult)).toMatchObject({
+    const searchPayload = parseJsonTextContent(searchResult);
+    expect(searchPayload).toMatchObject({
       matches: [
         {
           id: "memory-1",
@@ -154,6 +156,7 @@ describe("MCP integration", () => {
         filter_state: "active"
       }
     });
+    expect(searchPayload.matches?.[0]).not.toHaveProperty("content_preview");
 
     const replacementResult = await client.callTool({
       name: "remember_context",
@@ -275,7 +278,8 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(parseJsonTextContent(searchResult)).toMatchObject({
+    const scopedSearchPayload = parseJsonTextContent(searchResult);
+    expect(scopedSearchPayload).toMatchObject({
       matches: [
         {
           id: "memory-1",
@@ -283,6 +287,7 @@ describe("MCP integration", () => {
         }
       ]
     });
+    expect(scopedSearchPayload.matches?.[0]).not.toHaveProperty("content_preview");
     const disallowedResult = await client.callTool({
       name: "remember_context",
       arguments: {
@@ -366,6 +371,98 @@ describe("MCP integration", () => {
     expect(payload.source_count).toBe(2);
     expect(payload.deprecated_ids).toHaveLength(2);
     expect(typeof payload.item.merged_id).toBe("string");
+  });
+
+  it("rejects duplicate source_ids for consolidate_context", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: { [authorizationHeaderName]: bearerHeader("test") }
+      }
+    });
+    cleanup.push(async () => { await client.close(); });
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      name: "consolidate_context",
+      arguments: {
+        topic: "kmp-networking",
+        source_ids: ["memory-1", "memory-1"]
+      }
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textContent(result)).toContain("source_ids must be unique");
+  });
+
+  it("returns neutral 404 when fetch_context targets a disallowed branch state", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "chatgpt-web",
+          [authTokenField]: accessCredential("chatgpt"),
+          allowedOrigins: ["https://chatgpt.com"],
+          allowedTools: ["fetch_context"],
+          allowedFilterStates: ["active"]
+        }
+      ]
+    });
+    await runtime.service.storeContext({
+      content: "Deprecated networking note.",
+      module_name: "kmp-networking",
+      branch_state: "deprecated"
+    });
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({ name: "chatgpt-client", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/clients/chatgpt-web/mcp`),
+      {
+        requestInit: {
+          headers: {
+            [authorizationHeaderName]: bearerHeader("chatgpt")
+          }
+        }
+      }
+    );
+    cleanup.push(async () => { await client.close(); });
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: "memory-1"
+      }
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textContent(result)).toContain("Document not found");
+    expect(runtime.observer.listEvents().at(-1)).toMatchObject({
+      client_id: "chatgpt-web",
+      tool_name: "fetch_context",
+      status: "error",
+      error: {
+        message: "Document not found",
+        status_code: 404
+      }
+    });
   });
 
   it("supports ChatGPT web remember, search, and fetch flows", async () => {
@@ -466,7 +563,7 @@ describe("MCP integration", () => {
     const fetchResult = await client.callTool({
       name: "fetch_context",
       arguments: {
-        id: "memory-1"
+        document_id: "memory-1"
       }
     });
 
@@ -482,6 +579,19 @@ describe("MCP integration", () => {
     });
     expect(parseJsonTextContent(fetchResult)).not.toHaveProperty(
       "item.retrieval_text"
+    );
+
+    const conflictingFetchResult = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: "memory-1",
+        document_id: "memory-2"
+      }
+    });
+
+    expect(conflictingFetchResult.isError).toBe(true);
+    expect(textContent(conflictingFetchResult)).toContain(
+      "id and document_id must match"
     );
 
     expect(runtime.observer.listEvents()).toMatchObject([

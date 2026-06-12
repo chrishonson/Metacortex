@@ -4,15 +4,19 @@ Known security warnings for the deployed MetaCortex service. These are documente
 
 ---
 
-## WARN-1: `memory_events` collection not in Firestore rules
+## FIXED-1: `memory_events` and fingerprint collections explicitly denied
 
 **File:** `firestore.rules`
 
-The `memory_events` audit log collection is not explicitly covered by Firestore security rules. It is currently protected only by Firestore's implicit default-deny behavior. A future rules edit could inadvertently open it.
+`memory_events` and `memory_vectors_write_fingerprints` are explicitly covered by deny-all Firestore security rules. They are server-only collections and should remain inaccessible to client SDK traffic.
 
-**Fix:** Add an explicit deny rule for `memory_events`:
+Current rule shape:
 ```
 match /memory_events/{document=**} {
+  allow read, write: if false;
+}
+
+match /memory_vectors_write_fingerprints/{document=**} {
   allow read, write: if false;
 }
 ```
