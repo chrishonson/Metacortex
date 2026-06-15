@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { GoogleGenAI } from "@google/genai";
 
+import { createVertexClient } from "./genai-client.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const functionsDir = path.resolve(scriptDir, "..");
 const repoRoot = path.resolve(functionsDir, "..");
@@ -23,6 +25,7 @@ for (const [key, value] of Object.entries(loadedEnv)) {
 const apiKey = requiredEnv("GEMINI_API_KEY");
 const embeddingModel = process.env.GEMINI_EMBEDDING_MODEL?.trim() || "text-embedding-004";
 const multimodalModel = process.env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite";
+const mergeModel = process.env.GEMINI_MERGE_MODEL?.trim() || "gemini-3.1-flash-lite";
 const projectId =
   process.env.GOOGLE_CLOUD_PROJECT ??
   process.env.GCLOUD_PROJECT ??
@@ -37,36 +40,27 @@ const embeddingDimensions = positiveInt(
   "GEMINI_EMBEDDING_DIMENSIONS"
 );
 
-const originalGeminiApiKey = process.env.GEMINI_API_KEY;
-
-if (projectId) {
-  delete process.env.GEMINI_API_KEY;
-}
-
 const embeddingClient = projectId
-  ? new GoogleGenAI({
+  ? createVertexClient({
       vertexai: true,
       project: projectId,
       location: embeddingVertexLocation
     })
   : new GoogleGenAI({ apiKey });
-const multimodalClient = projectId
-  ? new GoogleGenAI({
+const generationClient = projectId
+  ? createVertexClient({
       vertexai: true,
       project: projectId,
       location: generationVertexLocation
     })
   : new GoogleGenAI({ apiKey });
 
-if (originalGeminiApiKey) {
-  process.env.GEMINI_API_KEY = originalGeminiApiKey;
-}
-
 console.log("Validating Gemini model configuration...");
 console.log(`embedding model: ${embeddingModel}`);
 console.log(`embedding provider: ${projectId ? `Vertex AI (${projectId}, ${embeddingVertexLocation})` : "Gemini API key"}`);
 console.log(`embedding dimensions: ${embeddingDimensions}`);
 console.log(`multimodal model: ${multimodalModel}`);
+console.log(`merge model: ${mergeModel}`);
 console.log(`generation provider: ${projectId ? `Vertex AI (${projectId}, ${generationVertexLocation})` : "Gemini API key"}`);
 
 try {
@@ -102,7 +96,7 @@ try {
 }
 
 try {
-  const imageResponse = await multimodalClient.models.generateContent({
+  const imageResponse = await generationClient.models.generateContent({
     model: multimodalModel,
     contents: [
       {
@@ -138,6 +132,40 @@ try {
 
   console.warn(
     "Skipping Vertex multimodal validation because Application Default Credentials are not configured locally. Production multimodal smoke tests must validate image-backed memories after deploy."
+  );
+}
+
+try {
+  const mergeResponse = await generationClient.models.generateContent({
+    model: mergeModel,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "Merge these memories into one sentence: [1] MetaCortex stores memories. [2] MetaCortex searches memories."
+          }
+        ]
+      }
+    ],
+    config: {
+      responseMimeType: "text/plain",
+      temperature: 0,
+      maxOutputTokens: 32
+    }
+  });
+
+  if (!mergeResponse.text?.trim()) {
+    throw new Error("Gemini merge model validation returned no text output");
+  }
+} catch (error) {
+  if (!isMissingAdcError(error)) {
+    throw error;
+  }
+
+  console.warn(
+    "Skipping Vertex merge-model validation because Application Default Credentials are not configured locally. Production consolidation smoke tests should validate merge behavior after deploy."
   );
 }
 

@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { createVertexClient } from "./gemini.js";
+
 export interface MergeMemoriesRequest {
   topic: string;
   sources: Array<{ id: string; content: string }>;
@@ -80,22 +82,4 @@ function buildMergePrompt(request: MergeMemoriesRequest): string {
     "",
     sourceList
   ].join("\n");
-}
-
-function createVertexClient(options: {
-  vertexai: true;
-  project?: string;
-  location: string;
-}): GoogleGenAI {
-  const originalGeminiApiKey = process.env.GEMINI_API_KEY;
-
-  delete process.env.GEMINI_API_KEY;
-
-  try {
-    return new GoogleGenAI(options);
-  } finally {
-    if (typeof originalGeminiApiKey === "string") {
-      process.env.GEMINI_API_KEY = originalGeminiApiKey;
-    }
-  }
 }

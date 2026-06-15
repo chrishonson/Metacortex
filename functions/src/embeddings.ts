@@ -1,6 +1,7 @@
 import { GoogleGenAI, type Part } from "@google/genai";
 
 import { HttpError } from "./errors.js";
+import { createVertexClient } from "./gemini.js";
 import type {
   MemoryMedia,
   MemoryModality
@@ -201,22 +202,4 @@ function buildImageNormalizationPrompt(
     "Do not speculate beyond the image and provided context.",
     "Return plain text only."
   ].join("\n\n");
-}
-
-function createVertexClient(options: {
-  vertexai: true;
-  project?: string;
-  location: string;
-}): GoogleGenAI {
-  const originalGeminiApiKey = process.env.GEMINI_API_KEY;
-
-  delete process.env.GEMINI_API_KEY;
-
-  try {
-    return new GoogleGenAI(options);
-  } finally {
-    if (typeof originalGeminiApiKey === "string") {
-      process.env.GEMINI_API_KEY = originalGeminiApiKey;
-    }
-  }
 }

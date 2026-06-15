@@ -21,6 +21,7 @@ The deploy path in this repo currently assumes:
 - embedding output pinned to `768` dimensions
 - embedding model pinned to `text-embedding-004`
 - multimodal normalization model pinned to `gemini-3.1-flash-lite`
+- consolidation merge model pinned to `gemini-3.1-flash-lite`
 - total MCP surface of 5 tools
 - public/browser toolset of 3 tools: `remember_context`, `search_context`, `fetch_context`
 - admin-only maintenance tools: `deprecate_context`, `consolidate_context`
@@ -80,6 +81,7 @@ GEMINI_API_KEY=...
 MCP_ADMIN_TOKEN=...
 GEMINI_EMBEDDING_MODEL=text-embedding-004
 GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite
+GEMINI_MERGE_MODEL=gemini-3.1-flash-lite
 GEMINI_GENERATION_VERTEX_LOCATION=global
 GEMINI_EMBEDDING_DIMENSIONS=768
 MEMORY_COLLECTION=memory_vectors
@@ -225,6 +227,7 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 - `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
 - `GEMINI_EMBEDDING_MODEL=text-embedding-004`
 - `GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite`
+- `GEMINI_MERGE_MODEL=gemini-3.1-flash-lite`
 - `GEMINI_GENERATION_VERTEX_LOCATION=global`
 - `GEMINI_EMBEDDING_DIMENSIONS=768`
 - `MEMORY_COLLECTION=memory_vectors`

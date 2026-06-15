@@ -72,7 +72,7 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
       : {
           apiKey: config.geminiApiKey
         }),
-    model: config.multimodalModel
+    model: config.mergeModel
   });
   const repository: MemoryRepository = new FirestoreMemoryRepository(
     firestore,
