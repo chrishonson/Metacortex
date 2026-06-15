@@ -281,7 +281,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     geminiApiKey: "test-gemini-key",
     embeddingModel: "text-embedding-004",
     multimodalModel: "gemini-3.1-flash-lite",
-    mergeModel: "gemini-3.1-flash-lite",
+    mergeModel: "gemini-3.5-flash",
     generationVertexLocation: "global",
     embeddingDimensions: 768,
     memoryCollection: "memory_vectors",

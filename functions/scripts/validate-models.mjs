@@ -25,7 +25,7 @@ for (const [key, value] of Object.entries(loadedEnv)) {
 const apiKey = requiredEnv("GEMINI_API_KEY");
 const embeddingModel = process.env.GEMINI_EMBEDDING_MODEL?.trim() || "text-embedding-004";
 const multimodalModel = process.env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite";
-const mergeModel = process.env.GEMINI_MERGE_MODEL?.trim() || "gemini-3.1-flash-lite";
+const mergeModel = process.env.GEMINI_MERGE_MODEL?.trim() || "gemini-3.5-flash";
 const projectId =
   process.env.GOOGLE_CLOUD_PROJECT ??
   process.env.GCLOUD_PROJECT ??
@@ -152,7 +152,7 @@ try {
     config: {
       responseMimeType: "text/plain",
       temperature: 0,
-      maxOutputTokens: 32
+      maxOutputTokens: 512
     }
   });
 

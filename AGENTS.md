@@ -133,7 +133,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 ## Environment Variables
 
 **Required:**
-- `GEMINI_API_KEY` — Gemini API key for embeddings and multimodal
+- `GEMINI_API_KEY` — Gemini API key for embeddings, multimodal normalization, and consolidation merges
 - `MCP_ADMIN_TOKEN` — Bearer token for default client auth
 
 **Optional (with defaults):**
@@ -141,7 +141,8 @@ Test fakes in `functions/test/support/fakes.ts`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` | Embedding model name |
-| `GEMINI_MULTIMODAL_MODEL` | `gemini-3.1-flash-lite-preview` | Multimodal normalization model |
+| `GEMINI_MULTIMODAL_MODEL` | `gemini-3.1-flash-lite` | Multimodal normalization model |
+| `GEMINI_MERGE_MODEL` | `gemini-3.5-flash` | Consolidation merge model |
 | `GEMINI_EMBEDDING_DIMENSIONS` | `768` | Embedding vector dimensions |
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |

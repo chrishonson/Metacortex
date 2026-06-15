@@ -267,7 +267,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     embeddingModel: env.GEMINI_EMBEDDING_MODEL?.trim() || "text-embedding-004",
     multimodalModel:
       env.GEMINI_MULTIMODAL_MODEL?.trim() || "gemini-3.1-flash-lite",
-    mergeModel: env.GEMINI_MERGE_MODEL?.trim() || "gemini-3.1-flash-lite",
+    mergeModel: env.GEMINI_MERGE_MODEL?.trim() || "gemini-3.5-flash",
     generationVertexLocation:
       env.GEMINI_GENERATION_VERTEX_LOCATION?.trim() || "global",
     embeddingDimensions: parsePositiveInteger(

@@ -20,7 +20,7 @@ describe("loadConfig", () => {
 
     expect(config.embeddingModel).toBe("text-embedding-004");
     expect(config.multimodalModel).toBe("gemini-3.1-flash-lite");
-    expect(config.mergeModel).toBe("gemini-3.1-flash-lite");
+    expect(config.mergeModel).toBe("gemini-3.5-flash");
     expect(config.generationVertexLocation).toBe("global");
     expect(config.embeddingDimensions).toBe(768);
     expect(config.defaultFilterState).toBe("active");

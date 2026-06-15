@@ -143,7 +143,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` | Embedding model name |
 | `GEMINI_MULTIMODAL_MODEL` | `gemini-3.1-flash-lite` | Multimodal normalization model |
 
-| `GEMINI_MERGE_MODEL` | `gemini-3.1-flash-lite` | Consolidation merge model |
+| `GEMINI_MERGE_MODEL` | `gemini-3.5-flash` | Consolidation merge model |
 | `GEMINI_EMBEDDING_DIMENSIONS` | `768` | Embedding vector dimensions |
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
