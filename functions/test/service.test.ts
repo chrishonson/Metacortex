@@ -194,6 +194,38 @@ describe("MetaCortexService", () => {
     expect(fetched.item.content).toBe(stored.content);
   });
 
+  it("fetches a stored document by document_id compatibility alias", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "Ktor networking pattern.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const fetched = await service.fetchContext({ document_id: stored.id });
+
+    expect(fetched.item.id).toBe(stored.id);
+    expect(fetched.item.content).toBe(stored.content);
+  });
+
+  it("rejects conflicting fetch id aliases", async () => {
+    const { service } = createService();
+
+    await expect(
+      service.fetchContext({
+        id: "memory-1",
+        document_id: "memory-2"
+      })
+    ).rejects.toThrow("id and document_id must match");
+  });
+
+  it("rejects fetch without an id", async () => {
+    const { service } = createService();
+
+    await expect(service.fetchContext({})).rejects.toThrow(
+      "id or document_id must be provided"
+    );
+  });
+
   it("fetches rejects unknown id", async () => {
     const { service } = createService();
 
@@ -295,6 +327,47 @@ describe("MetaCortexService", () => {
       expect(result.deprecated_ids).toContain(b.id);
       expect(result.merged_content).toContain("Xcode");
       expect(result.merged_content).toContain("Kubernetes");
+    });
+
+    it("deduplicates explicit source_ids before consolidation", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Active learning goal: Xcode literacy.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+      const b = await service.storeContext({
+        content: "Active learning goal: Kubernetes basics.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+
+      const result = await service.consolidateContext({
+        topic: "learning",
+        source_ids: [a.id, a.id, b.id]
+      });
+
+      expect(result.source_count).toBe(2);
+      expect(result.deprecated_ids).toEqual([a.id, b.id]);
+      expect(result.merged_content.match(/Xcode/g)).toHaveLength(1);
+    });
+
+    it("throws 422 when explicit source_ids collapse below 2 unique sources", async () => {
+      const { service } = createService();
+
+      const a = await service.storeContext({
+        content: "Active learning goal: Xcode literacy.",
+        module_name: "learning",
+        branch_state: "active"
+      });
+
+      await expect(
+        service.consolidateContext({
+          topic: "learning",
+          source_ids: [a.id, a.id]
+        })
+      ).rejects.toThrow("At least 2 source memories are required");
     });
 
     it("defaults topic to general when not provided", async () => {

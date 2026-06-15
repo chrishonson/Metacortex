@@ -34,7 +34,28 @@
       "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse goto *)",
       "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse text *)",
       "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse wait *)",
-      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse useragent *)"
+      "Bash(/Users/nick/.claude/skills/gstack/browse/dist/browse useragent *)",
+      "mcp__plugin_firebase_firebase__firebase_get_environment",
+      "Bash(node -e 'const now=Date.now\\(\\); console.log\\(\"now_ms\",now\\); console.log\\(\"cutoff_ms\",now-7*86400000\\); console.log\\(\"now_iso\",new Date\\(now\\).toISOString\\(\\)\\); console.log\\(\"cutoff_iso\",new Date\\(now-7*86400000\\).toISOString\\(\\)\\);')",
+      "mcp__plugin_firebase_firebase__firestore_query_collection",
+      "mcp__plugin_firebase_firebase__functions_get_logs",
+      "Bash(jq -r .entries[].severity /Users/nick/.claude/projects/-Users-nick-git-metacortex/1e637d4d-3ecc-4a86-9686-ce889b97a544/tool-results/mcp-plugin_firebase_firebase-functions_get_logs-1780688372658.txt)",
+      "Read(//private/tmp/**)",
+      "Bash(node -e \"require\\('pptxgenjs'\\); console.log\\('pptxgenjs ok'\\)\")",
+      "Bash(node -e \"require\\('react-icons/fa'\\); require\\('sharp'\\); console.log\\('icons ok'\\)\")",
+      "Bash(node -e 'require\\('\\\\''__TRACKED_VAR__'\\\\''\\)')",
+      "Bash(npm root *)",
+      "Bash(echo \"npm root: $\\(npm root -g\\)\")",
+      "Bash(npm install *)",
+      "Bash(node build.js)",
+      "Bash(which soffice *)",
+      "Bash(python -m markitdown MetaCortex-Usage-Report.pptx)",
+      "Bash(grep -iE \"\\\\bx{3,}\\\\b|lorem|ipsum|undefined|\\\\[insert|placeholder\")",
+      "Bash(cp /tmp/deck/MetaCortex-Usage-Report.pptx ~/Desktop/MetaCortex-Usage-Report.pptx)",
+      "Read(//Users/nick/Desktop/**)",
+      "Bash(cd /tmp/deck && node build.js 2>&1 | tail -3 && cp MetaCortex-Usage-Report.pptx ~/Desktop/MetaCortex-Usage-Report.pptx && echo \"redeployed to Desktop\")",
+      "Bash(ls /Applications/Keynote.app >/dev/null 2>&1 && echo \"Keynote present\" || echo \"no Keynote\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

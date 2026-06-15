@@ -1,13 +1,12 @@
-# MetaCortex: Strategic Plan — Cut, Keep, Rethink
+# MetaCortex: Strategic Plan
 
-**Date:** 2026-03-22
-**Context:** Codebase audit + competitive landscape analysis (Mem0, Letta, Zep/Graphiti, OpenViking, Cognee, Supermemory)
+**Date:** 2026-06-11
 
 ---
 
 ## Scope Philosophy
 
-MetaCortex is a **user memory** system — it stores what the user *knows*, not what the user *has access to*. Email, calendars, documents, and external data sources are for the agent to dig through on demand and advise the user on. MetaCortex persists the durable knowledge that results from those interactions: decisions made, context learned, facts established, things deprecated.
+MetaCortex is a **user memory** system — it stores what the user *knows*, not what the user *has access to*. Email, calendars, documents, and external data sources are for the agent to dig through on demand and advise the user on. MetaCortex persists the durable knowledge that results from those interactions: preferences, decisions made, context learned, facts established, things deprecated.
 
 This means MetaCortex will never include connectors (GDrive, Gmail, Notion), ingestion pipelines, browser extensions, or document indexing. That's a different product (and it's what supermemory, Mem0, and others are building). MetaCortex's scope is: **durable memories that persist across agent sessions, with explicit lifecycle control.**
 
@@ -15,149 +14,52 @@ This means MetaCortex will never include connectors (GDrive, Gmail, Notion), ing
 
 ## Executive Summary
 
-MetaCortex is a well-architected MCP memory server in rapid early development. The core — vector search, idempotent writes, client profile scoping, multimodal pipeline — is solid. But the 6-tool surface has redundancy, some features won't scale on Firestore, and the competitive landscape reveals both gaps to close and differentiators to double down on.
+MetaCortex is a well-architected MCP memory server. The core — vector search, idempotent writes, client profile scoping, and multimodal pipeline — is solid. The tool surface has been simplified from 6 tools to 4.
 
-Progress since this plan was drafted:
-
-- SSE transport has been removed. Streamable HTTP is now the only supported transport.
-- Response formats have been normalized to JSON across the remaining MCP tools.
-- `store_context` has been removed from the MCP surface. `remember_context` is now the single write tool and supports optional explicit `branch_state` for advanced admin workflows.
-- `get_consolidation_queue` has been removed from the MCP surface. WIP consolidation is now an internal maintenance workflow.
-- `fetch_context` no longer exposes `retrieval_text` in its public payload.
-
-Remaining near-term work:
-
-- add TTL policies for unbounded Firestore collections
-- simplify search payloads before investing in tiering and temporal validity
+The first hardening release addressed Firestore collection scaling, payload optimization, and model validation. The remaining strategic work is focused on proposed advanced features (context tiering, temporal validity).
 
 ---
 
-## KEEP — What's Working
+## Outstanding Tasks & Redesigns
 
-### 1. Core write/search/fetch loop
-The `store → search → fetch` pipeline is clean, tested, and correct. Fingerprint-based idempotency prevents duplicates. Asymmetric embedding (RETRIEVAL_DOCUMENT vs RETRIEVAL_QUERY task types) is a smart use of Vertex AI. The integration tests using real MCP SDK transports are unusually thorough.
+### 1. Unbounded Firestore Collections (TTL Policies)
+* **Status:** Implemented 2026-06-11
+* **Problem:** Two collections grow without bound:
+  * `memory_vectors_write_fingerprints` (deduplication fingerprints)
+  * `memory_events` (observability/audit trail)
+* **Resolution:**
+  * New fingerprint writes store numeric `dedupe_expires_at` for the 15-minute duplicate window and Date-valued `expires_at` for 30-day Firestore TTL.
+  * New `memory_events` writes preserve numeric `timestamp` and add Date-valued `expires_at` for 90-day Firestore TTL.
+  * Added dry-run/write TTL backfill and `gcloud` TTL deployment scripts.
 
-### 2. Client profile scoping
-Per-client `allowedTools`, `allowedFilterStates`, and CORS origins is a genuinely useful multi-tenant model. None of the competitors do this well — Mem0 has basic user/agent separation, but nothing as granular as MetaCortex's profile system. This is a differentiator for enterprise-ish deployments.
+### 2. Search Result Redundancy
+* **Status:** Implemented 2026-06-11
+* **Problem:** Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients.
+* **Resolution:** `search_context` now returns `summary` only. If the agent wants full content, it calls `fetch_context`.
 
-### 3. Gemini multimodal pipeline
-**This is your clearest competitive advantage.** Mem0, Letta, Graphiti, and Cognee are all text-only. OpenViking supports multimodal but through a different approach (binary storage with text summaries). MetaCortex's Gemini-powered image normalization into searchable text is a real capability gap in the market. Keep and improve.
-
-### 4. MCP protocol compliance
-Being a first-class MCP server is the right distribution strategy. Mem0 and Letta have their own SDKs and APIs. MetaCortex plugs into any MCP client (Claude, ChatGPT via custom GPT, etc.) without custom integration. This is a moat via ecosystem alignment.
-
-### 5. Observability / audit trail
-`memory_events` collection with tool call timing and request metadata is solid operational infrastructure. Needs TTL policies (see Rethink section) but the concept is right.
-
----
-
-## CUT — Features to Eliminate
-
-### 1. `store_context` — remove from MCP surface
-
-**Status:** Completed on 2026-03-22.
-
-**Why cut:** Two write tools with overlapping behavior create contract drift, duplicate testing, and needless client complexity. The public-facing schema should use terms clients understand (`topic`, `draft`, `remember`) while still allowing explicit lifecycle control for admin use cases.
-
-- `remember_context` is the clearer public verb
-- `topic` is easier for clients than `module_name`
-- one write tool eliminates divergent schemas and examples
-- advanced lifecycle control still matters, so the surviving write tool must support explicit `branch_state`
-
-**What changed:** `store_context` was removed from the MCP tool surface. `remember_context` now handles both simple writes and advanced writes via optional `branch_state`. This reduced the tool surface from 6 to 5.
-
-### 2. `get_consolidation_queue` — remove entirely
-
-**Status:** Completed on 2026-03-22.
-
-**Why cut:** This tool exposes an internal workflow concept ("consolidation") that doesn't match how any current agent memory system actually works in practice. The intended workflow is: agent stores rough notes as `wip` → later reviews the queue → consolidates into canonical `active` memories → deprecates the originals.
-
-Problems:
-- No agent today will spontaneously run a consolidation workflow. This requires complex multi-step reasoning about its own memory hygiene.
-- The tool has no result limit — a large WIP backlog returns everything in one call
-- The response format is pipe-delimited flat text (inconsistent with everything else)
-- Neither Mem0, Letta, Zep, nor OpenViking expose a "consolidation queue" concept. They all handle memory evolution automatically or not at all.
-- The `wip` branch state itself is fine to keep (useful for draft/scratch memories), but the explicit queue tool for reviewing them is over-engineering a workflow that won't happen organically
-
-**What changed:** The tool was removed from the MCP surface. `wip` remains a valid `branch_state`, but reviewing or consolidating WIP memories is now an internal maintenance workflow rather than a client-facing tool. This reduced the surface from 5 tools to 4.
+### 3. Model Default Validation
+* **Status:** Implemented 2026-06-11
+* **Problem:** Verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
+* **Resolution:** Google shut down `gemini-3.1-flash-lite-preview` on 2026-05-25. The default is now stable `gemini-3.1-flash-lite`, with a live validation script.
 
 ---
 
-## RETHINK — Features That Need Redesign
+## Proposed New Capabilities (Invest)
 
-### 1. SSE transport on Cloud Functions
+### 1. Context Tiering (L0/L1/L2 equivalent)
+* **Status:** Proposed
+* **Goal:** Reduce token costs by returning a summary first, fetching full details only when needed.
+* **Proposal:** When storing a memory, use Gemini to generate:
+  * A `summary` field (~100 tokens) stored alongside the full content.
+  * The existing `content` (full fidelity) remains for fetch.
+  * Search results return the summary. Agents call `fetch_context` only when they need the full thing.
+* **Effort:** Medium.
 
-**Status:** Completed on 2026-03-22.
-
-**Problem:** SSE sessions are stored in a module-level `Map`. Cloud Functions runs multiple instances. An SSE connection on instance A won't be found when a subsequent POST lands on instance B. This is a fundamental mismatch between stateful SSE and stateless serverless.
-
-**Competitors' approach:** Most competitor servers either run on persistent processes (not serverless) or use only stateless transports.
-
-**What changed:** SSE transport and its message endpoints were removed. Streamable HTTP is now the only supported transport.
-
-### 2. Unbounded Firestore collections
-
-**Status:** Not started.
-
-Two collections grow without bound:
-- `memory_vectors_write_fingerprints` — deduplication fingerprints with `expires_at` set but nothing deleting them
-- `memory_events` — observability/audit trail with no TTL
-
-**Recommendation:**
-- Enable Firestore TTL policies on both collections. Fingerprints can expire after 30 days (if you're going to store a duplicate, it'll happen within hours, not months). Events can expire after 90 days.
-- Add a `limit` parameter to `getConsolidationQueue` (if you keep it) or any future list operations.
-
-### 3. Response format inconsistency
-
-**Status:** Completed on 2026-03-22.
-
-`store_context` and `deprecate_context` return flat key=value text. Everything else returns JSON. This is a tax on every client.
-
-**What changed:** All remaining MCP tools now return JSON payloads.
-
-### 4. `retrieval_text` exposure in fetch responses
-
-**Status:** Completed on 2026-03-22.
-
-For text memories, `retrieval_text` duplicates `content`. For multimodal memories, it's a Gemini-generated artifact the client can't meaningfully use. Exposing it leaks implementation detail.
-
-**What changed:** `fetch_context` now returns canonical `content` plus public metadata only. Internal `retrieval_text` is still stored for embeddings and storage internals, but it is no longer part of the public MCP payload.
-
-### 5. Search result redundancy
-
-**Status:** Not started.
-
-Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients about which to use.
-
-**Recommendation:** Keep only `content_preview` (or rename to `preview`). If the agent wants the full content, it calls `fetch_context`. Two levels of truncation serve no purpose.
-
----
-
-## INVEST — New Capabilities Worth Building
-
-### 1. Context tiering (inspired by OpenViking's L0/L1/L2)
-
-**Why:** OpenViking's most compelling idea is that not all context needs to be loaded at full fidelity. Their L0/L1/L2 system (100-token abstract → 2k-token overview → full content) claims 95% token cost reduction.
-
-MetaCortex already has a primitive version of this: `search_context` returns truncated previews, and `fetch_context` returns full content. But it's not designed as a tiered system — it's an accident of truncation.
-
-**Proposal:** When storing a memory, use Gemini to generate:
-- A `summary` field (~100 tokens) stored alongside the full content
-- The existing `content` (full fidelity) remains for fetch
-
-Search results return the summary. Agents call `fetch_context` only when they need the full thing. This is achievable with one additional Gemini call at write time and gives you OpenViking's core token-efficiency benefit without their filesystem complexity.
-
-**Effort:** Medium. One new field in the Firestore schema, one Gemini call in the write path, update search response format.
-
-### 2. Temporal validity / fact versioning (inspired by Graphiti)
-
-**Why:** Graphiti's bi-temporal tracking (when a fact was recorded vs. when it was true) is the most sophisticated approach in the market. MetaCortex has `created_at` and `updated_at` timestamps but no concept of "this fact was true from X to Y."
-
-Without this, an agent searching for "what's our auth strategy?" might get both the old strategy and the new one, with no way to know which is current beyond `branch_state`.
-
-**Proposal:** Add optional `valid_from` and `valid_until` fields to stored memories. Search results can filter by temporal validity. The `deprecate_context` tool already captures "superseded by" — extending this with temporal bounds is a natural fit.
-
-**Effort:** Low-medium. Two optional fields, one new filter in search, update deprecation to set `valid_until` automatically.
+### 2. Temporal Validity / Fact Versioning
+* **Status:** Proposed
+* **Goal:** Enable the agent to distinguish old facts from current ones beyond `branch_state`.
+* **Proposal:** Add optional `valid_from` and `valid_until` fields to stored memories. Search results can filter by temporal validity. Update deprecation to set `valid_until` automatically.
+* **Effort:** Low-medium.
 
 ---
 
@@ -195,7 +97,7 @@ These should be addressed regardless of strategic direction:
 4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
 5. **Fixed:** `WWW-Authenticate` realm no longer uses the old placeholder service name.
 6. **Fixed:** default `serviceName` no longer uses the old placeholder service name.
-7. **Pending:** verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
+7. **Fixed:** replaced the shut-down `gemini-3.1-flash-lite-preview` multimodal model default with stable `gemini-3.1-flash-lite` and added live model validation.
 
 ---
 
@@ -208,4 +110,17 @@ These should be addressed regardless of strategic direction:
 | `fetch_context` | Get full content by ID | read-only |
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
 
-The current MCP surface is down from 6 tools to 4.
+---
+
+## Completed Work (Archived)
+
+* **SSE Transport Removal:** Streamable HTTP is now the only supported transport; stateful SSE endpoints removed. (Completed: 2026-03-22)
+* **Response Normalization:** All remaining MCP tools normalized to return JSON payloads instead of flat key=value text. (Completed: 2026-03-22)
+* **`store_context` Elimination:** Removed from MCP surface; `remember_context` is the unified write tool. (Completed: 2026-03-22)
+* **`get_consolidation_queue` Removal:** Removed from MCP surface; WIP queue is now an internal workflow. (Completed: 2026-03-22)
+* **`retrieval_text` Exposure Fix:** Removed `retrieval_text` from public `fetch_context` response to prevent leaking implementation details. (Completed: 2026-03-22)
+* **Roadmap Hardening Release:** Added Firestore TTL-ready fields and scripts, removed `content_preview` from search payloads, added `document_id` fetch compatibility, updated Gemini multimodal defaults, deployed production TTL policies, and verified production smoke tests. (Completed: 2026-06-11)
+* **Codebase Bugs Fixed:**
+  * Fixed environment variable naming mismatch (`MCP_ADMIN_TOKEN` vs `MCP_AUTH_TOKEN`).
+  * Updated references in `CLAUDE.md` from `openBrainMcp` to `metaCortexMcp`.
+  * Standardized `WWW-Authenticate` realm and default `serviceName` to use the correct service name.

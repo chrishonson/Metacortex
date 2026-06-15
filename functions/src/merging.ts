@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { createVertexClient } from "./gemini.js";
+
 export interface MergeMemoriesRequest {
   topic: string;
   sources: Array<{ id: string; content: string }>;
@@ -14,7 +16,10 @@ export interface LlmMergeClient {
 }
 
 export interface GeminiMergeClientOptions {
-  apiKey: string;
+  apiKey?: string;
+  vertexai?: boolean;
+  project?: string;
+  location?: string;
   model: string;
 }
 
@@ -22,7 +27,13 @@ export class GeminiMergeClient implements LlmMergeClient {
   private readonly client: GoogleGenAI;
 
   constructor(private readonly options: GeminiMergeClientOptions) {
-    this.client = new GoogleGenAI({ apiKey: options.apiKey });
+    this.client = options.vertexai
+      ? createVertexClient({
+          vertexai: true,
+          project: options.project,
+          location: options.location ?? "us-central1"
+        })
+      : new GoogleGenAI({ apiKey: options.apiKey! });
   }
 
   async merge(request: MergeMemoriesRequest): Promise<MergeMemoriesResult> {

@@ -81,9 +81,67 @@ export function createMetaCortexMcpServer(
       id: z
         .string()
         .min(1)
+        .optional()
         .describe(
           "The stable memory id returned by remember_context or search_context."
+        ),
+      document_id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          "Compatibility alias for id. Prefer id for new clients."
         )
+    })
+    .superRefine((value, ctx) => {
+      const id = normalizeOptionalText(value.id);
+      const documentId = normalizeOptionalText(value.document_id);
+
+      if (!id && !documentId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["id"],
+          message: "Provide id or document_id"
+        });
+      }
+
+      if (id && documentId && id !== documentId) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["document_id"],
+          message: "id and document_id must match when both are provided"
+        });
+      }
+    });
+  const consolidateContextInputSchema = z
+    .object({
+      topic: z
+        .string()
+        .optional()
+        .describe(
+          "Topic whose WIP memory queue will be consolidated. Defaults to general. Ignored when source_ids is provided — in that case topic labels the merged output."
+        ),
+      source_ids: z
+        .array(z.string().min(1))
+        .optional()
+        .describe(
+          "Explicit list of unique memory ids to consolidate. When provided, these memories are merged regardless of their branch_state. At least 2 ids required."
+        )
+    })
+    .superRefine((value, ctx) => {
+      if (!value.source_ids) {
+        return;
+      }
+
+      const uniqueIds = new Set(value.source_ids);
+
+      if (uniqueIds.size !== value.source_ids.length) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["source_ids"],
+          message: "source_ids must be unique"
+        });
+      }
     });
   const server = new McpServer(
     {
@@ -250,7 +308,8 @@ export function createMetaCortexMcpServer(
       },
       async args => {
         const requestSummary = {
-          id: args.id
+          id: args.id ?? args.document_id,
+          used_document_id_alias: Boolean(args.document_id && !args.id)
         };
         const result = await observeToolCall(
           "fetch_context",
@@ -264,8 +323,8 @@ export function createMetaCortexMcpServer(
               )
             ) {
               throw new HttpError(
-                403,
-                `branch_state '${fetched.item.metadata.branch_state}' is not allowed for this client`
+                404,
+                "Document not found"
               );
             }
 
@@ -335,20 +394,7 @@ export function createMetaCortexMcpServer(
         title: "Consolidate Context",
         description:
           "Merge multiple related memories into one canonical active memory. By default, consolidates all WIP (draft) memories for a topic. Pass source_ids to consolidate specific memories regardless of their current state. Deprecates all source memories and links them to the merged result.",
-        inputSchema: {
-          topic: z
-            .string()
-            .optional()
-            .describe(
-              "Topic whose WIP memory queue will be consolidated. Defaults to general. Ignored when source_ids is provided — in that case topic labels the merged output."
-            ),
-          source_ids: z
-            .array(z.string().min(1))
-            .optional()
-            .describe(
-              "Explicit list of memory ids to consolidate. When provided, these memories are merged regardless of their branch_state. At least 2 ids required."
-            )
-        }
+        inputSchema: consolidateContextInputSchema
       },
       async args => {
         const requestSummary = {

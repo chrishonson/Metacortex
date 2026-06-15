@@ -20,11 +20,12 @@ The deploy path in this repo currently assumes:
 - Firestore collection `memory_events` for audit and observability
 - embedding output pinned to `768` dimensions
 - embedding model pinned to `text-embedding-004`
-- multimodal normalization model pinned to `gemini-3.1-flash-lite-preview`
-- total MCP surface of 4 tools
+- multimodal normalization model pinned to `gemini-3.1-flash-lite`
+- consolidation merge model pinned to `gemini-3.1-flash-lite`
+- total MCP surface of 5 tools
 - public/browser toolset of 3 tools: `remember_context`, `search_context`, `fetch_context`
-- admin-only maintenance tool: `deprecate_context`
-- WIP consolidation handled internally, not through a public MCP tool
+- admin-only maintenance tools: `deprecate_context`, `consolidate_context`
+- WIP consolidation is available only through the admin maintenance surface
 
 For the first production release, if `memory_vectors` is empty, no embedding migration is required.
 
@@ -79,7 +80,9 @@ Minimum required production values:
 GEMINI_API_KEY=...
 MCP_ADMIN_TOKEN=...
 GEMINI_EMBEDDING_MODEL=text-embedding-004
-GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite-preview
+GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite
+GEMINI_MERGE_MODEL=gemini-3.1-flash-lite
+GEMINI_GENERATION_VERTEX_LOCATION=global
 GEMINI_EMBEDDING_DIMENSIONS=768
 MEMORY_COLLECTION=memory_vectors
 ```
@@ -154,6 +157,13 @@ That script checks:
 - full test suite
 - TypeScript build
 
+Validate the live Gemini model configuration before production deploy:
+
+```bash
+cd /Users/nick/git/metacortex
+npm --prefix functions run validate:models
+```
+
 If you want a manual local round-trip before production:
 
 ```bash
@@ -192,6 +202,7 @@ The automated tests and build can also be run directly:
 cd /Users/nick/git/metacortex
 npm --prefix functions test
 npm --prefix functions run build
+npm --prefix functions run validate:models
 ```
 
 ## Deploy
@@ -215,6 +226,9 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 - `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
 - `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
 - `GEMINI_EMBEDDING_MODEL=text-embedding-004`
+- `GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite`
+- `GEMINI_MERGE_MODEL=gemini-3.1-flash-lite`
+- `GEMINI_GENERATION_VERTEX_LOCATION=global`
 - `GEMINI_EMBEDDING_DIMENSIONS=768`
 - `MEMORY_COLLECTION=memory_vectors`
 
@@ -229,7 +243,30 @@ Also confirm the actual web-client registration values you will use:
 - each bearer token comes from the matching client profile, not `MCP_ADMIN_TOKEN`
 - each web origin must match the profile's `allowedOrigins`
 
-### 3. Deploy Firestore indexes
+### 3. Backfill TTL fields
+
+The hardening release uses Firestore TTL policies for unbounded operational collections:
+
+- `memory_vectors_write_fingerprints.expires_at`: 30-day retention
+- `memory_events.expires_at`: 90-day retention
+
+Run a dry run first:
+
+```bash
+cd /Users/nick/git/metacortex
+npm --prefix functions run backfill:ttl
+```
+
+If the counts look correct, apply the backfill:
+
+```bash
+cd /Users/nick/git/metacortex
+npm --prefix functions run backfill:ttl -- --write --project my-brain-88870
+```
+
+The backfill preserves numeric event `timestamp`, copies legacy numeric fingerprint `expires_at` into `dedupe_expires_at` when needed, and writes Date-valued `expires_at` fields for Firestore TTL.
+
+### 4. Deploy Firestore indexes
 
 ```bash
 cd /Users/nick/git/metacortex
@@ -244,7 +281,7 @@ Required vector indexes:
 
 Wait until those indexes are fully built before trusting search results.
 
-### 4. Deploy the function
+### 5. Deploy the function
 
 ```bash
 cd /Users/nick/git/metacortex
@@ -265,6 +302,21 @@ The useful production routes are:
 - `<FUNCTION_BASE_URL>/healthz`
 - `<FUNCTION_BASE_URL>/mcp`
 - `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
+
+### 6. Enable Firestore TTL policies
+
+Enable TTL policies after the `expires_at` fields exist:
+
+```bash
+cd /Users/nick/git/metacortex
+./scripts/deploy-firestore-ttl.sh --project my-brain-88870
+```
+
+Verify the policies:
+
+```bash
+gcloud firestore fields ttls list --project=my-brain-88870
+```
 
 ## Post-deploy verification
 
@@ -402,7 +454,7 @@ Expected:
 
 - `remember_context` accepts the image-backed memory
 - returned JSON metadata includes `modality=mixed` when both text and image are present
-- `search_context` returns a summary with the same `id=...`
+- `search_context` returns a summary-only result with the same `id=...`
 - `fetch_context` accepts that same `id` and returns the same `artifact_refs`
 
 ## Token Management

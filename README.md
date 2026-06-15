@@ -254,7 +254,6 @@ Typical result:
       "id": "abc123",
       "summary": "We use Ktor for shared Android and iOS networking.",
       "score": 0.92,
-      "content_preview": "We use Ktor for shared Android and iOS networking.",
       "metadata": {
         "topic": "kmp-networking",
         "branch_state": "active",
@@ -287,13 +286,21 @@ If nothing matches, the result is:
 
 ### `fetch_context`
 
-Preferred input: pass the same `id` returned by `remember_context` or `search_context`.
+Preferred input: pass the same `id` returned by `remember_context` or `search_context`. `document_id` is accepted as a compatibility alias for older connector wrappers.
 
 Example input:
 
 ```json
 {
   "id": "abc123"
+}
+```
+
+Compatibility alias:
+
+```json
+{
+  "document_id": "abc123"
 }
 ```
 
@@ -401,6 +408,7 @@ After deployment, there are three places to look:
 - `event_type`
 - `status`
 - `timestamp`
+- `expires_at`
 - `latency_ms`
 - a compact `request` summary
 - either a compact `response` summary, an `error`, or a request rejection reason
@@ -426,6 +434,12 @@ What is intentionally not stored in observability events:
 - raw image downloads
 
 Search events do include a short `query_preview`, but the observability collection is designed to track behavior, not duplicate the corpus.
+
+Retention is handled with Firestore TTL policies:
+
+- `memory_events.expires_at` targets 90-day audit retention
+- `memory_vectors_write_fingerprints.expires_at` targets 30-day fingerprint retention
+- fingerprint documents keep numeric `dedupe_expires_at` for the short duplicate-write window
 
 ## Quick start
 

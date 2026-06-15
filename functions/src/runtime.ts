@@ -51,12 +51,28 @@ function createRuntimeFromConfig(config: AppConfig): RuntimeDependencies {
         }
   );
   const contentPreparer: MemoryContentPreparer = new GeminiMultimodalPreparer({
-    apiKey: config.geminiApiKey,
+    ...(gcpProject
+      ? {
+          vertexai: true,
+          project: gcpProject,
+          location: config.generationVertexLocation
+        }
+      : {
+          apiKey: config.geminiApiKey
+        }),
     model: config.multimodalModel
   });
   const mergeClient: LlmMergeClient = new GeminiMergeClient({
-    apiKey: config.geminiApiKey,
-    model: config.multimodalModel
+    ...(gcpProject
+      ? {
+          vertexai: true,
+          project: gcpProject,
+          location: config.generationVertexLocation
+        }
+      : {
+          apiKey: config.geminiApiKey
+        }),
+    model: config.mergeModel
   });
   const repository: MemoryRepository = new FirestoreMemoryRepository(
     firestore,
