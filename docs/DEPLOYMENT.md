@@ -18,10 +18,9 @@ The deploy path in this repo currently assumes:
 - Firebase Blaze plan for production deploys
 - Firestore collection `memory_vectors`
 - Firestore collection `memory_events` for audit and observability
-- embedding output pinned to `768` dimensions
-- embedding model pinned to `text-embedding-004`
-- multimodal normalization model pinned to `gemini-3.1-flash-lite`
-- consolidation merge model pinned to `gemini-3.5-flash`
+- embedding output dimensions aligned with the Firestore vector indexes
+- runtime model choices supplied by the deploy dotenv files, using
+  [functions/.env.example](../functions/.env.example) as the tracked template
 - total MCP surface of 5 tools
 - public/browser toolset of 3 tools: `remember_context`, `search_context`, `fetch_context`
 - admin-only maintenance tools: `deprecate_context`, `consolidate_context`
@@ -79,13 +78,17 @@ Minimum required production values:
 ```dotenv
 GEMINI_API_KEY=...
 MCP_ADMIN_TOKEN=...
-GEMINI_EMBEDDING_MODEL=text-embedding-004
-GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite
-GEMINI_MERGE_MODEL=gemini-3.5-flash
-GEMINI_GENERATION_VERTEX_LOCATION=global
-GEMINI_EMBEDDING_DIMENSIONS=768
-MEMORY_COLLECTION=memory_vectors
+GEMINI_EMBEDDING_MODEL=...
+GEMINI_MULTIMODAL_MODEL=...
+GEMINI_MERGE_MODEL=...
+GEMINI_GENERATION_VERTEX_LOCATION=...
+GEMINI_EMBEDDING_DIMENSIONS=...
+MEMORY_COLLECTION=...
 ```
+
+Use [functions/.env.example](../functions/.env.example) for the current tracked
+defaults. Keep exact model ids there and in the deployed dotenv file, not
+duplicated in this playbook.
 
 Recommended admin endpoint defaults for the first release:
 
@@ -225,12 +228,12 @@ Verify that `functions/.env.prod` or the dotenv file you plan to deploy with inc
 - `MCP_ADMIN_TOKEN`
 - `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
 - `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
-- `GEMINI_EMBEDDING_MODEL=text-embedding-004`
-- `GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite`
-- `GEMINI_MERGE_MODEL=gemini-3.5-flash`
-- `GEMINI_GENERATION_VERTEX_LOCATION=global`
-- `GEMINI_EMBEDDING_DIMENSIONS=768`
-- `MEMORY_COLLECTION=memory_vectors`
+- model and generation settings copied from the current
+  [functions/.env.example](../functions/.env.example):
+  `GEMINI_EMBEDDING_MODEL`, `GEMINI_MULTIMODAL_MODEL`,
+  `GEMINI_MERGE_MODEL`, and `GEMINI_GENERATION_VERTEX_LOCATION`
+- `GEMINI_EMBEDDING_DIMENSIONS` matching [firestore.indexes.json](../firestore.indexes.json)
+- `MEMORY_COLLECTION`
 
 For the first release, an empty production collection means there is no migration work to do.
 
