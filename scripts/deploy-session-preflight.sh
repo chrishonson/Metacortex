@@ -320,7 +320,36 @@ fi
 echo
 echo "== Firebase project =="
 if command -v firebase >/dev/null 2>&1; then
-  firebase use || true
+  ACTIVE_PROJECT="$(firebase use 2>/dev/null)"
+  echo "Active project: ${ACTIVE_PROJECT}"
+
+  # Firebase CLI v14+ displays the resolved project ID even when an alias is active, so
+  # "firebase use" output is ambiguous — it looks identical whether you set the project via
+  # "firebase use prod" (alias, picks up functions/.env.prod) or "firebase use my-brain-88870"
+  # (raw project ID, skips functions/.env.prod). Read the configstore directly to check which
+  # value is actually stored for this directory.
+  EXPECTED_ALIAS="prod"
+  STORED_ALIAS="$(node -e "
+try {
+  const os = require('os');
+  const path = require('path');
+  const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
+  const data = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+  process.stdout.write(data.activeProjects?.[process.cwd()] ?? '');
+} catch { process.stdout.write(''); }
+" 2>/dev/null)"
+
+  if [[ -z "$STORED_ALIAS" ]]; then
+    echo "warning: could not read active project alias from Firebase configstore — skipping alias check"
+  elif [[ "$STORED_ALIAS" != "$EXPECTED_ALIAS" ]]; then
+    echo "ERROR: active project is set to '${STORED_ALIAS}', not the '${EXPECTED_ALIAS}' alias." >&2
+    echo "       Deploying with the raw project ID skips functions/.env.prod and omits MCP_CLIENT_PROFILES_JSON," >&2
+    echo "       causing all client endpoints to return 404." >&2
+    echo "       Fix: firebase use ${EXPECTED_ALIAS}" >&2
+    exit 1
+  else
+    echo "Alias '${EXPECTED_ALIAS}' confirmed (stored: '${STORED_ALIAS}' → ${ACTIVE_PROJECT})"
+  fi
 else
   echo "warning: firebase CLI not installed"
 fi

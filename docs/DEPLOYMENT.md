@@ -298,6 +298,12 @@ cd /Users/nick/git/metacortex
 firebase deploy --only firestore:indexes,functions
 ```
 
+> **Important:** always use `firebase deploy` with the `prod` alias active (confirmed in step 1),
+> not `firebase deploy --project my-brain-88870`. Firebase loads `functions/.env.prod` based on
+> the **alias** name, not the project ID. Passing the raw project ID silently skips `functions/.env.prod`
+> and omits `MCP_CLIENT_PROFILES_JSON` from the deployment, causing all client endpoints to 404.
+> Use `firebase deploy --project prod` if you need to pass the project explicitly.
+
 Capture the deployed base URL for `metaCortexMcp`.
 
 The useful production routes are:
@@ -347,7 +353,36 @@ Expected:
 
 - HTTP `401`
 
-### 3. Browser CORS preflight
+### 3. Client profile deployment check
+
+Verify that `MCP_CLIENT_PROFILES_JSON` was bundled into the deployed function by checking
+that client endpoints resolve (not 404). A `404` here means the env file was not picked up —
+the most common cause is deploying with the raw project ID instead of the `prod` alias.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
+  -H "Origin: https://chatgpt.com"
+# Expected: 204
+```
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X OPTIONS "<FUNCTION_BASE_URL>/clients/claude-web/mcp" \
+  -H "Origin: https://claude.ai"
+# Expected: 204
+```
+
+If either returns `404`, the client profiles were not deployed. Fix:
+
+```bash
+firebase use prod
+firebase deploy --only functions
+```
+
+### 4. Browser CORS preflight details
+
+Confirm the correct origin headers are returned:
 
 ```bash
 curl -i \
@@ -368,7 +403,7 @@ curl -i \
   -H "Origin: https://claude.ai"
 ```
 
-### 4. Authenticated admin MCP smoke test
+### 5. Authenticated admin MCP smoke test
 
 ```bash
 cd /Users/nick/git/metacortex/functions
@@ -391,7 +426,7 @@ This is the first proof that:
 - Firestore writes work
 - Firestore vector search works
 
-### 5. Authenticated browser MCP smoke test
+### 6. Authenticated browser MCP smoke test
 
 ```bash
 cd /Users/nick/git/metacortex/functions
@@ -411,7 +446,7 @@ Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_T
 
 This is the first proof that the 3-tool client-facing browser contract is usable end to end.
 
-### 6. Verify observability events
+### 7. Verify observability events
 
 Open Firestore and inspect `memory_events`.
 
@@ -426,7 +461,7 @@ Confirm:
 
 Cloud Logging should also contain structured `metaCortexMcp tool event` and `metaCortexMcp request event` entries for the same calls.
 
-### 7. Verify the written document
+### 8. Verify the written document
 
 Open Firestore and inspect `memory_vectors`.
 
@@ -438,7 +473,7 @@ Confirm:
 - `metadata.created_at` and `metadata.updated_at` are present
 - the stored content is searchable through `search_context`
 
-### 8. Optional multimodal browser smoke test
+### 9. Optional multimodal browser smoke test
 
 ```bash
 cd /Users/nick/git/metacortex/functions
