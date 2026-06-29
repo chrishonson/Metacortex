@@ -11,6 +11,7 @@ import type {
   ObservabilityEvent,
   RecordToolCallEventInput,
   RecordRequestEventInput,
+  RetrievalEvent,
   ToolCallObserver
 } from "../../src/observability.js";
 import type {
@@ -218,12 +219,15 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 export class InMemoryToolCallObserver implements ToolCallObserver {
   private nextId = 1;
   private readonly events: ObservabilityEvent[] = [];
+  private readonly retrievalEvents: RetrievalEvent[] = [];
 
   async record(input: RecordToolCallEventInput): Promise<void> {
     const timestamp = input.timestamp ?? Date.now();
 
+    const eventId = `event-${this.nextId++}`;
+
     this.events.push({
-      event_id: `event-${this.nextId++}`,
+      event_id: eventId,
       event_type: "tool_call",
       timestamp,
       expires_at: new Date(timestamp + 90 * 24 * 60 * 60 * 1000),
@@ -237,6 +241,22 @@ export class InMemoryToolCallObserver implements ToolCallObserver {
       ...(input.response ? { response: input.response } : {}),
       ...(input.error ? { error: input.error } : {})
     });
+
+    if (input.retrieval) {
+      this.retrievalEvents.push({
+        event_id: `retrieval-event-${this.nextId++}`,
+        tool_event_id: eventId,
+        timestamp,
+        expires_at: new Date(timestamp + 90 * 24 * 60 * 60 * 1000),
+        client_id: input.client_id,
+        status: input.status,
+        ...(typeof input.latency_ms === "number"
+          ? { latency_ms: input.latency_ms }
+          : {}),
+        ...input.retrieval,
+        ...(input.error ? { error: input.error } : {})
+      });
+    }
   }
 
   async recordRequest(input: RecordRequestEventInput): Promise<void> {
@@ -262,6 +282,10 @@ export class InMemoryToolCallObserver implements ToolCallObserver {
   listEvents(): ObservabilityEvent[] {
     return [...this.events];
   }
+
+  listRetrievalEvents(): RetrievalEvent[] {
+    return [...this.retrievalEvents];
+  }
 }
 
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -285,6 +309,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     generationVertexLocation: "global",
     embeddingDimensions: 768,
     memoryCollection: "memory_vectors",
+    retrievalEventLoggingEnabled: false,
     topK: 5,
     defaultFilterState: "active",
     defaultClientProfile: overrides.defaultClientProfile ?? defaultClientProfile,

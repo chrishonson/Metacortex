@@ -4,7 +4,10 @@ import * as z from "zod/v4";
 import type { AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
 import { normalizeOptionalText } from "./normalize.js";
-import type { ToolCallObserver } from "./observability.js";
+import type {
+  RetrievalEventInput,
+  ToolCallObserver
+} from "./observability.js";
 import {
   buildConsolidatePayload,
   buildDeprecatePayload,
@@ -21,7 +24,15 @@ import {
 
 export function createMetaCortexMcpServer(
   service: MetaCortexService,
-  config: Pick<AppConfig, "serviceName" | "serviceVersion" | "defaultFilterState"> & {
+  config: Pick<
+    AppConfig,
+    | "serviceName"
+    | "serviceVersion"
+    | "defaultFilterState"
+    | "memoryCollection"
+    | "retrievalEventLoggingEnabled"
+    | "topK"
+  > & {
     observer: ToolCallObserver;
     clientId: string;
     allowedTools: readonly McpToolName[];
@@ -161,7 +172,11 @@ export function createMetaCortexMcpServer(
     toolName: McpToolName,
     requestSummary: Record<string, unknown>,
     run: () => Promise<Result>,
-    summarizeResult: (result: Result) => Record<string, unknown>
+    summarizeResult: (result: Result) => Record<string, unknown>,
+    retrieval?: {
+      request: RetrievalEventInput;
+      summarizeResult: (result: Result) => Partial<RetrievalEventInput>;
+    }
   ): Promise<Result> => {
     const startedAt = Date.now();
 
@@ -174,7 +189,15 @@ export function createMetaCortexMcpServer(
         status: "success",
         latency_ms: Date.now() - startedAt,
         request: requestSummary,
-        response: summarizeResult(result)
+        response: summarizeResult(result),
+        ...(retrieval
+          ? {
+              retrieval: {
+                ...retrieval.request,
+                ...retrieval.summarizeResult(result)
+              } as RetrievalEventInput
+            }
+          : {})
       });
 
       return result;
@@ -185,6 +208,7 @@ export function createMetaCortexMcpServer(
         status: "error",
         latency_ms: Date.now() - startedAt,
         request: requestSummary,
+        ...(retrieval ? { retrieval: retrieval.request } : {}),
         error: summarizeToolError(error)
       });
 
@@ -262,10 +286,12 @@ export function createMetaCortexMcpServer(
       },
       async args => {
         const requestedFilterState = args.filter_state ?? config.defaultFilterState;
+        const normalizedFilterTopic = normalizeOptionalText(args.filter_topic);
+        const requestedLimit = args.limit ?? config.topK;
         const requestSummary = {
           query_preview: truncateText(args.query),
           query_length: args.query.trim().length,
-          filter_topic: normalizeOptionalText(args.filter_topic),
+          filter_topic: normalizedFilterTopic,
           filter_state: requestedFilterState,
           limit: args.limit
         };
@@ -287,7 +313,34 @@ export function createMetaCortexMcpServer(
             result_ids: searchResult.matches.map(match => match.id),
             filter_state: searchResult.appliedFilters.filter_state,
             filter_topic: searchResult.appliedFilters.filter_topic
-          })
+          }),
+          config.retrievalEventLoggingEnabled
+            ? {
+                request: {
+                  event_type: "search",
+                  memory_collection: config.memoryCollection,
+                  query: args.query.trim(),
+                  filter_topic: normalizedFilterTopic,
+                  filter_state: requestedFilterState,
+                  limit: requestedLimit
+                },
+                summarizeResult: searchResult => ({
+                  result_count: searchResult.matches.length,
+                  results: searchResult.matches.map((match, index) => ({
+                    id: match.id,
+                    rank: index + 1,
+                    ...(typeof match.distance === "number"
+                      ? {
+                          score: Math.max(
+                            0,
+                            Number((1 - match.distance).toFixed(6))
+                          )
+                        }
+                      : {})
+                  }))
+                })
+              }
+            : undefined
         );
 
         return {
@@ -336,7 +389,17 @@ export function createMetaCortexMcpServer(
             branch_state: fetched.item.metadata.branch_state,
             modality: fetched.item.metadata.modality,
             artifact_ref_count: fetched.item.metadata.artifact_refs?.length ?? 0
-          })
+          }),
+          config.retrievalEventLoggingEnabled
+            ? {
+                request: {
+                  event_type: "fetch",
+                  memory_collection: config.memoryCollection,
+                  memory_id: args.id ?? args.document_id ?? ""
+                },
+                summarizeResult: () => ({ found: true })
+              }
+            : undefined
         );
 
         return {

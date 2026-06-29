@@ -8,7 +8,19 @@ service cloud.firestore {
     match /memory_events/{document=**} {
       allow read, write: if false;
     }
+    match /retrieval_query_events/{document=**} {
+      allow read, write: if false;
+    }
+    match /retrieval_eval_cases/{document=**} {
+      allow read, write: if false;
+    }
+    match /memory_vectors_eval/{document=**} {
+      allow read, write: if false;
+    }
     match /memory_vectors_write_fingerprints/{document=**} {
+      allow read, write: if false;
+    }
+    match /memory_vectors_eval_write_fingerprints/{document=**} {
       allow read, write: if false;
     }
   }

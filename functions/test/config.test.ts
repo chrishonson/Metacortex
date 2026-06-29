@@ -23,6 +23,7 @@ describe("loadConfig", () => {
     expect(config.mergeModel).toBe("gemini-3.5-flash");
     expect(config.generationVertexLocation).toBe("global");
     expect(config.embeddingDimensions).toBe(768);
+    expect(config.retrievalEventLoggingEnabled).toBe(false);
     expect(config.defaultFilterState).toBe("active");
     expect(config.topK).toBe(5);
     expect(config.defaultClientProfile.allowedTools).toContain("search_context");
@@ -41,6 +42,23 @@ describe("loadConfig", () => {
         [geminiApiKeyEnv]: accessCredential("gemini"),
         [adminTokenEnv]: accessCredential("admin"),
         DEFAULT_FILTER_STATE: "unknown"
+      })
+    ).toThrowError(MissingConfigurationError);
+  });
+
+  it("loads and validates retrieval event logging", () => {
+    const config = loadConfig({
+      [geminiApiKeyEnv]: accessCredential("gemini"),
+      [adminTokenEnv]: accessCredential("admin"),
+      RETRIEVAL_EVENT_LOGGING_ENABLED: "true"
+    });
+
+    expect(config.retrievalEventLoggingEnabled).toBe(true);
+    expect(() =>
+      loadConfig({
+        [geminiApiKeyEnv]: accessCredential("gemini"),
+        [adminTokenEnv]: accessCredential("admin"),
+        RETRIEVAL_EVENT_LOGGING_ENABLED: "yes"
       })
     ).toThrowError(MissingConfigurationError);
   });
