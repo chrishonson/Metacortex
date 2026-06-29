@@ -5,6 +5,7 @@ import { Firestore } from "firebase-admin/firestore";
 import type { McpToolName } from "./types.js";
 
 export const MEMORY_EVENT_COLLECTION = "memory_events";
+export const RETRIEVAL_EVENT_COLLECTION = "retrieval_query_events";
 const MEMORY_EVENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 export type RequestEventReason =
@@ -31,6 +32,48 @@ export interface ToolCallEvent {
   error?: ToolCallEventError;
 }
 
+export interface RankedRetrievalResult {
+  id: string;
+  rank: number;
+  score?: number;
+}
+
+export interface SearchRetrievalEventInput {
+  event_type: "search";
+  memory_collection: string;
+  query: string;
+  filter_topic?: string;
+  filter_state: string;
+  limit: number;
+  result_count?: number;
+  results?: RankedRetrievalResult[];
+}
+
+export interface FetchRetrievalEventInput {
+  event_type: "fetch";
+  memory_collection: string;
+  memory_id: string;
+  found?: boolean;
+}
+
+export type RetrievalEventInput =
+  | SearchRetrievalEventInput
+  | FetchRetrievalEventInput;
+
+interface RetrievalEventBase {
+  event_id: string;
+  tool_event_id: string;
+  client_id: string;
+  status: "success" | "error";
+  timestamp: number;
+  expires_at: Date;
+  latency_ms?: number;
+  memory_collection: string;
+  error?: ToolCallEventError;
+}
+
+export type RetrievalEvent = RetrievalEventBase & RetrievalEventInput;
+
 export interface RequestEvent {
   event_id: string;
   event_type: "request";
@@ -55,6 +98,7 @@ export interface RecordToolCallEventInput {
   request: Record<string, unknown>;
   response?: Record<string, unknown>;
   error?: ToolCallEventError;
+  retrieval?: RetrievalEventInput;
   timestamp?: number;
 }
 
@@ -98,7 +142,35 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
       ...(input.error ? { error: input.error } : {})
     };
 
-    await this.persist("metaCortexMcp tool event", event);
+    const writes = [
+      this.persist("metaCortexMcp tool event", event, this.collectionName)
+    ];
+
+    if (input.retrieval) {
+      const retrievalEvent: RetrievalEvent = {
+        event_id: randomUUID(),
+        tool_event_id: event.event_id,
+        client_id: input.client_id,
+        status: input.status,
+        timestamp,
+        expires_at: new Date(timestamp + MEMORY_EVENT_TTL_MS),
+        ...(typeof input.latency_ms === "number"
+          ? { latency_ms: input.latency_ms }
+          : {}),
+        ...input.retrieval,
+        ...(input.error ? { error: input.error } : {})
+      };
+      writes.push(
+        this.persist(
+          "metaCortexMcp retrieval event",
+          retrievalEvent,
+          RETRIEVAL_EVENT_COLLECTION,
+          false
+        )
+      );
+    }
+
+    await Promise.all(writes);
   }
 
   async recordRequest(input: RecordRequestEventInput): Promise<void> {
@@ -119,17 +191,24 @@ export class FirestoreToolCallObserver implements ToolCallObserver {
         : {})
     };
 
-    await this.persist("metaCortexMcp request event", event);
+    await this.persist("metaCortexMcp request event", event, this.collectionName);
   }
 
-  private async persist(message: string, event: ObservabilityEvent): Promise<void> {
-    const sanitizedEvent = stripUndefined(event) as ObservabilityEvent;
+  private async persist(
+    message: string,
+    event: ObservabilityEvent | RetrievalEvent,
+    collectionName: string,
+    logToConsole = true
+  ): Promise<void> {
+    const sanitizedEvent = stripUndefined(event) as ObservabilityEvent | RetrievalEvent;
 
-    console.info(message, sanitizedEvent);
+    if (logToConsole) {
+      console.info(message, sanitizedEvent);
+    }
 
     try {
       await this.firestore
-        .collection(this.collectionName)
+        .collection(collectionName)
         .doc(sanitizedEvent.event_id)
         .set(sanitizedEvent);
     } catch (error) {

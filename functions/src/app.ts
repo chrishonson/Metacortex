@@ -127,6 +127,10 @@ function registerMcpRoutes(
       clientId: profile.id,
       serviceName: runtime.config.serviceName,
       serviceVersion: runtime.config.serviceVersion,
+      memoryCollection: runtime.config.memoryCollection,
+      retrievalEventLoggingEnabled:
+        runtime.config.retrievalEventLoggingEnabled,
+      topK: runtime.config.topK,
       defaultFilterState: selectDefaultFilterState(runtime.config, profile),
       allowedTools: profile.allowedTools,
       allowedFilterStates: profile.allowedFilterStates
