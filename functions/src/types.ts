@@ -15,6 +15,8 @@ export const BRANCH_STATES = [
 
 export const SUPERSESSION_REASONS = ["changed", "corrected"] as const;
 
+export const PROVENANCE_ORIGINS = ["user_asserted", "agent_inferred", "legacy_import"] as const;
+
 export const MEMORY_MODALITIES = [
   "text",
   "image",
@@ -25,10 +27,18 @@ export type BranchState = (typeof BRANCH_STATES)[number];
 export type SupersessionReason = (typeof SUPERSESSION_REASONS)[number];
 export type MemoryModality = (typeof MEMORY_MODALITIES)[number];
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
+export type ProvenanceOrigin = (typeof PROVENANCE_ORIGINS)[number];
 
 export interface MemoryMedia {
   kind: "inline_image";
   mime_type: string;
+}
+
+export interface MemoryProvenance {
+  origin: ProvenanceOrigin;
+  source_session?: string;
+  derived_from?: string[];
+  confidence?: number;
 }
 
 export interface MemoryMetadata {
@@ -43,6 +53,7 @@ export interface MemoryMetadata {
   valid_until?: number;
   supersession_reason?: SupersessionReason;
   initiator?: "user" | "agent";
+  provenance?: MemoryProvenance;
 }
 
 export interface MemoryDocument {
@@ -63,6 +74,10 @@ export interface StoreContextInput {
   image_mime_type?: string;
   valid_from?: number;
   valid_until?: number;
+  origin?: ProvenanceOrigin;
+  source_session?: string;
+  derived_from?: string[];
+  confidence?: number;
 }
 
 export interface SearchContextInput {
@@ -71,6 +86,7 @@ export interface SearchContextInput {
   filter_state?: BranchState;
   limit?: number;
   valid_at?: number;
+  filter_origin?: ProvenanceOrigin;
 }
 
 export interface RememberContextInput {
@@ -83,6 +99,10 @@ export interface RememberContextInput {
   image_mime_type?: string;
   valid_from?: number;
   valid_until?: number;
+  origin?: ProvenanceOrigin;
+  source_session?: string;
+  derived_from?: string[];
+  confidence?: number;
 }
 
 export interface StoreContextResult {

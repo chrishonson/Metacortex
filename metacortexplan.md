@@ -69,7 +69,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
 * **Effort:** Low-medium.
 
 ### 3. Provenance (Memory + Action Lineage)
-* **Status:** Proposed (*Added 2026-06 following a design review*)
+* **Status:** Implemented 2026-07-11
 * **Goal:** Audit memory origin and protect chronology against agent drift (unintended rewrite/reinterpretation of historical priorities).
 * **Proposal:** Add a `provenance` object to `MemoryMetadata`:
   * `origin` (`"user_asserted"` | `"agent_inferred"` | `"legacy_import"`)
@@ -77,7 +77,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
   * `derived_from` (optional array of memory document IDs that an inference drew upon)
   * `confidence` (optional number)
   
-  The agent self-reports `origin` on every write. Add an `origin` filter to `search_context`. For action provenance (which principal initiated a lifecycle mutation and the operation's semantics), extend the existing `memory_events` collection rather than introducing new infrastructure, turning it into an authorization-aware audit log. Backfill existing legacy memories with `origin: "legacy_import"`.
+  The agent self-reports `origin` on every write. Add an `origin` filter to `search_context`. For action provenance (which principal initiated a lifecycle mutation and the operation's semantics), extend the existing `memory_events` collection rather than introducing new infrastructure, turning it into an authorization-aware audit log. Backfill existing legacy memories with `origin: "legacy_import"`. Note that the origin filter on `search_context` is implemented as a post-filter with no new Firestore indexes needed.
 * **Effort:** Medium.
 
 ### 4. Correction as a User-Initiated Action

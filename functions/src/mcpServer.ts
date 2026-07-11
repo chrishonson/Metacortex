@@ -18,6 +18,7 @@ import {
 } from "./service.js";
 import {
   BRANCH_STATES,
+  PROVENANCE_ORIGINS,
   SUPERSESSION_REASONS,
   type BranchState,
   type McpToolName
@@ -75,6 +76,32 @@ export function createMetaCortexMcpServer(
         .optional()
         .describe(
           "Optional epoch-ms timestamp marking when this fact stops being valid. Omit for facts with no known end."
+        ),
+      origin: z
+        .enum(PROVENANCE_ORIGINS)
+        .optional()
+        .describe(
+          "Optional provenance origin for this write. Defaults to agent_inferred when omitted. Only claim user_asserted when the user explicitly stated this fact themselves."
+        ),
+      source_session: z
+        .string()
+        .optional()
+        .describe(
+          "Optional identifier for the session or conversation this memory was derived from."
+        ),
+      derived_from: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Optional list of memory ids that this inference was derived from."
+        ),
+      confidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe(
+          "Optional confidence score between 0 and 1 for agent-inferred memories."
         ),
       image_base64: z
         .string()
@@ -243,6 +270,7 @@ export function createMetaCortexMcpServer(
         const requestSummary = {
           topic: normalizeOptionalText(args.topic) ?? "general",
           branch_state: requestedBranchState,
+          origin: args.origin,
           draft: args.draft,
           content_length: args.content?.trim().length ?? 0,
           image_present: Boolean(args.image_base64),
@@ -300,7 +328,13 @@ export function createMetaCortexMcpServer(
           valid_at: z
             .number()
             .optional()
-            .describe("Optional epoch-ms timestamp. When provided, only returns memories valid at that point in time (valid_from <= valid_at < valid_until, excluding corrected records).")
+            .describe("Optional epoch-ms timestamp. When provided, only returns memories valid at that point in time (valid_from <= valid_at < valid_until, excluding corrected records)."),
+          filter_origin: z
+            .enum(PROVENANCE_ORIGINS)
+            .optional()
+            .describe(
+              "Optional provenance origin filter. Only returns memories whose provenance.origin matches exactly; memories without provenance metadata are excluded when this filter is set."
+            )
         }
       },
       async args => {
@@ -313,7 +347,8 @@ export function createMetaCortexMcpServer(
           filter_topic: normalizedFilterTopic,
           filter_state: requestedFilterState,
           limit: args.limit,
-          valid_at: args.valid_at
+          valid_at: args.valid_at,
+          filter_origin: args.filter_origin
         };
         const result = await observeToolCall(
           "search_context",
