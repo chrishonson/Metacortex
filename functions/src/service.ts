@@ -56,6 +56,13 @@ export class MetaCortexService {
     });
     const now = Date.now();
 
+    const provenance = {
+      origin: input.origin ?? "agent_inferred",
+      ...(input.source_session ? { source_session: input.source_session } : {}),
+      ...(input.derived_from && input.derived_from.length > 0 ? { derived_from: input.derived_from } : {}),
+      ...(typeof input.confidence === "number" ? { confidence: input.confidence } : {})
+    };
+
     const metadata = {
       module_name: normalizedModule,
       branch_state: input.branch_state,
@@ -70,7 +77,8 @@ export class MetaCortexService {
         : {}),
       ...(typeof input.valid_until === "number"
         ? { valid_until: input.valid_until }
-        : {})
+        : {}),
+      provenance
     } as const;
 
     const result = await this.repository.store({
@@ -111,7 +119,11 @@ export class MetaCortexService {
       image_base64: normalizeOptionalText(input.image_base64),
       image_mime_type: normalizeOptionalText(input.image_mime_type),
       valid_from: input.valid_from,
-      valid_until: input.valid_until
+      valid_until: input.valid_until,
+      origin: input.origin,
+      source_session: input.source_session,
+      derived_from: input.derived_from,
+      confidence: input.confidence
     });
   }
 
@@ -132,6 +144,10 @@ export class MetaCortexService {
 
     if (typeof input.valid_at === "number") {
       matches = matches.filter(match => matchesValidAt(match.metadata, input.valid_at!));
+    }
+
+    if (input.filter_origin) {
+      matches = matches.filter(match => match.metadata.provenance?.origin === input.filter_origin);
     }
 
     return {
@@ -408,7 +424,22 @@ function buildPublicMetadata(match: Pick<MemoryDocument, "metadata">): Record<st
       ? { artifact_refs: match.metadata.artifact_refs }
       : {}),
     created_at: new Date(match.metadata.created_at).toISOString(),
-    updated_at: new Date(match.metadata.updated_at).toISOString()
+    updated_at: new Date(match.metadata.updated_at).toISOString(),
+    ...(typeof match.metadata.valid_from === "number"
+      ? { valid_from: new Date(match.metadata.valid_from).toISOString() }
+      : {}),
+    ...(typeof match.metadata.valid_until === "number"
+      ? { valid_until: new Date(match.metadata.valid_until).toISOString() }
+      : {}),
+    ...(match.metadata.supersession_reason
+      ? { supersession_reason: match.metadata.supersession_reason }
+      : {}),
+    ...(match.metadata.initiator
+      ? { initiator: match.metadata.initiator }
+      : {}),
+    ...(match.metadata.provenance
+      ? { provenance: match.metadata.provenance }
+      : {})
   };
 }
 

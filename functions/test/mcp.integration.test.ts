@@ -562,6 +562,211 @@ describe("MCP integration", () => {
     expect(afterPayload.matches.map((m: any) => m.id)).not.toContain(memoryId);
   });
 
+  it("remember_context with origin over MCP end-to-end", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const rememberResult1 = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking.",
+        topic: "kmp-networking",
+        origin: "user_asserted"
+      }
+    });
+
+    const rememberPayload1 = parseJsonTextContent(rememberResult1) as any;
+    expect(rememberPayload1).toMatchObject({
+      write_status: "created"
+    });
+    const id1 = rememberPayload1.item.id;
+
+    const fetchResult1 = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: id1
+      }
+    });
+    const fetchPayload1 = parseJsonTextContent(fetchResult1) as any;
+    expect(fetchPayload1.item.metadata.provenance.origin).toBe("user_asserted");
+
+    const rememberResult2 = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Compose for UI.",
+        topic: "kmp-ui"
+      }
+    });
+
+    const rememberPayload2 = parseJsonTextContent(rememberResult2) as any;
+    expect(rememberPayload2).toMatchObject({
+      write_status: "created"
+    });
+    const id2 = rememberPayload2.item.id;
+
+    const fetchResult2 = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id: id2
+      }
+    });
+    const fetchPayload2 = parseJsonTextContent(fetchResult2) as any;
+    expect(fetchPayload2.item.metadata.provenance.origin).toBe("agent_inferred");
+  });
+
+  it("search_context with filter_origin over MCP end-to-end", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const rememberResult1 = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking.",
+        topic: "kmp-networking",
+        origin: "user_asserted"
+      }
+    });
+    const id1 = (parseJsonTextContent(rememberResult1) as any).item.id;
+
+    const rememberResult2 = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking also.",
+        topic: "kmp-networking",
+        origin: "agent_inferred"
+      }
+    });
+    const id2 = (parseJsonTextContent(rememberResult2) as any).item.id;
+
+    const searchResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        filter_topic: "kmp-networking",
+        filter_origin: "user_asserted"
+      }
+    });
+
+    const searchPayload = parseJsonTextContent(searchResult) as any;
+    const matchIds = searchPayload.matches.map((m: any) => m.id);
+
+    expect(matchIds).toContain(id1);
+    expect(matchIds).not.toContain(id2);
+  });
+
+  it("fetch_context response includes temporal and provenance metadata", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const rememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking.",
+        topic: "kmp-networking",
+        valid_from: 10000,
+        valid_until: 20000,
+        origin: "legacy_import"
+      }
+    });
+
+    const rememberPayload = parseJsonTextContent(rememberResult) as any;
+    expect(rememberPayload).toMatchObject({
+      write_status: "created"
+    });
+    const id = rememberPayload.item.id;
+
+    const fetchResult = await client.callTool({
+      name: "fetch_context",
+      arguments: {
+        id
+      }
+    });
+
+    const fetchPayload = parseJsonTextContent(fetchResult) as any;
+    expect(fetchPayload.item.metadata).toMatchObject({
+      valid_from: new Date(10000).toISOString(),
+      valid_until: new Date(20000).toISOString(),
+      provenance: {
+        origin: "legacy_import"
+      }
+    });
+  });
+
   it("enforces tool scoping on client-specific endpoints", async () => {
     const runtime = createTestRuntime({
       clientProfiles: [

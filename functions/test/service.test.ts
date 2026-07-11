@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MetaCortexService } from "../src/service.js";
+import { MetaCortexService, buildFetchPayload } from "../src/service.js";
 import {
   createTestConfig,
   FakeMemoryContentPreparer,
@@ -330,6 +330,178 @@ describe("MetaCortexService", () => {
     });
 
     expect(result.matches.map(m => m.id)).toContain(stored.id);
+  });
+
+  it("storeContext() defaults origin to agent_inferred when not provided", async () => {
+    const { service } = createService();
+    const result = await service.storeContext({
+      content: "No origin test content",
+      module_name: "general",
+      branch_state: "active"
+    });
+
+    expect(result.metadata.provenance).toBeDefined();
+    expect(result.metadata.provenance?.origin).toBe("agent_inferred");
+  });
+
+  it("storeContext() preserves explicitly provided origin", async () => {
+    const { service } = createService();
+    const result = await service.storeContext({
+      content: "User asserted content",
+      module_name: "general",
+      branch_state: "active",
+      origin: "user_asserted"
+    });
+
+    expect(result.metadata.provenance?.origin).toBe("user_asserted");
+  });
+
+  it("storeContext() stores source_session, derived_from, and confidence when provided", async () => {
+    const { service } = createService();
+    const result = await service.storeContext({
+      content: "Complete provenance test content",
+      module_name: "general",
+      branch_state: "active",
+      origin: "agent_inferred",
+      source_session: "session-abc",
+      derived_from: ["memory-1"],
+      confidence: 0.8
+    });
+
+    expect(result.metadata.provenance?.origin).toBe("agent_inferred");
+    expect(result.metadata.provenance?.source_session).toBe("session-abc");
+    expect(result.metadata.provenance?.derived_from).toEqual(["memory-1"]);
+    expect(result.metadata.provenance?.confidence).toBe(0.8);
+  });
+
+  it("storeContext() does not include source_session, derived_from, or confidence if not provided", async () => {
+    const { service } = createService();
+    const result = await service.storeContext({
+      content: "Only origin test content",
+      module_name: "general",
+      branch_state: "active"
+    });
+
+    expect(result.metadata.provenance?.origin).toBe("agent_inferred");
+    expect(result.metadata.provenance?.source_session).toBeUndefined();
+    expect(result.metadata.provenance?.derived_from).toBeUndefined();
+    expect(result.metadata.provenance?.confidence).toBeUndefined();
+  });
+
+  it("searchContext() includes document with matching provenance origin", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "Match origin search content",
+      module_name: "general",
+      branch_state: "active",
+      origin: "user_asserted"
+    });
+
+    const result = await service.searchContext({
+      query: "search content",
+      filter_origin: "user_asserted"
+    });
+
+    expect(result.matches.map(m => m.id)).toContain(stored.id);
+  });
+
+  it("searchContext() excludes document with non-matching provenance origin", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "Non-match origin search content",
+      module_name: "general",
+      branch_state: "active",
+      origin: "agent_inferred"
+    });
+
+    const result = await service.searchContext({
+      query: "search content",
+      filter_origin: "user_asserted"
+    });
+
+    expect(result.matches.map(m => m.id)).not.toContain(stored.id);
+  });
+
+  it("searchContext() excludes documents without any provenance metadata when filter_origin is set", async () => {
+    const { service, repository } = createService();
+
+    const legacyStoreResult = await repository.store({
+      content: "Legacy doc with Ktor networking",
+      retrievalText: "Legacy doc with Ktor networking",
+      embedding: [1, 0, 0, 0, 0, 0],
+      idempotencyKey: "legacy-fingerprint-123",
+      metadata: {
+        module_name: "general",
+        branch_state: "active",
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        modality: "text"
+      }
+    });
+
+    const normalStoreResult = await service.storeContext({
+      content: "Normal doc with Ktor networking",
+      module_name: "general",
+      branch_state: "active",
+      origin: "user_asserted"
+    });
+
+    const result = await service.searchContext({
+      query: "Ktor networking",
+      filter_origin: "user_asserted"
+    });
+
+    const matchIds = result.matches.map(m => m.id);
+    expect(matchIds).toContain(normalStoreResult.id);
+    expect(matchIds).not.toContain(legacyStoreResult.document.id);
+  });
+
+  it("buildFetchPayload() exposes valid_from, valid_until, supersession_reason, initiator, and provenance", async () => {
+    const { service } = createService();
+
+    const doc1 = await service.storeContext({
+      content: "Document with temporal and origin info",
+      module_name: "general",
+      branch_state: "active",
+      valid_from: 1000,
+      valid_until: 2000,
+      origin: "user_asserted"
+    });
+
+    const doc2 = await service.storeContext({
+      content: "Document to deprecate",
+      module_name: "general",
+      branch_state: "active"
+    });
+
+    const doc3 = await service.storeContext({
+      content: "Replacement document",
+      module_name: "general",
+      branch_state: "active"
+    });
+
+    await service.deprecateContext({
+      id: doc2.id,
+      superseding_id: doc3.id,
+      supersession_reason: "changed",
+      initiator: "user"
+    });
+
+    const fetch1 = await service.fetchContext({ id: doc1.id });
+    const fetch2 = await service.fetchContext({ id: doc2.id });
+
+    const payload1 = buildFetchPayload(fetch1);
+    const payload2 = buildFetchPayload(fetch2);
+
+    const item1Metadata = (payload1.item as any).metadata;
+    expect(item1Metadata.valid_from).toBe(new Date(1000).toISOString());
+    expect(item1Metadata.valid_until).toBe(new Date(2000).toISOString());
+    expect(item1Metadata.provenance.origin).toBe("user_asserted");
+
+    const item2Metadata = (payload2.item as any).metadata;
+    expect(item2Metadata.branch_state).toBe("deprecated");
+    expect(item2Metadata.supersession_reason).toBe("changed");
+    expect(item2Metadata.initiator).toBe("user");
   });
 
   it("fetches a stored document by id", async () => {
