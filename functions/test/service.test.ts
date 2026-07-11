@@ -181,6 +181,157 @@ describe("MetaCortexService", () => {
     expect(result.previous_state).toBe("active");
   });
 
+  it("defaults supersession_reason to changed and sets valid_until on deprecate", async () => {
+    const { service, repository } = createService();
+    const stored = await service.storeContext({
+      content:
+        "We are using Ktor for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const replacement = await service.storeContext({
+      content:
+        "We migrated from Ktor to OkHttp for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const result = await service.deprecateContext({
+      id: stored.id,
+      superseding_id: replacement.id
+    });
+
+    expect(result.supersession_reason).toBe("changed");
+
+    const deprecatedDoc = await repository.get(stored.id);
+    expect(deprecatedDoc).not.toBeNull();
+    expect(typeof deprecatedDoc?.metadata.valid_until).toBe("number");
+  });
+
+  it("does not set valid_until when supersession_reason is corrected", async () => {
+    const { service, repository } = createService();
+    const stored = await service.storeContext({
+      content:
+        "We are using Ktor for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const replacement = await service.storeContext({
+      content:
+        "We migrated from Ktor to OkHttp for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const result = await service.deprecateContext({
+      id: stored.id,
+      superseding_id: replacement.id,
+      supersession_reason: "corrected"
+    });
+
+    expect(result.supersession_reason).toBe("corrected");
+
+    const deprecatedDoc = await repository.get(stored.id);
+    expect(deprecatedDoc).not.toBeNull();
+    expect(deprecatedDoc?.metadata.valid_until).toBeUndefined();
+  });
+
+  it("records initiator on deprecate when provided", async () => {
+    const { service, repository } = createService();
+    const stored = await service.storeContext({
+      content:
+        "We are using Ktor for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const replacement = await service.storeContext({
+      content:
+        "We migrated from Ktor to OkHttp for the Android/iOS networking layer.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    await service.deprecateContext({
+      id: stored.id,
+      superseding_id: replacement.id,
+      initiator: "user"
+    });
+
+    const deprecatedDoc = await repository.get(stored.id);
+    expect(deprecatedDoc).not.toBeNull();
+    expect(deprecatedDoc?.metadata.initiator).toBe("user");
+  });
+
+  it("search with valid_at excludes documents outside their valid window", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "We are using Ktor for networking.",
+      module_name: "kmp-networking",
+      branch_state: "active",
+      valid_from: 1000,
+      valid_until: 2000
+    });
+
+    const inside = await service.searchContext({
+      query: "networking",
+      valid_at: 1500
+    });
+    expect(inside.matches.map(m => m.id)).toContain(stored.id);
+
+    const after = await service.searchContext({
+      query: "networking",
+      valid_at: 2500
+    });
+    expect(after.matches.map(m => m.id)).not.toContain(stored.id);
+
+    const before = await service.searchContext({
+      query: "networking",
+      valid_at: 500
+    });
+    expect(before.matches.map(m => m.id)).not.toContain(stored.id);
+  });
+
+  it("search with valid_at excludes corrected documents", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "We are using Ktor for networking.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+    const replacement = await service.storeContext({
+      content: "We migrated to OkHttp.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    await service.deprecateContext({
+      id: stored.id,
+      superseding_id: replacement.id,
+      supersession_reason: "corrected"
+    });
+
+    const result = await service.searchContext({
+      query: "networking",
+      filter_state: "deprecated",
+      valid_at: 1500
+    });
+
+    expect(result.matches.map(m => m.id)).not.toContain(stored.id);
+  });
+
+  it("search with valid_at includes documents with no temporal fields set", async () => {
+    const { service } = createService();
+    const stored = await service.storeContext({
+      content: "We are using Ktor for networking.",
+      module_name: "kmp-networking",
+      branch_state: "active"
+    });
+
+    const result = await service.searchContext({
+      query: "networking",
+      valid_at: 1500
+    });
+
+    expect(result.matches.map(m => m.id)).toContain(stored.id);
+  });
+
   it("fetches a stored document by id", async () => {
     const { service } = createService();
     const stored = await service.storeContext({

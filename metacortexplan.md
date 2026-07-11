@@ -56,7 +56,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
 * **Effort:** Medium.
 
 ### 2. Temporal Validity / Fact Versioning
-* **Status:** Proposed
+* **Status:** Implemented 2026-07-11
 * **Goal:** Enable the agent to distinguish old facts from current ones beyond `branch_state`.
 * **Proposal:** Add optional `valid_from` and `valid_until` fields to stored memories. Search results can filter by temporal validity. Update deprecation to set `valid_until` automatically.
 
@@ -99,7 +99,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
 | MCP native | ❌ | ❌ | ❌ | ❌ | ✅ (thin) | ✅ (full) |
 | Client/tenant scoping | Basic | ❌ | ❌ | ❌ | Basic (Spaces) | ✅ (profiles) |
 | Context tiering | ❌ | ❌ | ❌ | ✅ (L0/L1/L2) | ❌ | 🔜 (proposed) |
-| Temporal validity | ❌ | ❌ | ✅ (bi-temporal) | ❌ | ❌ | 🔜 (proposed) |
+| Temporal validity | ❌ | ❌ | ✅ (bi-temporal) | ❌ | ❌ | ✅ (bi-temporal-lite) |
 | Graph relationships | ✅ (hybrid) | ❌ | ✅ (core) | ❌ | ❌ | ❌ |
 | Auto memory evolution | ✅ | ✅ (self-edit) | ✅ | ✅ | ✅ | ❌ |
 | Serverless-native | ❌ | ❌ | ❌ | ❌ | ✅ (CF Workers) | ✅ (Firebase) |

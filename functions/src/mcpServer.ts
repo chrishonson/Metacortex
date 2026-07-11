@@ -18,6 +18,7 @@ import {
 } from "./service.js";
 import {
   BRANCH_STATES,
+  SUPERSESSION_REASONS,
   type BranchState,
   type McpToolName
 } from "./types.js";
@@ -281,7 +282,11 @@ export function createMetaCortexMcpServer(
             .min(1)
             .max(20)
             .optional()
-            .describe("Max results to return. Defaults to 5.")
+            .describe("Max results to return. Defaults to 5."),
+          valid_at: z
+            .number()
+            .optional()
+            .describe("Optional epoch-ms timestamp. When provided, only returns memories valid at that point in time (valid_from <= valid_at < valid_until, excluding corrected records).")
         }
       },
       async args => {
@@ -293,7 +298,8 @@ export function createMetaCortexMcpServer(
           query_length: args.query.trim().length,
           filter_topic: normalizedFilterTopic,
           filter_state: requestedFilterState,
-          limit: args.limit
+          limit: args.limit,
+          valid_at: args.valid_at
         };
         const result = await observeToolCall(
           "search_context",
@@ -424,13 +430,23 @@ export function createMetaCortexMcpServer(
           superseding_id: z
             .string()
             .min(1)
-            .describe("The id of the new memory that replaces it.")
+            .describe("The id of the new memory that replaces it."),
+          supersession_reason: z
+            .enum(SUPERSESSION_REASONS)
+            .optional()
+            .describe("Why the memory is being superseded. 'changed' (default) means the old fact was true of its era, records valid_until. 'corrected' means the old record was never true, excluded from valid-time results but kept for audit."),
+          initiator: z
+            .enum(["user", "agent"])
+            .optional()
+            .describe("Who initiated this deprecation, for audit purposes.")
         }
       },
       async args => {
         const requestSummary = {
           id: args.id,
-          superseding_id: args.superseding_id
+          superseding_id: args.superseding_id,
+          supersession_reason: args.supersession_reason,
+          initiator: args.initiator
         };
         const result = await observeToolCall(
           "deprecate_context",
@@ -439,7 +455,8 @@ export function createMetaCortexMcpServer(
           record => ({
             id: record.id,
             superseding_id: record.superseding_id,
-            previous_state: record.previous_state
+            previous_state: record.previous_state,
+            supersession_reason: record.supersession_reason
           })
         );
 
