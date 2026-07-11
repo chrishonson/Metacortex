@@ -12,6 +12,7 @@ import {
   buildConsolidatePayload,
   buildDeprecatePayload,
   buildFetchPayload,
+  buildListPayload,
   buildRememberPayload,
   buildSearchPayload,
   MetaCortexService
@@ -405,6 +406,92 @@ export function createMetaCortexMcpServer(
     );
   }
 
+  if (allowedTools.has("list_context")) {
+    server.registerTool(
+      "list_context",
+      {
+        title: "List Context",
+        description:
+          "Enumerate stored memories without vector search. Supports cursor-based pagination and filtering by topic, state, origin, and creation time. Returns a JSON object with items, next_cursor, and applied_filters. Note: due to origin post-filtering, a page may contain fewer than limit items while next_cursor is non-null.",
+        inputSchema: {
+          filter_topic: z
+            .string()
+            .optional()
+            .describe(
+              "Optional topic or subsystem label to pre-filter, such as auth, billing, or kmp-networking."
+            ),
+          filter_state: z
+            .enum(BRANCH_STATES)
+            .default(config.defaultFilterState)
+            .describe("Optional branch state filter. Defaults to active."),
+          filter_origin: z
+            .enum(PROVENANCE_ORIGINS)
+            .optional()
+            .describe(
+              "Optional provenance origin filter. Only returns memories whose provenance.origin matches exactly; memories without provenance metadata are excluded when this filter is set."
+            ),
+          created_after: z
+            .number()
+            .optional()
+            .describe("Optional epoch-ms timestamp (inclusive). Only returns memories created at or after this time."),
+          created_before: z
+            .number()
+            .optional()
+            .describe("Optional epoch-ms timestamp (exclusive). Only returns memories created before this time."),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(100)
+            .optional()
+            .describe("Max results to return. Defaults to 20."),
+          cursor: z
+            .string()
+            .optional()
+            .describe("Optional cursor for pagination (a document id). When set, starts after the cursor.")
+        }
+      },
+      async args => {
+        const requestedFilterState = args.filter_state ?? config.defaultFilterState;
+        const normalizedFilterTopic = normalizeOptionalText(args.filter_topic);
+        const requestSummary = {
+          filter_topic: normalizedFilterTopic,
+          filter_state: requestedFilterState,
+          filter_origin: args.filter_origin,
+          created_after: args.created_after,
+          created_before: args.created_before,
+          limit: args.limit,
+          cursor: args.cursor
+        };
+        const result = await observeToolCall(
+          "list_context",
+          requestSummary,
+          async () => {
+            if (!config.allowedFilterStates.includes(requestedFilterState)) {
+              throw new HttpError(
+                403,
+                `filter_state '${requestedFilterState}' is not allowed for this client`
+              );
+            }
+
+            return service.listContext(args);
+          },
+          listResult => ({
+            result_count: listResult.items.length,
+            result_ids: listResult.items.map(item => item.id),
+            filter_state: listResult.applied_filters.filter_state,
+            filter_topic: listResult.applied_filters.filter_topic,
+            has_next_cursor: listResult.next_cursor !== null
+          })
+        );
+
+        return {
+          content: [jsonTextContent(buildListPayload(result))]
+        };
+      }
+    );
+  }
+
   if (allowedTools.has("fetch_context")) {
     server.registerTool(
       "fetch_context",
@@ -644,6 +731,9 @@ function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
       : undefined,
     allowedToolSet.has("search_context")
       ? "Use search_context for retrieval and filter_topic to narrow by topic."
+      : undefined,
+    allowedToolSet.has("list_context")
+      ? "Use list_context to enumerate memories with filters and pagination."
       : undefined,
     allowedToolSet.has("fetch_context")
       ? "Use fetch_context with the id returned by remember_context or search_context when you need the full stored record."

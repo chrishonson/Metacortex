@@ -9,6 +9,7 @@ import { HttpError } from "./errors.js";
 import type { LlmMergeClient } from "./merging.js";
 import { normalizeOptionalText } from "./normalize.js";
 import type {
+  BranchState,
   ConsolidateContextInput,
   ConsolidateContextResult,
   ConsolidationQueueInput,
@@ -17,6 +18,8 @@ import type {
   DeprecateContextResult,
   FetchContextInput,
   FetchContextResult,
+  ListContextInput,
+  ListContextResult,
   MemoryDocument,
   MemoryMetadata,
   RememberContextInput,
@@ -155,6 +158,50 @@ export class MetaCortexService {
       appliedFilters: {
         filter_topic: filterTopic,
         filter_state: filterState
+      }
+    };
+  }
+
+  async listContext(input: ListContextInput): Promise<ListContextResult> {
+    const limit = input.limit ?? 20;
+    if (limit < 1 || limit > 100) {
+      throw new HttpError(400, "Limit must be between 1 and 100");
+    }
+
+    const filterState = input.filter_state ?? this.config.defaultFilterState;
+    const filterTopic = normalizeOptionalText(input.filter_topic);
+
+    const { documents } = await this.repository.list({
+      filterState,
+      filterModule: filterTopic,
+      createdAfter: input.created_after,
+      createdBefore: input.created_before,
+      limit,
+      cursorId: input.cursor
+    });
+
+    const nextCursor = documents.length === limit ? documents[documents.length - 1].id : null;
+
+    let items = documents;
+    if (input.filter_origin) {
+      items = documents.filter(
+        doc => doc.metadata.provenance?.origin === input.filter_origin
+      );
+    }
+
+    return {
+      items: items.map(doc => ({
+        id: doc.id,
+        summary: summarizeMemoryContent(doc.content),
+        metadata: doc.metadata
+      })),
+      next_cursor: nextCursor,
+      applied_filters: {
+        filter_topic: filterTopic,
+        filter_state: filterState as BranchState,
+        filter_origin: input.filter_origin,
+        created_after: input.created_after,
+        created_before: input.created_before
       }
     };
   }
@@ -302,6 +349,24 @@ export function buildSearchPayload(result: SearchContextResult): Record<string, 
     applied_filters: {
       filter_topic: result.appliedFilters.filter_topic ?? null,
       filter_state: result.appliedFilters.filter_state
+    }
+  };
+}
+
+export function buildListPayload(result: ListContextResult): Record<string, unknown> {
+  return {
+    items: result.items.map(item => ({
+      id: item.id,
+      summary: item.summary,
+      metadata: buildPublicMetadata({ metadata: item.metadata })
+    })),
+    next_cursor: result.next_cursor,
+    applied_filters: {
+      filter_topic: result.applied_filters.filter_topic ?? null,
+      filter_state: result.applied_filters.filter_state,
+      filter_origin: result.applied_filters.filter_origin ?? null,
+      created_after: result.applied_filters.created_after ?? null,
+      created_before: result.applied_filters.created_before ?? null
     }
   };
 }

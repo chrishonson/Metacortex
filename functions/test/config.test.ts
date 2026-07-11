@@ -150,4 +150,23 @@ describe("loadConfig", () => {
       })
     ).toThrowError(MissingConfigurationError);
   });
+
+  it("allows list_context in MCP_ALLOWED_TOOLS and client profiles", () => {
+    const config = loadConfig({
+      [geminiApiKeyEnv]: accessCredential("gemini"),
+      [adminTokenEnv]: accessCredential("admin"),
+      MCP_ALLOWED_TOOLS: "list_context",
+      [clientProfilesEnv]: JSON.stringify([
+        {
+          id: "test-client",
+          [tokenField]: accessCredential("test-client"),
+          allowedTools: ["list_context"]
+        }
+      ])
+    });
+
+    expect(config.defaultClientProfile.allowedTools).toEqual(["list_context"]);
+    expect(config.clientProfiles[0]?.allowedTools).toEqual(["list_context"]);
+  });
 });
+

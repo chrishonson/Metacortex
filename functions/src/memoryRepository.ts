@@ -25,6 +25,15 @@ export interface SearchMemoryParams {
   filterState: string;
 }
 
+export interface ListMemoryParams {
+  filterState: string;
+  filterModule?: string;
+  createdAfter?: number;
+  createdBefore?: number;
+  limit: number;
+  cursorId?: string;
+}
+
 export interface MemoryRepository {
   store(params: StoreMemoryParams): Promise<{ document: MemoryDocument; created: boolean }>;
   search(params: SearchMemoryParams): Promise<MemoryDocument[]>;
@@ -35,6 +44,7 @@ export interface MemoryRepository {
     options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }>;
   getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]>;
+  list(params: ListMemoryParams): Promise<{ documents: MemoryDocument[] }>;
 }
 
 interface FirestoreMemoryDocument {
@@ -231,6 +241,50 @@ export class FirestoreMemoryRepository implements MemoryRepository {
         media: data.media
       };
     });
+  }
+
+  async list(params: ListMemoryParams): Promise<{ documents: MemoryDocument[] }> {
+    let query = this.firestore
+      .collection(this.collectionName)
+      .where("metadata.branch_state", "==", params.filterState);
+
+    if (params.filterModule) {
+      query = query.where("metadata.module_name", "==", params.filterModule);
+    }
+
+    if (typeof params.createdAfter === "number") {
+      query = query.where("metadata.created_at", ">=", params.createdAfter);
+    }
+
+    if (typeof params.createdBefore === "number") {
+      query = query.where("metadata.created_at", "<", params.createdBefore);
+    }
+
+    query = query.orderBy("metadata.created_at", "desc");
+
+    if (params.cursorId) {
+      const cursorSnapshot = await this.firestore
+        .collection(this.collectionName)
+        .doc(params.cursorId)
+        .get();
+
+      if (!cursorSnapshot.exists) {
+        throw new HttpError(400, "Invalid cursor");
+      }
+
+      query = query.startAfter(cursorSnapshot);
+    }
+
+    query = query.limit(params.limit);
+
+    const snapshot = await query.get();
+
+    return {
+      documents: snapshot.docs.map(doc => {
+        const data = doc.data() as FirestoreMemoryDocument;
+        return mapFirestoreDocument(doc.id, data);
+      })
+    };
   }
 }
 

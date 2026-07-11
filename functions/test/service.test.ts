@@ -752,4 +752,155 @@ describe("MetaCortexService", () => {
       ).rejects.toThrow("Document not found");
     });
   });
+
+  describe("listContext()", () => {
+    it("uses default state (active) and default limit (20)", async () => {
+      const { service } = createService();
+      for (let i = 1; i <= 25; i++) {
+        await service.storeContext({
+          content: `doc ${i}`,
+          module_name: "general",
+          branch_state: "active"
+        });
+      }
+      const result = await service.listContext({});
+      expect(result.items.length).toBe(20);
+      expect(result.next_cursor).not.toBeNull();
+      expect(result.applied_filters.filter_state).toBe("active");
+      expect(result.applied_filters.filter_topic).toBeUndefined();
+    });
+
+    it("filters by topic (module_name)", async () => {
+      const { service } = createService();
+      await service.storeContext({
+        content: "auth memory",
+        module_name: "auth",
+        branch_state: "active"
+      });
+      await service.storeContext({
+        content: "billing memory",
+        module_name: "billing",
+        branch_state: "active"
+      });
+
+      const result = await service.listContext({ filter_topic: "auth" });
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].summary).toBe("auth memory");
+      expect(result.applied_filters.filter_topic).toBe("auth");
+    });
+
+    it("filters by created range (created_after/created_before)", async () => {
+      const { service, repository } = createService();
+      const timestamps = [1000, 2000, 3000];
+      for (let i = 0; i < timestamps.length; i++) {
+        await repository.store({
+          content: `doc ${i}`,
+          retrievalText: `doc ${i}`,
+          embedding: [0, 0, 0, 0, 0, 0],
+          idempotencyKey: `key-${i}`,
+          metadata: {
+            module_name: "general",
+            branch_state: "active",
+            created_at: timestamps[i],
+            updated_at: timestamps[i],
+            modality: "text"
+          }
+        });
+      }
+
+      const result = await service.listContext({
+        created_after: 2000,
+        created_before: 3000
+      });
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].summary).toBe("doc 1");
+    });
+
+    it("excludes provenance-less documents when filter_origin is set", async () => {
+      const { service, repository } = createService();
+      await service.storeContext({
+        content: "doc with origin",
+        module_name: "general",
+        branch_state: "active",
+        origin: "user_asserted"
+      });
+
+      await repository.store({
+        content: "doc without origin",
+        retrievalText: "doc without origin",
+        embedding: [0, 0, 0, 0, 0, 0],
+        idempotencyKey: "key-no-origin",
+        metadata: {
+          module_name: "general",
+          branch_state: "active",
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          modality: "text"
+        }
+      });
+
+      const result = await service.listContext({
+        filter_origin: "user_asserted"
+      });
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].summary).toBe("doc with origin");
+    });
+
+    it("paginates across 2+ pages with cursor", async () => {
+      const { service } = createService();
+      const ids: string[] = [];
+      for (let i = 1; i <= 5; i++) {
+        const stored = await service.storeContext({
+          content: `item ${i}`,
+          module_name: "general",
+          branch_state: "active"
+        });
+        ids.push(stored.id);
+      }
+      const page1 = await service.listContext({ limit: 2 });
+      expect(page1.items.length).toBe(2);
+      expect(page1.next_cursor).toBe(page1.items[1].id);
+
+      const page2 = await service.listContext({ limit: 2, cursor: page1.next_cursor! });
+      expect(page2.items.length).toBe(2);
+      expect(page2.next_cursor).toBe(page2.items[1].id);
+
+      const page3 = await service.listContext({ limit: 2, cursor: page2.next_cursor! });
+      expect(page3.items.length).toBe(1);
+      expect(page3.next_cursor).toBeNull();
+    });
+
+    it("returns null next_cursor on final partial page", async () => {
+      const { service } = createService();
+      for (let i = 1; i <= 3; i++) {
+        await service.storeContext({
+          content: `item ${i}`,
+          module_name: "general",
+          branch_state: "active"
+        });
+      }
+      const result = await service.listContext({ limit: 4 });
+      expect(result.items.length).toBe(3);
+      expect(result.next_cursor).toBeNull();
+    });
+
+    it("throws 400 on invalid cursor", async () => {
+      const { service } = createService();
+      await expect(
+        service.listContext({ cursor: "non-existent-id" })
+      ).rejects.toThrow("Invalid cursor");
+    });
+
+    it("throws 400 when limit is less than 1 or greater than 100", async () => {
+      const { service } = createService();
+      await expect(
+        service.listContext({ limit: 0 })
+      ).rejects.toThrow("Limit must be between 1 and 100");
+
+      await expect(
+        service.listContext({ limit: 101 })
+      ).rejects.toThrow("Limit must be between 1 and 100");
+    });
+  });
 });
+
