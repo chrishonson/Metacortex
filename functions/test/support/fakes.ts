@@ -18,7 +18,8 @@ import type {
   BranchState,
   MemoryDocument,
   MemoryMedia,
-  MemoryMetadata
+  MemoryMetadata,
+  SupersessionReason
 } from "../../src/types.js";
 import { MCP_TOOL_NAMES } from "../../src/types.js";
 import {
@@ -189,7 +190,8 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 
   async deprecate(
     documentId: string,
-    supersedingDocumentId: string
+    supersedingDocumentId: string,
+    options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }> {
     const record = this.records.find(r => r.id === documentId);
 
@@ -198,11 +200,17 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     }
 
     const previousState = record.metadata.branch_state;
+    const resolvedReason = options?.supersessionReason ?? "changed";
+    const now = Date.now();
+
     record.metadata = {
       ...record.metadata,
       branch_state: "deprecated",
       superseded_by: supersedingDocumentId,
-      updated_at: Date.now()
+      updated_at: now,
+      supersession_reason: resolvedReason,
+      ...(resolvedReason === "changed" ? { valid_until: now } : {}),
+      ...(options?.initiator ? { initiator: options.initiator } : {})
     };
 
     return { previousState };

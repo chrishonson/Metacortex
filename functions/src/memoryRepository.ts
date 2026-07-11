@@ -5,7 +5,8 @@ import type {
   BranchState,
   MemoryDocument,
   MemoryMedia,
-  MemoryMetadata
+  MemoryMetadata,
+  SupersessionReason
 } from "./types.js";
 
 export interface StoreMemoryParams {
@@ -28,7 +29,11 @@ export interface MemoryRepository {
   store(params: StoreMemoryParams): Promise<{ document: MemoryDocument; created: boolean }>;
   search(params: SearchMemoryParams): Promise<MemoryDocument[]>;
   get(documentId: string): Promise<MemoryDocument | null>;
-  deprecate(documentId: string, supersedingDocumentId: string): Promise<{ previousState: BranchState }>;
+  deprecate(
+    documentId: string,
+    supersedingDocumentId: string,
+    options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
+  ): Promise<{ previousState: BranchState }>;
   getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]>;
 }
 
@@ -162,7 +167,8 @@ export class FirestoreMemoryRepository implements MemoryRepository {
 
   async deprecate(
     documentId: string,
-    supersedingDocumentId: string
+    supersedingDocumentId: string,
+    options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }> {
     const docRef = this.firestore
       .collection(this.collectionName)
@@ -177,11 +183,25 @@ export class FirestoreMemoryRepository implements MemoryRepository {
     const data = snapshot.data() as FirestoreMemoryDocument;
     const previousState = data.metadata.branch_state;
 
-    await docRef.update({
+    const now = Date.now();
+    const resolvedReason = options?.supersessionReason ?? "changed";
+
+    const updates: Record<string, unknown> = {
       "metadata.branch_state": "deprecated",
       "metadata.superseded_by": supersedingDocumentId,
-      "metadata.updated_at": Date.now()
-    });
+      "metadata.updated_at": now,
+      "metadata.supersession_reason": resolvedReason
+    };
+
+    if (resolvedReason === "changed") {
+      updates["metadata.valid_until"] = now;
+    }
+
+    if (options?.initiator) {
+      updates["metadata.initiator"] = options.initiator;
+    }
+
+    await docRef.update(updates);
 
     return { previousState };
   }

@@ -18,11 +18,13 @@ import type {
   FetchContextInput,
   FetchContextResult,
   MemoryDocument,
+  MemoryMetadata,
   RememberContextInput,
   SearchContextInput,
   SearchContextResult,
   StoreContextInput,
-  StoreContextResult
+  StoreContextResult,
+  SupersessionReason
 } from "./types.js";
 import type { MemoryRepository } from "./memoryRepository.js";
 
@@ -62,6 +64,12 @@ export class MetaCortexService {
       modality: preparedContent.modality,
       ...(normalizedArtifactRefs.length > 0
         ? { artifact_refs: normalizedArtifactRefs }
+        : {}),
+      ...(typeof input.valid_from === "number"
+        ? { valid_from: input.valid_from }
+        : {}),
+      ...(typeof input.valid_until === "number"
+        ? { valid_until: input.valid_until }
         : {})
     } as const;
 
@@ -101,7 +109,9 @@ export class MetaCortexService {
       branch_state: branchState,
       artifact_refs: input.artifact_refs,
       image_base64: normalizeOptionalText(input.image_base64),
-      image_mime_type: normalizeOptionalText(input.image_mime_type)
+      image_mime_type: normalizeOptionalText(input.image_mime_type),
+      valid_from: input.valid_from,
+      valid_until: input.valid_until
     });
   }
 
@@ -113,12 +123,16 @@ export class MetaCortexService {
       text: normalizedQuery,
       taskType: "RETRIEVAL_QUERY"
     });
-    const matches = await this.repository.search({
+    let matches = await this.repository.search({
       queryVector,
       limit: input.limit ?? this.config.topK,
       filterModule: filterTopic,
       filterState
     });
+
+    if (typeof input.valid_at === "number") {
+      matches = matches.filter(match => matchesValidAt(match.metadata, input.valid_at!));
+    }
 
     return {
       matches,
@@ -141,15 +155,21 @@ export class MetaCortexService {
   }
 
   async deprecateContext(input: DeprecateContextInput): Promise<DeprecateContextResult> {
+    const resolvedReason: SupersessionReason = input.supersession_reason ?? "changed";
     const { previousState } = await this.repository.deprecate(
       input.id,
-      input.superseding_id
+      input.superseding_id,
+      {
+        supersessionReason: resolvedReason,
+        initiator: input.initiator
+      }
     );
 
     return {
       id: input.id,
       superseding_id: input.superseding_id,
-      previous_state: previousState
+      previous_state: previousState,
+      supersession_reason: resolvedReason
     };
   }
 
@@ -300,7 +320,8 @@ export function buildDeprecatePayload(
     item: {
       id: result.id,
       branch_state: "deprecated",
-      superseded_by: result.superseding_id
+      superseded_by: result.superseding_id,
+      supersession_reason: result.supersession_reason
     },
     previous_state: result.previous_state
   };
@@ -405,4 +426,12 @@ function normalizePublicModality(value: string): "text" | "image" | "mixed" {
   }
 
   return "text";
+}
+
+function matchesValidAt(metadata: MemoryMetadata, validAt: number): boolean {
+  const validFromOk = typeof metadata.valid_from === "undefined" || metadata.valid_from <= validAt;
+  const validUntilOk = typeof metadata.valid_until === "undefined" || metadata.valid_until > validAt;
+  const reasonOk = metadata.supersession_reason !== "corrected";
+
+  return validFromOk && validUntilOk && reasonOk;
 }

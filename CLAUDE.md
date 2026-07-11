@@ -70,7 +70,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `remember_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, and artifact refs |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
-| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
+| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
 ### Key Source Files (all under `functions/src/`)
@@ -95,11 +95,11 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **remember_context**: Chat/admin input → server defaults/inference for metadata and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata
 
-**search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional topic filter
+**search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional topic filter; optional `valid_at` post-filters results in the service layer by temporal validity window
 
 **fetch_context**: Document ID → direct Firestore read of one stored memory
 
-**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
+**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`; `supersession_reason` ("changed" default sets `valid_until` to now, "corrected" does not) and optional `initiator` are recorded on the deprecated document
 
 **consolidate_context**: Topic (default WIP queue) or explicit `source_ids` → gather source memories → Gemini merge of N contents into one → store merged result as `active` → deprecate every source with `superseded_by` pointing to the merged ID
 

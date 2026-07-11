@@ -13,6 +13,8 @@ export const BRANCH_STATES = [
   "wip"
 ] as const;
 
+export const SUPERSESSION_REASONS = ["changed", "corrected"] as const;
+
 export const MEMORY_MODALITIES = [
   "text",
   "image",
@@ -20,6 +22,7 @@ export const MEMORY_MODALITIES = [
 ] as const;
 
 export type BranchState = (typeof BRANCH_STATES)[number];
+export type SupersessionReason = (typeof SUPERSESSION_REASONS)[number];
 export type MemoryModality = (typeof MEMORY_MODALITIES)[number];
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 
@@ -36,6 +39,10 @@ export interface MemoryMetadata {
   modality: MemoryModality;
   artifact_refs?: string[];
   superseded_by?: string;
+  valid_from?: number;
+  valid_until?: number;
+  supersession_reason?: SupersessionReason;
+  initiator?: "user" | "agent";
 }
 
 export interface MemoryDocument {
@@ -54,6 +61,8 @@ export interface StoreContextInput {
   artifact_refs?: string[];
   image_base64?: string;
   image_mime_type?: string;
+  valid_from?: number;
+  valid_until?: number;
 }
 
 export interface SearchContextInput {
@@ -61,6 +70,7 @@ export interface SearchContextInput {
   filter_topic?: string;
   filter_state?: BranchState;
   limit?: number;
+  valid_at?: number;
 }
 
 export interface RememberContextInput {
@@ -71,6 +81,8 @@ export interface RememberContextInput {
   artifact_refs?: string[];
   image_base64?: string;
   image_mime_type?: string;
+  valid_from?: number;
+  valid_until?: number;
 }
 
 export interface StoreContextResult {
@@ -102,12 +114,15 @@ export interface FetchContextResult {
 export interface DeprecateContextInput {
   id: string;
   superseding_id: string;
+  supersession_reason?: SupersessionReason;
+  initiator?: "user" | "agent";
 }
 
 export interface DeprecateContextResult {
   id: string;
   superseding_id: string;
   previous_state: BranchState;
+  supersession_reason: SupersessionReason;
 }
 
 export interface ConsolidationQueueInput {

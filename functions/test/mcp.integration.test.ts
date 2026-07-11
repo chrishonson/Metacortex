@@ -218,6 +218,157 @@ describe("MCP integration", () => {
     );
   });
 
+  it("supports temporal validity fields on deprecate_context and search_context", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    // Call remember_context to create a memory
+    const rememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking.",
+        topic: "kmp-networking"
+      }
+    });
+
+    const rememberPayload = parseJsonTextContent(rememberResult) as any;
+    expect(rememberPayload).toMatchObject({
+      write_status: "created"
+    });
+    const firstId = rememberPayload.item.id;
+
+    // Call remember_context again to create a second "replacement" memory
+    const replacementResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We standardized on Ktor 3 for shared networking.",
+        topic: "kmp-networking"
+      }
+    });
+
+    const replacementPayload = parseJsonTextContent(replacementResult) as any;
+    expect(replacementPayload).toMatchObject({
+      write_status: "created"
+    });
+    const secondId = replacementPayload.item.id;
+
+    // Call deprecate_context with corrected reason and initiator user
+    const deprecateResult = await client.callTool({
+      name: "deprecate_context",
+      arguments: {
+        id: firstId,
+        superseding_id: secondId,
+        supersession_reason: "corrected",
+        initiator: "user"
+      }
+    });
+
+    expect(parseJsonTextContent(deprecateResult)).toMatchObject({
+      item: {
+        id: firstId,
+        branch_state: "deprecated",
+        superseded_by: secondId,
+        supersession_reason: "corrected"
+      },
+      previous_state: "active"
+    });
+
+    // Call search_context with valid_at: Date.now() - firstId must not be in matches
+    const searchResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        filter_state: "deprecated",
+        valid_at: Date.now()
+      }
+    });
+
+    const searchPayload = parseJsonTextContent(searchResult) as any;
+    expect(searchPayload.matches.map((m: any) => m.id)).not.toContain(firstId);
+
+    // Additionally call remember_context to create a third memory
+    const thirdResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We use Ktor for Android and iOS networking.",
+        topic: "kmp-networking"
+      }
+    });
+
+    const thirdPayload = parseJsonTextContent(thirdResult) as any;
+    expect(thirdPayload).toMatchObject({
+      write_status: "created"
+    });
+    const thirdId = thirdPayload.item.id;
+
+    // Capture beforeDeprecation timestamp
+    const beforeDeprecation = Date.now();
+
+    // Call deprecate_context with supersession_reason "changed" (or omit, but we'll specify "changed" as requested)
+    const deprecateThirdResult = await client.callTool({
+      name: "deprecate_context",
+      arguments: {
+        id: thirdId,
+        superseding_id: secondId,
+        supersession_reason: "changed"
+      }
+    });
+
+    const deprecateThirdPayload = parseJsonTextContent(deprecateThirdResult) as any;
+    expect(deprecateThirdPayload.item.supersession_reason).toBe("changed");
+
+    // Search with valid_at before the deprecation - thirdId IS included
+    const searchBeforeResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        filter_state: "deprecated",
+        valid_at: beforeDeprecation - 1000
+      }
+    });
+
+    const searchBeforePayload = parseJsonTextContent(searchBeforeResult) as any;
+    expect(searchBeforePayload.matches.map((m: any) => m.id)).toContain(thirdId);
+
+    // Search with valid_at after the deprecation - thirdId is NOT included
+    const searchAfterResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        filter_state: "deprecated",
+        valid_at: Date.now() + 1000
+      }
+    });
+
+    const searchAfterPayload = parseJsonTextContent(searchAfterResult) as any;
+    expect(searchAfterPayload.matches.map((m: any) => m.id)).not.toContain(thirdId);
+  });
+
   it("enforces tool scoping on client-specific endpoints", async () => {
     const runtime = createTestRuntime({
       clientProfiles: [
