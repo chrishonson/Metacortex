@@ -70,6 +70,7 @@ describe("MCP integration", () => {
       "consolidate_context",
       "deprecate_context",
       "fetch_context",
+      "list_context",
       "remember_context",
       "search_context"
     ]);
@@ -1206,6 +1207,167 @@ describe("MCP integration", () => {
         found: true
       }
     ]);
+  });
+
+  it("supports list_context enumeration and pagination end-to-end", async () => {
+    const runtime = createTestRuntime({
+      defaultClientProfile: {
+        id: "default",
+        authToken: "test-access",
+        allowedOrigins: [],
+        allowedTools: ["remember_context", "list_context"],
+        allowedFilterStates: ["active", "deprecated"]
+      }
+    });
+    const app = createMetaCortexApp({
+      getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
+      getRuntime: () => runtime
+    });
+    const baseUrl = await startServer(app, cleanup);
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const emptyResult = await client.callTool({
+      name: "list_context",
+      arguments: { limit: 10 }
+    });
+    expect(emptyResult.isError).toBeUndefined();
+    const emptyPayload = parseJsonTextContent(emptyResult);
+    expect(emptyPayload.items).toEqual([]);
+    expect(emptyPayload.next_cursor).toBeNull();
+
+    for (let i = 1; i <= 3; i++) {
+      await client.callTool({
+        name: "remember_context",
+        arguments: {
+          content: `Test memory ${i} content`,
+          topic: "testing",
+          branch_state: "active"
+        }
+      });
+    }
+
+    const listResult = await client.callTool({
+      name: "list_context",
+      arguments: { limit: 2 }
+    });
+    expect(listResult.isError).toBeUndefined();
+    const listPayload = parseJsonTextContent(listResult);
+    expect(listPayload.items.length).toBe(2);
+    expect(listPayload.next_cursor).not.toBeNull();
+    expect(listPayload.applied_filters.filter_state).toBe("active");
+
+    const listPage2 = await client.callTool({
+      name: "list_context",
+      arguments: { limit: 2, cursor: listPayload.next_cursor }
+    });
+    expect(listPage2.isError).toBeUndefined();
+    const page2Payload = parseJsonTextContent(listPage2);
+    expect(page2Payload.items.length).toBe(1);
+    expect(page2Payload.next_cursor).toBeNull();
+  });
+
+  it("enforces tool scoping and rejects list_context when absent from allowedTools", async () => {
+    const runtime = createTestRuntime({
+      defaultClientProfile: {
+        id: "default",
+        authToken: "test-access",
+        allowedOrigins: [],
+        allowedTools: ["remember_context"],
+        allowedFilterStates: ["active"]
+      }
+    });
+    const app = createMetaCortexApp({
+      getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
+      getRuntime: () => runtime
+    });
+    const baseUrl = await startServer(app, cleanup);
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const listResult = await client.callTool({
+      name: "list_context",
+      arguments: { limit: 10 }
+    });
+    expect(listResult.isError).toBe(true);
+    expect(textContent(listResult)).toContain("Tool list_context not found");
+  });
+
+  it("rejects filter_state outside allowedFilterStates for list_context", async () => {
+    const runtime = createTestRuntime({
+      defaultClientProfile: {
+        id: "default",
+        authToken: "test-access",
+        allowedOrigins: [],
+        allowedTools: ["list_context"],
+        allowedFilterStates: ["active"]
+      }
+    });
+    const app = createMetaCortexApp({
+      getConfig: () => runtime.config,
+      getObserver: () => runtime.observer,
+      getRuntime: () => runtime
+    });
+    const baseUrl = await startServer(app, cleanup);
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const listResult = await client.callTool({
+      name: "list_context",
+      arguments: { filter_state: "deprecated" }
+    });
+    expect(listResult.isError).toBe(true);
+    expect(textContent(listResult)).toContain("filter_state 'deprecated' is not allowed");
   });
 });
 

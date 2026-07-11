@@ -57,10 +57,10 @@ This project is set up for these workflows:
 
 The current MCP surface is intentionally split between:
 
-- a 3-tool client-facing contract for browser-hosted chat clients
+- a client-facing contract for browser-hosted chat clients
 - a smaller admin-only maintenance surface documented later in this README
 
-That means the server currently exposes 5 MCP tools total, but normal browser clients should only see 3 of them.
+That means the server currently exposes 6 MCP tools total, but normal browser clients should only see 3 of them by default.
 
 ### Client-facing tools
 
@@ -72,6 +72,8 @@ This is the public/browser contract:
   Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
   Fetch one memory by `id` after `remember_context` or `search_context`.
+- `list_context`
+  Enumerate stored memories with cursor pagination and metadata/creation-time/provenance filtering. Returns item summaries and IDs.
 
 ## Why `remember_context` Is The Write Tool
 

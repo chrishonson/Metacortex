@@ -56,6 +56,38 @@
       ]
     },
     {
+      "collectionGroup": "memory_vectors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "metadata.branch_state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "metadata.created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "memory_vectors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "metadata.branch_state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "metadata.module_name",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "metadata.created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "memory_vectors_eval",
       "queryScope": "COLLECTION",
       "fields": [

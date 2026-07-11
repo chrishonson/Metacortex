@@ -70,10 +70,11 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `remember_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata and provenance origin filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
+| `list_context` | Enumerate stored memories with filters and pagination |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
-`remember_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` accepts optional `filter_origin` to filter search results by provenance origin as a post-filter (no new Firestore index).
+`remember_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
 
 ### MCP Prompts
 
@@ -91,13 +92,13 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `errors.ts` | ~9 | `HttpError` exception with `statusCode` field |
 | `merging.ts` | ~74 | `LlmMergeClient` interface + `GeminiMergeClient` — calls Gemini to merge N memory contents into one |
 | `runtime.ts` | ~107 | Dependency injection: `createRuntime()` lazily creates and caches Gemini clients, Firestore repo, service |
-| `service.ts` | ~468 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidate flows |
+| `service.ts` | ~533 | `MetaCortexService` — remember/store/search/fetch/deprecate/consolidate/list flows |
 | `observability.ts` | ~150 | Structured tool-event and request-event logging plus Firestore-backed `memory_events` audit trail |
 | `embeddings.ts` | ~195 | `GeminiEmbeddingClient` + `GeminiMultimodalPreparer` (image→text normalization for retrieval) |
 | `normalize.ts` | ~8 | Shared text-normalization helper |
-| `memoryRepository.ts` | ~228 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
-| `types.ts` | ~175 | Enums (`BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`, `PROVENANCE_ORIGINS`) and interfaces |
-| `mcpServer.ts` | ~674 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates`; also registers the `correct_memory` prompt unconditionally |
+| `memoryRepository.ts` | ~320 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()`, `list()` |
+| `types.ts` | ~201 | Enums (`BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`, `PROVENANCE_ORIGINS`) and interfaces |
+| `mcpServer.ts` | ~764 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates`; also registers the `correct_memory` prompt unconditionally |
 
 ### Data Flow
 

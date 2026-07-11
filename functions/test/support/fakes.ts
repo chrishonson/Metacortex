@@ -25,7 +25,9 @@ import { MCP_TOOL_NAMES } from "../../src/types.js";
 import {
   MetaCortexService
 } from "../../src/service.js";
+import { HttpError } from "../../src/errors.js";
 import type {
+  ListMemoryParams,
   MemoryRepository,
   SearchMemoryParams,
   StoreMemoryParams
@@ -221,6 +223,44 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       .filter(r => r.metadata.branch_state === "wip")
       .filter(r => (moduleName ? r.metadata.module_name === moduleName : true))
       .map(toMemoryDocument);
+  }
+
+  async list(params: ListMemoryParams): Promise<{ documents: MemoryDocument[] }> {
+    if (params.cursorId) {
+      const exists = this.records.some(r => r.id === params.cursorId);
+      if (!exists) {
+        throw new HttpError(400, "Invalid cursor");
+      }
+    }
+
+    let filtered = this.records
+      .filter(r => r.metadata.branch_state === params.filterState)
+      .filter(r => (params.filterModule ? r.metadata.module_name === params.filterModule : true))
+      .filter(r => (typeof params.createdAfter === "number" ? r.metadata.created_at >= params.createdAfter : true))
+      .filter(r => (typeof params.createdBefore === "number" ? r.metadata.created_at < params.createdBefore : true))
+      .map(toMemoryDocument)
+      .sort((left, right) => right.metadata.created_at - left.metadata.created_at);
+
+    if (params.cursorId) {
+      const cursorDoc = this.records.find(r => r.id === params.cursorId);
+      if (cursorDoc) {
+        const idx = filtered.findIndex(doc => doc.id === params.cursorId);
+        if (idx !== -1) {
+          filtered = filtered.slice(idx + 1);
+        } else {
+          filtered = filtered.filter(doc => {
+            if (doc.metadata.created_at < cursorDoc.metadata.created_at) return true;
+            if (doc.metadata.created_at === cursorDoc.metadata.created_at) {
+              return doc.id < cursorDoc.id;
+            }
+            return false;
+          });
+        }
+      }
+    }
+
+    const documents = filtered.slice(0, params.limit);
+    return { documents };
   }
 }
 

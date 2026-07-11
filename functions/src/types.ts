@@ -3,7 +3,8 @@ export const MCP_TOOL_NAMES = [
   "search_context",
   "fetch_context",
   "deprecate_context",
-  "consolidate_context"
+  "consolidate_context",
+  "list_context"
 ] as const;
 
 export const BRANCH_STATES = [
@@ -171,4 +172,30 @@ export interface ConsolidateContextResult {
   deprecated_ids: string[];
   topic: string;
   source_count: number;
+}
+
+export interface ListContextInput {
+  filter_topic?: string;
+  filter_state?: BranchState;
+  filter_origin?: ProvenanceOrigin;
+  created_after?: number;
+  created_before?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface ListContextResult {
+  items: {
+    id: string;
+    summary: string;
+    metadata: MemoryMetadata;
+  }[];
+  next_cursor: string | null;
+  applied_filters: {
+    filter_topic?: string;
+    filter_state: BranchState;
+    filter_origin?: ProvenanceOrigin;
+    created_after?: number;
+    created_before?: number;
+  };
 }
