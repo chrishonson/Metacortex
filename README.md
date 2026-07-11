@@ -402,6 +402,11 @@ After deployment, there are three places to look:
 - `memory_events` in Firestore shows client-attributed tool usage over time
 - Cloud Logging shows request failures and structured tool-event logs
 
+When `RETRIEVAL_EVENT_LOGGING_ENABLED=true`, `retrieval_query_events` also stores
+full search queries, filters, limits, ranked result ids/scores, and fetch ids. This
+collection is separate because the full queries may contain sensitive user text;
+it uses the same 90-day TTL target as `memory_events`.
+
 `memory_events` records one document per tool call and one document per ingress rejection. Events include:
 
 - `client_id`
@@ -438,8 +443,34 @@ Search events do include a short `query_preview`, but the observability collecti
 Retention is handled with Firestore TTL policies:
 
 - `memory_events.expires_at` targets 90-day audit retention
+- `retrieval_query_events.expires_at` targets 90-day retrieval telemetry retention
 - `memory_vectors_write_fingerprints.expires_at` targets 30-day fingerprint retention
 - fingerprint documents keep numeric `dedupe_expires_at` for the short duplicate-write window
+
+## Retrieval evaluation
+
+The evaluation corpus is stored in `retrieval_eval_cases`; isolated synthetic
+memories are stored separately in `memory_vectors_eval`. Cases have no lifecycle
+field: regeneration replaces the selected source partition and removes obsolete
+cases.
+
+```bash
+# Seed a deterministic isolated corpus and replace its eval cases.
+npm --prefix functions run eval:generate
+
+# Measure hit@k, recall@k, MRR, empty results, and p50/p95 latency.
+npm --prefix functions run eval:run -- --mode isolated
+
+# Explicitly convert recent production search-to-fetch evidence into eval cases.
+npm --prefix functions run eval:import -- --lookback-hours 168
+
+# Run imported production cases through the deployed MCP endpoint.
+npm --prefix functions run eval:run -- --mode production --url "$MCP_BASE_URL"
+```
+
+Production retrieval events are evidence only. They do not become benchmark cases
+until `eval:import` is run, and a successful fetch is treated as a positive label;
+the harness does not infer negative relevance judgments.
 
 ## Quick start
 

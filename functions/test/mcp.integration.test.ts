@@ -322,6 +322,7 @@ describe("MCP integration", () => {
         status_code: 403
       }
     });
+    expect(runtime.observer.listRetrievalEvents()).toEqual([]);
   });
 
   it("consolidates wip memories via consolidate_context tool", async () => {
@@ -467,6 +468,7 @@ describe("MCP integration", () => {
 
   it("supports ChatGPT web remember, search, and fetch flows", async () => {
     const runtime = createTestRuntime({
+      retrievalEventLoggingEnabled: true,
       clientProfiles: [
         {
           id: "chatgpt-web",
@@ -625,6 +627,34 @@ describe("MCP integration", () => {
           topic: "kmp-networking",
           branch_state: "active"
         }
+      }
+    ]);
+    expect(runtime.observer.listRetrievalEvents()).toMatchObject([
+      {
+        event_type: "search",
+        client_id: "chatgpt-web",
+        status: "success",
+        memory_collection: "memory_vectors",
+        query: "shared networking for android and ios",
+        filter_topic: "kmp-networking",
+        filter_state: "active",
+        limit: 5,
+        result_count: 1,
+        results: [
+          {
+            id: "memory-1",
+            rank: 1,
+            score: expect.any(Number)
+          }
+        ]
+      },
+      {
+        event_type: "fetch",
+        client_id: "chatgpt-web",
+        status: "success",
+        memory_collection: "memory_vectors",
+        memory_id: "memory-1",
+        found: true
       }
     ]);
   });

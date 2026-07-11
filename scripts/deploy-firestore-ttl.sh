@@ -30,6 +30,7 @@ done
 collection_groups=(
   "${MEMORY_COLLECTION}_write_fingerprints"
   "memory_events"
+  "retrieval_query_events"
 )
 
 for collection_group in "${collection_groups[@]}"; do

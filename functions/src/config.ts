@@ -24,10 +24,33 @@ export interface AppConfig {
   generationVertexLocation: string;
   embeddingDimensions: number;
   memoryCollection: string;
+  retrievalEventLoggingEnabled: boolean;
   topK: number;
   defaultFilterState: BranchState;
   defaultClientProfile: ClientProfile;
   clientProfiles: ClientProfile[];
+}
+
+function parseBoolean(
+  value: string | undefined,
+  fallback: boolean,
+  key: string
+): boolean {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "true") {
+    return true;
+  }
+
+  if (normalized === "false") {
+    return false;
+  }
+
+  throw new MissingConfigurationError(`${key} must be true or false when provided`);
 }
 
 export class MissingConfigurationError extends Error {
@@ -276,6 +299,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       "GEMINI_EMBEDDING_DIMENSIONS"
     ),
     memoryCollection: env.MEMORY_COLLECTION?.trim() || "memory_vectors",
+    retrievalEventLoggingEnabled: parseBoolean(
+      env.RETRIEVAL_EVENT_LOGGING_ENABLED,
+      false,
+      "RETRIEVAL_EVENT_LOGGING_ENABLED"
+    ),
     topK: parsePositiveInteger(env.SEARCH_RESULT_LIMIT, 5, "SEARCH_RESULT_LIMIT"),
     defaultFilterState: defaultFilterState as BranchState,
     defaultClientProfile,

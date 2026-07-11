@@ -64,6 +64,10 @@ const imageMimeType = readArg(
   process.env.MCP_IMAGE_MIME_TYPE ?? inferMimeType(imageFile)
 );
 const artifactRef = readArg("artifact-ref", process.env.MCP_ARTIFACT_REF);
+const fetchFirst = readArg(
+  "fetch-first",
+  process.env.MCP_FETCH_FIRST ?? "false"
+) === "true";
 
 if (!url) {
   console.error("Missing MCP base URL. Pass --url or set MCP_BASE_URL.");
@@ -157,10 +161,6 @@ try {
     rememberedId = extractRememberedId(rememberText);
   } else if (mode === "search-only") {
     ensureTools(toolNames, ["search_context"]);
-
-    if (toolNames.includes("remember_context")) {
-      throw new Error("search-only mode expected remember_context to be unavailable");
-    }
   } else {
     throw new Error(`Unsupported smoke mode: ${mode}`);
   }
@@ -178,12 +178,13 @@ try {
   const searchText = requireSuccessfulToolResult(searchResult, "search_context");
   console.log(searchText);
 
-  if (mode === "browser-read-write") {
+  if (mode === "browser-read-write" || fetchFirst) {
+    ensureTools(toolNames, ["fetch_context"]);
     const memoryId = rememberedId ?? extractMemoryId(searchText);
 
     if (!memoryId) {
       throw new Error(
-        "browser-read-write mode expected remember_context or search_context to return an id"
+        "fetch-first expected remember_context or search_context to return an id"
       );
     }
 

@@ -59,7 +59,34 @@ The first hardening release addressed Firestore collection scaling, payload opti
 * **Status:** Proposed
 * **Goal:** Enable the agent to distinguish old facts from current ones beyond `branch_state`.
 * **Proposal:** Add optional `valid_from` and `valid_until` fields to stored memories. Search results can filter by temporal validity. Update deprecation to set `valid_until` automatically.
+
+  *Added 2026-06 following a design review:*
+  Extend `deprecate_context` with temporal bounds. This splits supersession into two semantically distinct reasons:
+  * **Change** — the world changed (e.g., a job switch). The prior fact was TRUE OF ITS ERA. Set `valid_until` on the prior record; it remains true-of-period and should still surface in valid-time slices for that window. May be initiated by agent or user.
+  * **Correction** — the prior record was NEVER TRUE (e.g., a mistyped date). Mark the prior record retracted on the belief axis — NOT a valid-time close — so it is excluded from valid-time truth while remaining in the audit trail. The corrective record carries the valid interval the prior should have had.
+
+  *Implementation:* Introduce a `supersession_reason` field (`"changed"` | `"corrected"`) on the supersession path; `valid_until` handling differs by reason. State projection rule is LATEST BELIEF WINS, since a correction can itself later be corrected. Cross-reference INVEST #4.
 * **Effort:** Low-medium.
+
+### 3. Provenance (Memory + Action Lineage)
+* **Status:** Proposed (*Added 2026-06 following a design review*)
+* **Goal:** Audit memory origin and protect chronology against agent drift (unintended rewrite/reinterpretation of historical priorities).
+* **Proposal:** Add a `provenance` object to `MemoryMetadata`:
+  * `origin` (`"user_asserted"` | `"agent_inferred"` | `"legacy_import"`)
+  * `source_session` (optional string)
+  * `derived_from` (optional array of memory document IDs that an inference drew upon)
+  * `confidence` (optional number)
+  
+  The agent self-reports `origin` on every write. Add an `origin` filter to `search_context`. For action provenance (which principal initiated a lifecycle mutation and the operation's semantics), extend the existing `memory_events` collection rather than introducing new infrastructure, turning it into an authorization-aware audit log. Backfill existing legacy memories with `origin: "legacy_import"`.
+* **Effort:** Medium.
+
+### 4. Correction as a User-Initiated Action
+* **Status:** Proposed (*Added 2026-06 following a design review*)
+* **Goal:** Prevent "agent drift" during error corrections by ensuring only the user can initiate corrections (retracting assertions that were never true).
+* **Proposal:** Enforce the user-only constraint structurally by exposing corrections as an MCP Prompt (user-controlled), NOT an MCP Tool (model-controlled). This prevents the agent from invoking corrections autonomously.
+  
+  A correction is implemented as a thin composition over existing tools: a `remember_context` call (for the corrected memory) + a `deprecate_context` call (for the old superseded memory) carrying `supersession_reason: "corrected"` and `initiator: "user"`. The agent can identify and surface correction candidates in a review queue, but it can never commit them without user action.
+* **Effort:** Low (no new storage primitive; a prompt plus `supersession_reason`/`initiator` fields, reusing deprecate+remember).
 
 ---
 
@@ -109,6 +136,7 @@ These should be addressed regardless of strategic direction:
 | `search_context` | Semantic search with filters | read-only |
 | `fetch_context` | Get full content by ID | read-only |
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
+| `consolidate_context` | LLM-merge related memories into one canonical record and deprecate the sources | destructive / admin |
 
 ---
 
