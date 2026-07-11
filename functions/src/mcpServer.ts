@@ -64,6 +64,18 @@ export function createMetaCortexMcpServer(
         .describe(
           "Optional advanced lifecycle state. Defaults to active. Use this instead of draft when you need explicit lifecycle control such as merged or deprecated."
         ),
+      valid_from: z
+        .number()
+        .optional()
+        .describe(
+          "Optional epoch-ms timestamp marking when this fact becomes valid. Omit for facts valid from creation."
+        ),
+      valid_until: z
+        .number()
+        .optional()
+        .describe(
+          "Optional epoch-ms timestamp marking when this fact stops being valid. Omit for facts with no known end."
+        ),
       image_base64: z
         .string()
         .optional()
@@ -234,7 +246,9 @@ export function createMetaCortexMcpServer(
           draft: args.draft,
           content_length: args.content?.trim().length ?? 0,
           image_present: Boolean(args.image_base64),
-          artifact_ref_count: args.artifact_refs?.length ?? 0
+          artifact_ref_count: args.artifact_refs?.length ?? 0,
+          valid_from: args.valid_from,
+          valid_until: args.valid_until
         };
         const result = await observeToolCall(
           "remember_context",
@@ -504,6 +518,58 @@ export function createMetaCortexMcpServer(
       }
     );
   }
+
+  server.registerPrompt(
+    "correct_memory",
+    {
+      title: "Correct Memory",
+      description:
+        "User-initiated correction: retract a memory that was never true and replace it with the corrected fact. This composes remember_context and deprecate_context; only a user can invoke a prompt, so the agent can never trigger a correction on its own.",
+      argsSchema: {
+        incorrect_memory_id: z
+          .string()
+          .min(1)
+          .describe("The id of the existing memory that was never true and must be retracted."),
+        corrected_content: z
+          .string()
+          .min(1)
+          .describe("The corrected fact to store in place of the incorrect memory."),
+        topic: z
+          .string()
+          .optional()
+          .describe("Optional topic label for the corrected memory."),
+        valid_from: z
+          .string()
+          .optional()
+          .describe("Optional epoch-ms timestamp (as a string) marking when the corrected fact becomes valid."),
+        valid_until: z
+          .string()
+          .optional()
+          .describe("Optional epoch-ms timestamp (as a string) marking when the corrected fact stops being valid.")
+      }
+    },
+    args => {
+      const topicLine = args.topic ? `\n- topic: ${args.topic}` : "";
+      const validFromLine = args.valid_from ? `\n- valid_from: ${args.valid_from}` : "";
+      const validUntilLine = args.valid_until ? `\n- valid_until: ${args.valid_until}` : "";
+
+      return {
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text:
+                "This is a USER-INITIATED correction: the memory below was never true (a belief-axis retraction), not a fact that merely changed over time. Perform the following steps in order:\n\n" +
+                `1. Call remember_context with content: "${args.corrected_content}"${topicLine}${validFromLine}${validUntilLine}\n` +
+                `2. Call deprecate_context with id: "${args.incorrect_memory_id}", superseding_id: <the id returned by step 1>, supersession_reason: "corrected", initiator: "user"\n` +
+                "3. Report both the deprecated id and the new corrected id back to the user."
+            }
+          }
+        ]
+      };
+    }
+  );
 
   return server;
 }

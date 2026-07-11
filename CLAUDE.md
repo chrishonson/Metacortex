@@ -73,6 +73,14 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
+`remember_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation.
+
+### MCP Prompts
+
+| Prompt | Purpose |
+|--------|---------|
+| `correct_memory` | User-initiated correction (belief-axis retraction: the old record was never true). Registered as an MCP Prompt, not a Tool, so only a user — never the agent — can invoke it. Arguments: `incorrect_memory_id`, `corrected_content` (required), `topic`, `valid_from`, `valid_until` (optional, strings). Returns a single user-role message instructing the agent to call `remember_context` (corrected content), then `deprecate_context` (`supersession_reason: "corrected"`, `initiator: "user"`) against the old id, then report both ids back. Registered unconditionally for every client; the underlying tools stay gated by each client's `allowedTools`. |
+
 ### Key Source Files (all under `functions/src/`)
 
 | File | Lines | Purpose |
@@ -89,7 +97,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `normalize.ts` | ~8 | Shared text-normalization helper |
 | `memoryRepository.ts` | ~228 | Firestore CRUD: `store()`, `search()` (findNearest + cosine), `deprecate()`, `getConsolidationQueue()` |
 | `types.ts` | ~138 | Enums (`BRANCH_STATES`, `MEMORY_MODALITIES`, `MCP_TOOL_NAMES`) and interfaces |
-| `mcpServer.ts` | ~447 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates` |
+| `mcpServer.ts` | ~639 | MCP tool registration with Zod schemas, filtered by client's `allowedTools` and `allowedFilterStates`; also registers the `correct_memory` prompt unconditionally |
 
 ### Data Flow
 

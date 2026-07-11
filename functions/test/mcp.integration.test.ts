@@ -369,6 +369,199 @@ describe("MCP integration", () => {
     expect(searchAfterPayload.matches.map((m: any) => m.id)).not.toContain(thirdId);
   });
 
+  it("registers the correct_memory prompt with its arguments and composes a correction message", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const prompts = await client.listPrompts();
+    const correctMemoryPrompt = prompts.prompts.find(prompt => prompt.name === "correct_memory");
+    expect(correctMemoryPrompt).toBeDefined();
+    expect(correctMemoryPrompt?.arguments?.map(arg => arg.name).sort()).toEqual(
+      ["corrected_content", "incorrect_memory_id", "topic", "valid_from", "valid_until"].sort()
+    );
+    expect(
+      correctMemoryPrompt?.arguments?.find(arg => arg.name === "incorrect_memory_id")?.required
+    ).toBe(true);
+    expect(
+      correctMemoryPrompt?.arguments?.find(arg => arg.name === "corrected_content")?.required
+    ).toBe(true);
+    expect(
+      correctMemoryPrompt?.arguments?.find(arg => arg.name === "topic")?.required
+    ).toBe(false);
+
+    const result = await client.getPrompt({
+      name: "correct_memory",
+      arguments: {
+        incorrect_memory_id: "memory-old-1",
+        corrected_content: "We actually shipped v2 in March, not February.",
+        topic: "release-timeline",
+        valid_from: "1700000000000"
+      }
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].role).toBe("user");
+    const text = (result.messages[0].content as { text: string }).text;
+    expect(text).toContain("USER-INITIATED correction");
+    expect(text).toContain("memory-old-1");
+    expect(text).toContain("We actually shipped v2 in March, not February.");
+    expect(text).toContain("release-timeline");
+    expect(text).toContain("1700000000000");
+    expect(text).toContain("corrected");
+    expect(text).toContain('initiator: "user"');
+  });
+
+  it("registers the correct_memory prompt even for a tool-scoped client", async () => {
+    const runtime = createTestRuntime({
+      clientProfiles: [
+        {
+          id: "scoped-client",
+          [authTokenField]: accessCredential("scoped"),
+          allowedOrigins: ["https://example.com"],
+          allowedTools: ["search_context"],
+          allowedFilterStates: ["active"]
+        }
+      ]
+    });
+
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "scoped-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/clients/scoped-client/mcp`),
+      {
+        requestInit: {
+          headers: {
+            [authorizationHeaderName]: bearerHeader("scoped")
+          }
+        }
+      }
+    );
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const tools = await client.listTools();
+    expect(tools.tools.map(tool => tool.name)).toEqual(["search_context"]);
+
+    const prompts = await client.listPrompts();
+    expect(prompts.prompts.map(prompt => prompt.name)).toContain("correct_memory");
+  });
+
+  it("accepts valid_from/valid_until on remember_context over MCP and honors them on search", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await startServer(
+      createMetaCortexApp({
+        getConfig: () => runtime.config,
+        getObserver: () => runtime.observer,
+        getRuntime: () => runtime
+      }),
+      cleanup
+    );
+
+    const client = new Client({
+      name: "test-client",
+      version: "1.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+      requestInit: {
+        headers: {
+          [authorizationHeaderName]: bearerHeader("test")
+        }
+      }
+    });
+
+    cleanup.push(async () => {
+      await client.close();
+    });
+
+    await client.connect(transport);
+
+    const rememberResult = await client.callTool({
+      name: "remember_context",
+      arguments: {
+        content: "We are using Ktor for networking.",
+        topic: "kmp-networking",
+        valid_from: 1000,
+        valid_until: 2000
+      }
+    });
+
+    const rememberPayload = parseJsonTextContent(rememberResult) as any;
+    expect(rememberPayload).toMatchObject({
+      write_status: "created"
+    });
+    const memoryId = rememberPayload.item.id;
+
+    const insideResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        valid_at: 1500
+      }
+    });
+    const insidePayload = parseJsonTextContent(insideResult) as any;
+    expect(insidePayload.matches.map((m: any) => m.id)).toContain(memoryId);
+
+    const beforeResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        valid_at: 500
+      }
+    });
+    const beforePayload = parseJsonTextContent(beforeResult) as any;
+    expect(beforePayload.matches.map((m: any) => m.id)).not.toContain(memoryId);
+
+    const afterResult = await client.callTool({
+      name: "search_context",
+      arguments: {
+        query: "networking",
+        valid_at: 2500
+      }
+    });
+    const afterPayload = parseJsonTextContent(afterResult) as any;
+    expect(afterPayload.matches.map((m: any) => m.id)).not.toContain(memoryId);
+  });
+
   it("enforces tool scoping on client-specific endpoints", async () => {
     const runtime = createTestRuntime({
       clientProfiles: [

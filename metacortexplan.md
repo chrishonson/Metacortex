@@ -81,7 +81,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
 * **Effort:** Medium.
 
 ### 4. Correction as a User-Initiated Action
-* **Status:** Proposed (*Added 2026-06 following a design review*)
+* **Status:** Implemented 2026-07-11
 * **Goal:** Prevent "agent drift" during error corrections by ensuring only the user can initiate corrections (retracting assertions that were never true).
 * **Proposal:** Enforce the user-only constraint structurally by exposing corrections as an MCP Prompt (user-controlled), NOT an MCP Tool (model-controlled). This prevents the agent from invoking corrections autonomously.
   
