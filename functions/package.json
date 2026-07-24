@@ -19,6 +19,7 @@
     "shell": "firebase functions:shell",
     "smoke": "node scripts/mcp-smoke-test.mjs",
     "validate:models": "node scripts/validate-models.mjs",
+    "inspect:prod": "node scripts/inspect-prod.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
   },

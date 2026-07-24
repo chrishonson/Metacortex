@@ -55,7 +55,13 @@
       "Read(//Users/nick/Desktop/**)",
       "Bash(cd /tmp/deck && node build.js 2>&1 | tail -3 && cp MetaCortex-Usage-Report.pptx ~/Desktop/MetaCortex-Usage-Report.pptx && echo \"redeployed to Desktop\")",
       "Bash(ls /Applications/Keynote.app >/dev/null 2>&1 && echo \"Keynote present\" || echo \"no Keynote\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(agy --help)",
+      "mcp__metacortex__list_context",
+      "mcp__metacortex__deprecate_context",
+      "mcp__metacortex__consolidate_context",
+      "mcp__metacortex__fetch_context",
+      "mcp__metacortex__remember_context"
     ]
   }
 }
