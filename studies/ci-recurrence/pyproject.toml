@@ -1,0 +1,12 @@
+[project]
+name = "ci-recurrence"
+version = "0.1.0"
+description = "CI failure recurrence study: how often does the same CI failure come back?"
+requires-python = ">=3.11"
+# Stdlib only, on purpose. urllib + sqlite3 + re cover every need here, and
+# every dependency added is a dependency to audit. No LangChain, no DSPy, no
+# Celery, no Redis.
+dependencies = []
+
+[tool.uv]
+package = false
