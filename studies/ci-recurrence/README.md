@@ -23,11 +23,37 @@ inference or a week of it.
 ## Run it
 
 ```bash
-export GITHUB_TOKEN=<personal PAT, public_repo scope, read-only>
+export GITHUB_TOKEN=<classic PAT with NO scopes ticked>
 
 uv run fetch.py   --repo ankidroid/Anki-Android --since-days 90
 uv run analyze.py --repo ankidroid/Anki-Android --top 50
 ```
+
+### What token
+
+**A classic PAT with zero scopes checked.** Both targets are public, and every
+endpoint this study touches is public-readable:
+
+| Endpoint | Needs |
+|---|---|
+| `/repos/{o}/{r}/actions/runs` | nothing, for a public repo |
+| `/repos/{o}/{r}/actions/runs/{id}/jobs` | nothing, for a public repo |
+| `/repos/{o}/{r}/check-runs/{id}/annotations` | nothing, for a public repo |
+
+The token is not there for access, it is there for **rate limit**:
+unauthenticated is 60 requests/hour, which makes a 90-day crawl impossible; any
+valid token raises that to 5,000/hour regardless of its scopes.
+
+Do **not** tick `public_repo`. That scope grants *write* to every public repo
+you can see — push, issues, the lot — and buys this study nothing. A scopeless
+token can only read public data, which is exactly the blast radius we want for
+something crawling two repos we don't own.
+
+A fine-grained PAT also works: set the resource owner to your own account and
+choose **"Public repositories (read-only)"**. Note you cannot scope a
+fine-grained PAT *to* `pytorch/pytorch` — fine-grained tokens only target repos
+you own, so the public-read option is the route. The scopeless classic token is
+simpler and no less safe.
 
 `fetch.py` caches every API response under `cache/` keyed by URL hash, so a
 re-run costs no API calls and the window can be rebuilt offline. `analyze.py`

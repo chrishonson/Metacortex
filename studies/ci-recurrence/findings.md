@@ -70,10 +70,15 @@ quietly corrupted the headline number:
 On a machine with a personal PAT:
 
 ```bash
-export GITHUB_TOKEN=<read-only PAT>
+export GITHUB_TOKEN=<classic PAT, no scopes ticked>
 uv run fetch.py   --repo ankidroid/Anki-Android --since-days 90
 uv run analyze.py --repo ankidroid/Anki-Android --top 50
 ```
+
+A scopeless classic PAT is sufficient and is the right blast radius: both
+targets are public, every endpoint used here is public-readable, and the token
+exists only to lift the rate limit from 60/hr to 5,000/hr. `public_repo` would
+grant write to every public repo you can see and buys the study nothing.
 
 AnkiDroid first: it is small enough to complete in one sitting and gives a real
 Tier 0 collapse rate to size Tier 1 against. pytorch needs a scoped crawl
