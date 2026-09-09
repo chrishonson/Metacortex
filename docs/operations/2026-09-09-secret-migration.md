@@ -25,26 +25,13 @@ production settings, preserving model and collection configuration.
 - Production function metadata confirmed all three secret references and no
   remaining plaintext secret keys.
 
-## Unfinished: coordinated rotation
+## Completed scope
 
-This is storage migration, not credential rotation. Existing credentials still
-work and are not claimed safe merely because their storage changed. No evidence
-of credential misuse was established by this task.
+Nick explicitly removed rotation from card-23 on 2026-09-09 UTC ("no rotation").
+The completed scope is storage migration with existing credential values
+preserved. Credential rotation and client reconfiguration are not outstanding
+requirements for this card. No rotation was performed.
 
-The local `/Users/nick/.claude.json` configuration points to the admin `/mcp`
-endpoint. Verified configuration access for browser/remote consumers was not
-available in this session. Updating Secret Manager alone would not update these
-clients. Before invalidating the nine scoped tokens, obtain access to their
-actual configurations or a confirmed owner-operated cutover procedure.
-
-Then rotate the admin token and each scoped client token, store scoped replacements
-as `metacortex-client-<id>`, update the consumers, publish the new profile-bundle
-version, redeploy and repeat authentication checks. Determine all users of the
-existing Gemini API key before revocation; create a replacement with appropriate
-API restrictions, cut over MetaCortex, verify embedding search, then retire the
-old key once its remaining consumers are accounted for.
-
-Keep card-23 blocked until rotation and consumer cutover are verified. Do not
-rerun the original plaintext migration against the already-migrated deployment.
-Future deployments must retain the secret bindings in this branch. Rollback
-must not restore ordinary environment variables containing credentials.
+Future deployments must retain the secret bindings in this branch. Do not rerun
+the original plaintext migration against the already-migrated deployment.
+Rollback must not restore ordinary environment variables containing credentials.
