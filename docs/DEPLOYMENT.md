@@ -73,11 +73,9 @@ Start from the template:
 cp /Users/nick/git/metacortex/functions/.env.example /Users/nick/git/metacortex/functions/.env
 ```
 
-Minimum required production values:
+Minimum required non-secret production values:
 
 ```dotenv
-GEMINI_API_KEY=...
-MCP_ADMIN_TOKEN=...
 GEMINI_EMBEDDING_MODEL=...
 GEMINI_MULTIMODAL_MODEL=...
 GEMINI_MERGE_MODEL=...
@@ -126,7 +124,8 @@ Recommended browser read/write toolset:
 
 Do not add `deprecate_context` to browser-hosted client profiles. Keep it on the admin endpoint only.
 
-Recommended web client profile shape:
+Recommended web client profile shape (store the JSON value in Secret Manager,
+not in production dotenv):
 
 ```dotenv
 MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
@@ -504,7 +503,7 @@ Use separate tokens for separate trust boundaries:
 
 Rotation and revocation rules:
 
-- rotate a web client token by changing that profile's `token` and redeploying functions
+- rotate a web client token by changing that profile's `token` in the `MCP_CLIENT_PROFILES_JSON` Secret Manager version, updating its consumer, and redeploying functions
 - revoke a client by removing the profile or replacing its token and redeploying functions
 - do not reuse `MCP_ADMIN_TOKEN` for browser-hosted clients
 - if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
@@ -597,3 +596,30 @@ firebase functions:list
 ```
 
 Use Firebase console logs or Cloud Logging for failed production requests.
+
+
+## Production secret storage and rotation
+
+`functions/src/index.ts` binds `MCP_ADMIN_TOKEN`, `GEMINI_API_KEY`, and
+`MCP_CLIENT_PROFILES_JSON` with `defineSecret`. Production dotenv files must not
+contain these keys; retain only non-secret model, collection and service settings.
+`config.ts` continues reading runtime environment values injected by Firebase.
+Local emulators may use private `.secret.local` overrides (never commit them).
+
+Use Secret Manager in `my-brain-88870`. Transfer secret bytes through stdin or an
+in-memory SDK call, never command arguments or terminal output. A new secret
+version is applied by redeploying `metaCortexMcp`; existing instances do not
+automatically switch versions. Verify that function metadata lists all three
+under `secretEnvironmentVariables`, with none under `environmentVariables`.
+Do not print a raw function description while migrating an older deployment.
+
+Storage migration preserves values and does not constitute rotation. Before
+rotating the profile bundle, inventory every current client and its configured
+endpoint. Store each replacement as `metacortex-client-<id>` and update its
+consumer in the same cutover. Browser/remote client settings require access to
+those clients; storing a token in Secret Manager alone is not distribution.
+Smoke-test `tools/list` for each endpoint, then perform a read-only embedding
+search to exercise the Gemini credential. Only retire previous credentials once
+consumer cutover and verification are complete. Do not restore plaintext env
+configuration for rollback: redeploy a known-good code revision with the secret
+bindings retained and explicitly selected prior secret versions if necessary.

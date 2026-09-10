@@ -63,7 +63,7 @@ if [[ -f functions/.env.prod ]]; then
 
   missing_keys=()
 
-  for required_key in GEMINI_API_KEY MCP_ADMIN_TOKEN GEMINI_EMBEDDING_DIMENSIONS; do
+  for required_key in GEMINI_EMBEDDING_DIMENSIONS; do
     if [[ -z "$(read_env_key functions/.env.prod "$required_key")" ]]; then
       missing_keys+=("$required_key")
     fi
@@ -81,6 +81,30 @@ if [[ -f functions/.env ]]; then
 fi
 
 echo
+echo "== Production secrets =="
+node - <<'NODE'
+const fs = require("fs");
+const names = new Set(["GEMINI_API_KEY", "MCP_ADMIN_TOKEN", "MCP_CLIENT_PROFILES_JSON"]);
+for (const file of ["functions/.env", "functions/.env.prod", "functions/.env.my-brain-88870"]) {
+  if (!fs.existsSync(file)) continue;
+  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    const key = line.split("=", 1)[0].trim();
+    if (names.has(key)) {
+      console.error(`ERROR: ${file} contains secret key ${key}; move it to Secret Manager before deployment.`);
+      process.exitCode = 1;
+    }
+  }
+}
+NODE
+for secret_name in GEMINI_API_KEY MCP_ADMIN_TOKEN MCP_CLIENT_PROFILES_JSON; do
+  secret_state="$(gcloud secrets versions describe latest --secret="$secret_name" --project=my-brain-88870 --format='value(state)')"
+  if [[ "$secret_state" != "ENABLED" ]]; then
+    echo "ERROR: production secret $secret_name is not enabled" >&2
+    exit 1
+  fi
+  echo "$secret_name: enabled"
+done
+
 echo "== Client profiles =="
 if [[ -f functions/.env.prod ]]; then
   node - <<'NODE'
@@ -96,9 +120,8 @@ const line = envText
   });
 
 if (!line) {
-  console.log(
-    "warning: functions/.env.prod does not define MCP_CLIENT_PROFILES_JSON; browser-hosted clients will not have a scoped endpoint"
-  );
+  // Production profiles are injected from Secret Manager, not dotenv.
+  console.log("Client profiles use the MCP_CLIENT_PROFILES_JSON runtime secret.");
   process.exit(0);
 }
 
@@ -343,8 +366,8 @@ try {
     echo "warning: could not read active project alias from Firebase configstore — skipping alias check"
   elif [[ "$STORED_ALIAS" != "$EXPECTED_ALIAS" ]]; then
     echo "ERROR: active project is set to '${STORED_ALIAS}', not the '${EXPECTED_ALIAS}' alias." >&2
-    echo "       Deploying with the raw project ID skips functions/.env.prod and omits MCP_CLIENT_PROFILES_JSON," >&2
-    echo "       causing all client endpoints to return 404." >&2
+    echo "       Deploying with the raw project ID skips non-secret settings in functions/.env.prod," >&2
+    echo "       potentially changing runtime model or collection settings." >&2
     echo "       Fix: firebase use ${EXPECTED_ALIAS}" >&2
     exit 1
   else

@@ -48,3 +48,6 @@ journey-kit/dist/
 skills/
 skills-lock.json
 .gstack/
+
+# Local Secret Manager emulator overrides
+functions/.secret.local
