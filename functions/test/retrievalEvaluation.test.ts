@@ -36,7 +36,7 @@ describe("retrieval evaluation", () => {
         target_mode: "isolated",
         source: "synthetic_flow",
         positive_ids: ["memory-42"],
-        label_source: "implicit_fetch"
+        label_source: "synthetic_definition"
       })
     ]);
   });

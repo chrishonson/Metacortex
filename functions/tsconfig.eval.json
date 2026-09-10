@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "scripts/retrieval-eval.ts",
+    "scripts/provider-eval-files.ts",
+    "test/providerEvaluation.test.ts",
+    "test/providerEvalCli.test.ts",
+    "test/providerResultAdapters.test.ts"
+  ]
+}
