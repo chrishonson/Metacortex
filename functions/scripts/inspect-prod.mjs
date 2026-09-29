@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,16 +47,27 @@ try {
   process.exit(1);
 }
 
-const baseUrl = loadedEnv.FUNCTION_BASE_URL;
-const adminToken = loadedEnv.MCP_ADMIN_TOKEN;
+const baseUrl = process.env.FUNCTION_BASE_URL || loadedEnv.FUNCTION_BASE_URL;
+let adminToken = process.env.MCP_ADMIN_TOKEN || loadedEnv.MCP_ADMIN_TOKEN;
+
+if (!adminToken) {
+  try {
+    adminToken = execSync(
+      "gcloud secrets versions access latest --secret=MCP_ADMIN_TOKEN --project=my-brain-88870",
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+    ).trim();
+  } catch {
+    // Secret Manager access failed or gcloud not logged in; handled below
+  }
+}
 
 if (!baseUrl) {
-  console.error("Error: 'FUNCTION_BASE_URL' not defined in .env.prod");
+  console.error("Error: 'FUNCTION_BASE_URL' not defined in environment or .env.prod");
   process.exit(1);
 }
 
 if (!adminToken) {
-  console.error("Error: 'MCP_ADMIN_TOKEN' not defined in .env.prod");
+  console.error("Error: 'MCP_ADMIN_TOKEN' not found in environment, .env.prod, or Secret Manager");
   process.exit(1);
 }
 
@@ -68,6 +79,7 @@ console.log(`Production URL: ${cleanBaseUrl}/mcp`);
 console.log("Launching MCP Inspector...");
 
 const child = spawn("npx", [
+  "-y",
   "@modelcontextprotocol/inspector",
   "--transport",
   "http",
