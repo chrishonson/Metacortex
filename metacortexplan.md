@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status:** planning and repository/board inspection are complete, and this finalized plan is saved. Supporting-document reconciliation, implementation, and card posting have not occurred.
+**Status (2026-10-01):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Remaining DOC reconciliation, implementation, and card posting have not occurred.
 
 ### One canonical plan
 
@@ -42,14 +42,14 @@ Code and tests establish local behavior. Release and deployment evidence establi
 ### Current baseline
 
 - The repository contains a `v0.3.0` tag and documented production releases.
-- The current working tree passes **82 tests and the TypeScript build**.
+- The branch passes **114 tests and the TypeScript build** (verified 2026-10-01).
 - Six MCP tools exist locally: save, search, fetch, list, deprecate, and consolidate. Profiles expose subsets.
 - Existing capabilities include provenance, temporal fields, image normalization, duplicate-write protection, paginated listing, audit events, and retrieval evaluation.
-- The `save_context` rename is present in uncommitted changes and tracked by card 66; integration and deployed-client migration still require verification.
+- The `save_context` rename is committed (`dde9099`, card 66). Deployed-client migration still requires verification.
 - Production Secret Manager migration is documented as complete. Credential rotation was explicitly excluded and is not unfinished work.
 - Backup/restore implementation exists in `worktree-memory-archive-task1` at `932f730`; cards 58–65 contain implementation, QA, and recovery evidence.
 - Additional evaluation work exists in a separate worktree. Preserve it and respect its recorded publication restrictions.
-- The active checkout contains substantial uncommitted changes and an unignored local QA environment file. Reconcile safely before implementation.
+- The working tree is clean. QA env files are covered by the `functions/.env.*` ignore rule.
 
 ### Product policies
 

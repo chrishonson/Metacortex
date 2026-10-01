@@ -157,7 +157,7 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
 | `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
-| `MCP_ALLOWED_TOOLS` | all five tools | Comma-separated tool allowlist for default client |
+| `MCP_ALLOWED_TOOLS` | all six tools | Comma-separated tool allowlist for default client |
 | `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist for the default admin `/mcp` endpoint only |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
