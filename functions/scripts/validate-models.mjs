@@ -91,7 +91,7 @@ try {
   }
 
   console.warn(
-    "Skipping Vertex embedding validation because Application Default Credentials are not configured locally. Production smoke tests must validate remember/search after deploy."
+    "Skipping Vertex embedding validation because Application Default Credentials are not configured locally. Production smoke tests must validate save/search after deploy."
   );
 }
 

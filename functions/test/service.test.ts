@@ -79,9 +79,9 @@ describe("MetaCortexService", () => {
     });
   });
 
-  it("remembers context with topic defaults", async () => {
+  it("saves context with topic defaults", async () => {
     const { service } = createService();
-    const result = await service.rememberContext({
+    const result = await service.saveContext({
       content: "Add Ktor shared networking module to KMP project.",
       topic: "kmp-networking"
     });
@@ -92,9 +92,9 @@ describe("MetaCortexService", () => {
     expect(result.metadata.modality).toBe("text");
   });
 
-  it("remembers as draft when draft=true", async () => {
+  it("saves as draft when draft=true", async () => {
     const { service } = createService();
-    const result = await service.rememberContext({
+    const result = await service.saveContext({
       content: "Maybe we should switch to OkHttp.",
       topic: "kmp-networking",
       draft: true
@@ -103,9 +103,9 @@ describe("MetaCortexService", () => {
     expect(result.metadata.branch_state).toBe("wip");
   });
 
-  it("remembers with explicit branch_state when provided", async () => {
+  it("saves with explicit branch_state when provided", async () => {
     const { service } = createService();
-    const result = await service.rememberContext({
+    const result = await service.saveContext({
       content: "Old networking decision retained for history.",
       topic: "kmp-networking",
       branch_state: "merged"
@@ -118,7 +118,7 @@ describe("MetaCortexService", () => {
     const { service } = createService();
 
     await expect(
-      service.rememberContext({
+      service.saveContext({
         content: "Conflicting lifecycle fields.",
         topic: "kmp-networking",
         draft: true,
@@ -129,7 +129,7 @@ describe("MetaCortexService", () => {
 
   it("uses general as default topic", async () => {
     const { service } = createService();
-    const result = await service.rememberContext({
+    const result = await service.saveContext({
       content: "Short note about something."
     });
 

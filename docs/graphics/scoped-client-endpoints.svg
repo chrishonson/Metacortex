@@ -21,7 +21,7 @@
   <text x="118" y="374" fill="#ffd7c3" font-size="22" font-family="Inter, Arial, sans-serif">Bearer: MCP_ADMIN_TOKEN</text>
 
   <rect x="118" y="420" width="360" height="70" rx="18" fill="#2b1e2e"/>
-  <text x="146" y="465" fill="#fff5ee" font-size="28" font-family="Inter, Arial, sans-serif">remember_context</text>
+  <text x="146" y="465" fill="#fff5ee" font-size="28" font-family="Inter, Arial, sans-serif">save_context</text>
   <rect x="118" y="506" width="360" height="70" rx="18" fill="#2b1e2e"/>
   <text x="146" y="551" fill="#fff5ee" font-size="28" font-family="Inter, Arial, sans-serif">search_context</text>
   <rect x="118" y="592" width="360" height="70" rx="18" fill="#2b1e2e"/>
@@ -35,7 +35,7 @@
   <text x="618" y="374" fill="#bfe8ff" font-size="22" font-family="Inter, Arial, sans-serif">auth_token in URL + allowedOrigins</text>
 
   <rect x="618" y="420" width="350" height="70" rx="18" fill="#173150"/>
-  <text x="646" y="465" fill="#f6fbff" font-size="28" font-family="Inter, Arial, sans-serif">remember_context</text>
+  <text x="646" y="465" fill="#f6fbff" font-size="28" font-family="Inter, Arial, sans-serif">save_context</text>
   <rect x="618" y="506" width="350" height="70" rx="18" fill="#173150"/>
   <text x="646" y="551" fill="#f6fbff" font-size="28" font-family="Inter, Arial, sans-serif">search_context</text>
   <rect x="618" y="592" width="350" height="70" rx="18" fill="#173150"/>
@@ -49,7 +49,7 @@
   <text x="1108" y="374" fill="#d3d8ff" font-size="22" font-family="Inter, Arial, sans-serif">Bearer token or tokenized URL</text>
 
   <rect x="1108" y="420" width="374" height="70" rx="18" fill="#212a55"/>
-  <text x="1136" y="465" fill="#f6f7ff" font-size="28" font-family="Inter, Arial, sans-serif">remember_context</text>
+  <text x="1136" y="465" fill="#f6f7ff" font-size="28" font-family="Inter, Arial, sans-serif">save_context</text>
   <rect x="1108" y="506" width="374" height="70" rx="18" fill="#212a55"/>
   <text x="1136" y="551" fill="#f6f7ff" font-size="28" font-family="Inter, Arial, sans-serif">search_context</text>
   <rect x="1108" y="592" width="374" height="70" rx="18" fill="#212a55"/>
