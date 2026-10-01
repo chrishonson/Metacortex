@@ -1,0 +1,70 @@
+{
+  "repo": "ankidroid/Anki-Android",
+  "window_start": "2026-05-31",
+  "since_days": "90",
+  "runs_scanned": "500",
+  "tier0": {
+    "failure_events": 50,
+    "events_with_evidence": 50,
+    "log_coverage": 1.0,
+    "evidence_kinds": {
+      "annotation": 50
+    },
+    "distinct_fingerprints": 4,
+    "tier0_collapse": 0.98,
+    "singleton_fingerprints": 1,
+    "tier1_candidates": 1
+  },
+  "flake_breakdown": {
+    "not_flake": 47,
+    "rerun_attempt_passed": 3
+  },
+  "recurrence": {
+    "tier0_with_flakes": {
+      "total_failures": 50,
+      "recurrences": 46,
+      "distinct": 4,
+      "rate": 0.92
+    },
+    "tier0_without_flakes": {
+      "total_failures": 47,
+      "recurrences": 43,
+      "distinct": 4,
+      "rate": 0.9148936170212766
+    }
+  },
+  "top_fingerprints": [
+    {
+      "fingerprint": "eb386638be52142e",
+      "c": 23,
+      "first_seen": "2026-08-27T23:45:30Z",
+      "last_seen": "2026-08-29T12:08:47Z",
+      "exemplar": ".github:<N>: Process completed with exit code 1.",
+      "kind": "annotation"
+    },
+    {
+      "fingerprint": "17630bb0c607a795",
+      "c": 23,
+      "first_seen": "2026-08-28T00:03:20Z",
+      "last_seen": "2026-08-29T15:37:23Z",
+      "exemplar": ".github:<N>: no artifacts found",
+      "kind": "annotation"
+    },
+    {
+      "fingerprint": "b48f466b89684095",
+      "c": 3,
+      "first_seen": "2026-08-28T20:10:09Z",
+      "last_seen": "2026-08-28T20:10:21Z",
+      "exemplar": ".github:<N>: Final attempt failed. Child_process exited with error code <N>",
+      "kind": "annotation"
+    },
+    {
+      "fingerprint": "652f82371ef4a4fb",
+      "c": 1,
+      "first_seen": "2026-08-28T10:02:59Z",
+      "last_seen": "2026-08-28T10:02:59Z",
+      "exemplar": ".github:<N>: Dependabot encountered an error performing the update | Error: The updater encountered one or more errors. | For more information see: <URL> (write access to the repository is required to view the log)",
+      "kind": "annotation"
+    }
+  ]
+}

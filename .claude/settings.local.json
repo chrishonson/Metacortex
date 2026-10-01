@@ -61,7 +61,7 @@
       "mcp__metacortex__deprecate_context",
       "mcp__metacortex__consolidate_context",
       "mcp__metacortex__fetch_context",
-      "mcp__metacortex__remember_context"
+      "mcp__metacortex__save_context"
     ]
   }
 }

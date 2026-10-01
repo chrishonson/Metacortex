@@ -1,154 +1,253 @@
-# MetaCortex: Strategic Plan
+# MetaCortex: unified roadmap for self-hosted adoption
 
-**Date:** 2026-06-11
+**Finalized:** 2026-10-01
 
----
+## 1. Objective and authoritative documentation
 
-## Scope Philosophy
+Extend the already-released MetaCortex into a free, approachable, self-hosted memory service shared by an owner’s agents. Preserve its existing implementation, release history, production data, and completed work.
 
-MetaCortex is a **user memory** system — it stores what the user *knows*, not what the user *has access to*. Email, calendars, documents, and external data sources are for the agent to dig through on demand and advise the user on. MetaCortex persists the durable knowledge that results from those interactions: preferences, decisions made, context learned, facts established, things deprecated.
+The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-This means MetaCortex will never include connectors (GDrive, Gmail, Notion), ingestion pipelines, browser extensions, or document indexing. That's a different product (and it's what supermemory, Mem0, and others are building). MetaCortex's scope is: **durable memories that persist across agent sessions, with explicit lifecycle control.**
+**Status:** planning and repository/board inspection are complete, and this finalized plan is saved. Supporting-document reconciliation, implementation, and card posting have not occurred.
 
----
+### One canonical plan
 
-## Executive Summary
+This file is the authoritative roadmap, containing:
 
-MetaCortex is a well-architected MCP memory server. The core — vector search, idempotent writes, client profile scoping, and multimodal pipeline — is solid. The tool surface has been simplified from 6 tools to 4.
+- Product purpose and scope.
+- Verified current state and completed milestones.
+- Accepted design and policy decisions.
+- Remaining work, dependencies, acceptance criteria, and control-plane card references.
+- Deferred work and the conditions for reconsidering it.
+- A dated reconciliation record showing what was retained, completed, superseded, deferred, or excluded.
 
-The first hardening release addressed Firestore collection scaling, payload optimization, and model validation. The remaining strategic work is focused on proposed advanced features (context tiering, temporal validity).
+Supporting documents retain distinct roles:
 
----
+| Document | Role |
+|---|---|
+| `NEXT-STEPS.md` | Short, dated view of immediate roadmap priorities and verified blockers. No independent backlog. |
+| `README.md` | Released capabilities, setup entry point, costs, limitations, and links to the roadmap and runbooks. |
+| Architecture guide | Current components, data flow, and trust boundaries; clearly distinguish proposed changes. |
+| Deployment guide | Installation, configuration, verification, upgrades, rollback, and recovery procedures. Separate reusable instructions from maintainer-specific operations. |
+| Security guide | Verified controls, limitations, and remediation references. |
+| OpenClaw and maintenance guides | Consistent ordinary-agent and maintenance-agent operating policies. |
+| Journey package/examples | Distributable instructions matching the release’s actual contract. |
+| `AGENTS.md` and `CLAUDE.md` | Accurate repository commands and concise implementation guidance. |
+| Dated operational records | Preserved historical evidence, not rewritten as current guarantees. |
 
-## Outstanding Tasks & Redesigns
+Code and tests establish local behavior. Release and deployment evidence establish shipped behavior. Board outcomes and worktree commits establish completed work that may still need integration. Old scouting reports are evidence to investigate, not instructions to discard work.
 
-### 1. Unbounded Firestore Collections (TTL Policies)
-* **Status:** Implemented 2026-06-11
-* **Problem:** Two collections grow without bound:
-  * `memory_vectors_write_fingerprints` (deduplication fingerprints)
-  * `memory_events` (observability/audit trail)
-* **Resolution:**
-  * New fingerprint writes store numeric `dedupe_expires_at` for the 15-minute duplicate window and Date-valued `expires_at` for 30-day Firestore TTL.
-  * New `memory_events` writes preserve numeric `timestamp` and add Date-valued `expires_at` for 90-day Firestore TTL.
-  * Added dry-run/write TTL backfill and `gcloud` TTL deployment scripts.
+## 2. Reconciled baseline and binding decisions
 
-### 2. Search Result Redundancy
-* **Status:** Implemented 2026-06-11
-* **Problem:** Each search result includes both `summary` (220 chars) and `content_preview` (400 chars) — two truncations of the same content. Wastes tokens and confuses clients.
-* **Resolution:** `search_context` now returns `summary` only. If the agent wants full content, it calls `fetch_context`.
+### Current baseline
 
-### 3. Model Default Validation
-* **Status:** Implemented 2026-06-11
-* **Problem:** Verify the `gemini-3.1-flash-lite-preview` multimodal model default still exists and is the right choice.
-* **Resolution:** Google shut down `gemini-3.1-flash-lite-preview` on 2026-05-25. The default is now stable `gemini-3.1-flash-lite`, with a live validation script.
+- The repository contains a `v0.3.0` tag and documented production releases.
+- The current working tree passes **82 tests and the TypeScript build**.
+- Six MCP tools exist locally: save, search, fetch, list, deprecate, and consolidate. Profiles expose subsets.
+- Existing capabilities include provenance, temporal fields, image normalization, duplicate-write protection, paginated listing, audit events, and retrieval evaluation.
+- The `save_context` rename is present in uncommitted changes and tracked by card 66; integration and deployed-client migration still require verification.
+- Production Secret Manager migration is documented as complete. Credential rotation was explicitly excluded and is not unfinished work.
+- Backup/restore implementation exists in `worktree-memory-archive-task1` at `932f730`; cards 58–65 contain implementation, QA, and recovery evidence.
+- Additional evaluation work exists in a separate worktree. Preserve it and respect its recorded publication restrictions.
+- The active checkout contains substantial uncommitted changes and an unignored local QA environment file. Reconcile safely before implementation.
 
----
+### Product policies
 
-## Proposed New Capabilities (Invest)
+| Topic | Final decision |
+|---|---|
+| Hosting | Each owner operates their own Firebase project. No maintainer-operated memory service is required. |
+| Audience | One owner, many authorized agents, one shared corpus. Topics are organizational labels, not security boundaries. |
+| Cost | Software is free under the existing MIT license. Owners cover infrastructure/model usage and their agent subscriptions. |
+| Setup | Browser-led wizard running in the owner’s Cloud Shell; no local developer-tool installation required. |
+| Identity | Google/Firebase-only owner setup, with OAuth support hosted in the owner’s deployment. |
+| Ordinary agents | Default to `save_context`, `search_context`, and `fetch_context`. Grant `list_context` explicitly. |
+| Maintenance | Optional, owner-enabled autonomous consolidation/deprecation in an isolated maintenance identity, with bounded batches, audit records, and review for uncertain changes. |
+| Corrections | Retractions of facts that were never true require owner authorization. Caller-supplied metadata is not proof of that authorization. |
+| Deletion | No permanent deletion feature. Keep soft deletion; physical removal remains manual database administration. |
+| Legacy authentication | Disable URL tokens on fresh installations. Migrate existing clients, verify replacement authentication, then remove support in a documented breaking release. |
+| Launch coverage | ChatGPT, Claude, Codex, and a generic MCP client. Other clients receive recipes without unsupported compatibility claims. |
+| ChatGPT distribution | Owners connect their own endpoints. Public directory approval is not a completion requirement. |
+| Priorities | Self-hosting first. Preserve existing evaluation and regression checks; defer new tiering and broader provider research. |
+| Queue behavior | Post all cards directly to backlog. Do not activate workers. |
 
-### 1. Context Tiering (L0/L1/L2 equivalent)
-* **Status:** Proposed
-* **Goal:** Reduce token costs by returning a summary first, fetching full details only when needed.
-* **Proposal:** When storing a memory, use Gemini to generate:
-  * A `summary` field (~100 tokens) stored alongside the full content.
-  * The existing `content` (full fidelity) remains for fetch.
-  * Search results return the summary. Agents call `fetch_context` only when they need the full thing.
-* **Effort:** Medium.
+### Resolve document conflicts
 
-### 2. Temporal Validity / Fact Versioning
-* **Status:** Implemented 2026-07-11
-* **Goal:** Enable the agent to distinguish old facts from current ones beyond `branch_state`.
-* **Proposal:** Add optional `valid_from` and `valid_until` fields to stored memories. Search results can filter by temporal validity. Update deprecation to set `valid_until` automatically.
+- Replace inconsistent tool counts with six available tools and an explicit three-tool ordinary-agent default.
+- Move implemented temporal/provenance capabilities out of “proposed”; track remaining correctness or enforcement gaps separately.
+- Correct architecture diagrams that give ordinary agents admin credentials.
+- Align Journey and setup instructions with Secret Manager deployment practices.
+- Remove claims that an MCP prompt alone structurally prevents unauthorized correction.
+- Preserve historical completed work instead of recreating it as new features.
+- Replace age-based “commit or discard,” pruning, and publication suggestions with evidence-based reconciliation.
+- Preserve the QA environment file while fixing exclusion coverage; never copy secrets into docs or artifacts.
+- Remove unsupported competitive claims from the active roadmap.
+- Preserve MetaCortex’s durable-memory focus. Archive import and a ChatGPT UI are in scope; document indexing, external connectors, conversation harvesting, and browser surveillance are not.
 
-  *Added 2026-06 following a design review:*
-  Extend `deprecate_context` with temporal bounds. This splits supersession into two semantically distinct reasons:
-  * **Change** — the world changed (e.g., a job switch). The prior fact was TRUE OF ITS ERA. Set `valid_until` on the prior record; it remains true-of-period and should still surface in valid-time slices for that window. May be initiated by agent or user.
-  * **Correction** — the prior record was NEVER TRUE (e.g., a mistyped date). Mark the prior record retracted on the belief axis — NOT a valid-time close — so it is excluded from valid-time truth while remaining in the audit trail. The corrective record carries the valid interval the prior should have had.
+## 3. Implementation milestones and interfaces
 
-  *Implementation:* Introduce a `supersession_reason` field (`"changed"` | `"corrected"`) on the supersession path; `valid_until` handling differs by reason. State projection rule is LATEST BELIEF WINS, since a correction can itself later be corrected. Cross-reference INVEST #4.
-* **Effort:** Low-medium.
+### A. Reconcile and stabilize the existing product
 
-### 3. Provenance (Memory + Action Lineage)
-* **Status:** Implemented 2026-07-11
-* **Goal:** Audit memory origin and protect chronology against agent drift (unintended rewrite/reinterpretation of historical priorities).
-* **Proposal:** Add a `provenance` object to `MemoryMetadata`:
-  * `origin` (`"user_asserted"` | `"agent_inferred"` | `"legacy_import"`)
-  * `source_session` (optional string)
-  * `derived_from` (optional array of memory document IDs that an inference drew upon)
-  * `confidence` (optional number)
-  
-  The agent self-reports `origin` on every write. Add an `origin` filter to `search_context`. For action provenance (which principal initiated a lifecycle mutation and the operation's semantics), extend the existing `memory_events` collection rather than introducing new infrastructure, turning it into an authorization-aware audit log. Backfill existing legacy memories with `origin: "legacy_import"`. Note that the origin filter on `search_context` is implemented as a post-filter with no new Firestore indexes needed.
-* **Effort:** Medium.
+Preserve the dirty checkout, reconcile card 66, and integrate applicable backup and verification work from existing branches/worktrees. Establish a reviewable baseline without discarding unique commits or assuming old deployment evidence proves current production state.
 
-### 4. Correction as a User-Initiated Action
-* **Status:** Implemented 2026-07-11
-* **Goal:** Prevent "agent drift" during error corrections by ensuring only the user can initiate corrections (retracting assertions that were never true).
-* **Proposal:** Enforce the user-only constraint structurally by exposing corrections as an MCP Prompt (user-controlled), NOT an MCP Tool (model-controlled). This prevents the agent from invoking corrections autonomously.
-  
-  A correction is implemented as a thin composition over existing tools: a `remember_context` call (for the corrected memory) + a `deprecate_context` call (for the old superseded memory) carrying `supersession_reason: "corrected"` and `initiator: "user"`. The agent can identify and surface correction candidates in a review queue, but it can never commit them without user action.
-* **Effort:** Low (no new storage primitive; a prompt plus `supersession_reason`/`initiator` fields, reusing deprecate+remember).
+Restore a valid verification contract in the release baseline. Update documentation and distribution examples together.
 
----
+**Acceptance:** every existing roadmap item has a disposition and evidence; tests/build pass; local, integrated, and deployed status are distinguished.
 
-## Competitive Positioning Summary
+### B. Strengthen memory correctness and recovery
 
-| Capability | Mem0 | Letta | Graphiti | OpenViking | Supermemory | MetaCortex |
-|---|---|---|---|---|---|---|
-| Vector search | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Multimodal memory | ❌ | ❌ | ❌ | ✅ (different) | ✅ (OCR/video) | ✅ (Gemini) |
-| MCP native | ❌ | ❌ | ❌ | ❌ | ✅ (thin) | ✅ (full) |
-| Client/tenant scoping | Basic | ❌ | ❌ | ❌ | Basic (Spaces) | ✅ (profiles) |
-| Context tiering | ❌ | ❌ | ❌ | ✅ (L0/L1/L2) | ❌ | 🔜 (proposed) |
-| Temporal validity | ❌ | ❌ | ✅ (bi-temporal) | ❌ | ❌ | ✅ (bi-temporal-lite) |
-| Graph relationships | ✅ (hybrid) | ❌ | ✅ (core) | ❌ | ❌ | ❌ |
-| Auto memory evolution | ✅ | ✅ (self-edit) | ✅ | ✅ | ✅ | ❌ |
-| Serverless-native | ❌ | ❌ | ❌ | ❌ | ✅ (CF Workers) | ✅ (Firebase) |
-| Connectors/ingestion | ❌ | ❌ | ❌ | ❌ | ✅ (GDrive etc.) | ❌ (by design) |
-| Idempotent writes | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (fingerprint) |
-| Explicit lifecycle | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (4-state) |
-| Benchmark-validated | ❌ | ❌ | ❌ | ❌ | ✅ (LongMemEval) | ❌ |
+Use the existing service/repository architecture.
 
-**MetaCortex's defensible niche:** MCP-native, multimodal, serverless *user memory* server with client-scoped access control and explicit lifecycle management. Intentionally does NOT do connectors or data ingestion — that's the agent's job, not the memory system's.
+- Verify temporal/provenance filtering, pagination, duplicate-write semantics, and supersession behavior against documented promises.
+- Make correction and consolidation operations retry-safe and prevent partial lifecycle updates.
+- Add preview/confirmation for owner-driven consolidation; detect changed source records before applying a preview.
+- Support retiring a memory without physically deleting it or requiring a fabricated replacement.
+- Introduce an explicit maintenance role. Allow bounded consolidation and retirement after owner opt-in, but not user-correction authority.
+- Enforce maintenance batch limits and stop/escalate on ambiguity or conflicting evidence. Default automation to off.
+- Integrate existing portable memory archives and full recovery tooling.
+- Discover backup inventory dynamically, including subcollections; verify IDs, content, Firestore types, vectors, and lineage—not just counts.
+- Distinguish portable memory import from full disaster recovery. Validate before writing and default recovery to a separate target.
+- Record schema and embedding-space identity. Reject incompatible vector restores; re-embed into a separate collection when required.
+- Use durable operation records for maintenance that cannot reliably complete within an HTTP request.
 
-The closest competitor in philosophy is supermemory (also serverless, also MCP-capable), but supermemory is memory-as-a-product (automated, consumer-friendly, implicit lifecycle) while MetaCortex is memory-as-infrastructure (explicit lifecycle control, deterministic behavior for agentic systems). Supermemory also has a reported fundamental reliability bug (issue #792: writes succeed but recall returns empty).
+Retain existing soft-deprecation behavior. Recovery tools may retain their explicit operator-only replacement semantics; do not expose destructive restore/pruning as ordinary memory management.
 
----
+**Acceptance:** interrupted or concurrent operations cannot silently corrupt the corpus or report incomplete recovery as complete.
 
-## Bugs to Fix (from codebase audit)
+### C. Add owner identity and interoperable authentication
 
-These should be addressed regardless of strategic direction:
+Use Firebase Google sign-in for the owner and an OAuth authorization service hosted with the installation. Build the OAuth service around a maintained implementation such as the previously researched `oidc-provider`, with Firestore-backed persistence and pinned dependencies.
 
-1. **Fixed:** `runtime.test.ts` used `MCP_AUTH_TOKEN` while code read `MCP_ADMIN_TOKEN`.
-2. **Fixed:** `CLAUDE.md` used `MCP_AUTH_TOKEN` in the env var table.
-3. **Fixed:** `CLAUDE.md` referred to `openBrainMcp` instead of `metaCortexMcp`.
-4. **Partially fixed:** stale `CLAUDE.md` descriptions were refreshed where touched by the contract cleanup.
-5. **Fixed:** `WWW-Authenticate` realm no longer uses the old placeholder service name.
-6. **Fixed:** default `serviceName` no longer uses the old placeholder service name.
-7. **Fixed:** replaced the shut-down `gemini-3.1-flash-lite-preview` multimodal model default with stable `gemini-3.1-flash-lite` and added live model validation.
+- Bind ownership during installation to the verified installer-selected account; never use unrestricted first-visitor ownership.
+- Implement authorization code with PKCE, discovery, resource/audience validation, consent, expiry, refresh, and revocation.
+- Support the registration mechanisms required by the tested launch clients.
+- Keep owner sessions, ordinary agent credentials, and maintenance grants distinct.
+- Store hashes of generated static agent credentials and reveal credentials only at creation.
+- Attribute actions from validated server-side identity.
+- Enforce allowed tools and lifecycle access for every request.
+- Offer read/write grants for interactive agents; reserve owner-only operations for the owner dashboard.
+- Maintain a documented, explicit compatibility switch for existing URL-token clients during migration.
+- Remove URL-token support only after the known clients pass replacement-authentication checks and the breaking change is documented.
 
----
+Keep the six existing tool names and successful response shapes. Preserve existing fetch-ID compatibility; do not reintroduce the old write-tool name.
 
-## Current Tool Surface
+### D. Build portable provisioning and browser setup
 
-| Tool | Purpose | Annotations |
-|---|---|---|
-| `remember_context` | Write memories (defaults: topic="general", branch_state="active") | idempotent |
-| `search_context` | Semantic search with filters | read-only |
-| `fetch_context` | Get full content by ID | read-only |
-| `deprecate_context` | Soft-delete with supersession tracking | destructive |
-| `consolidate_context` | LLM-merge related memories into one canonical record and deprecate the sources | destructive / admin |
+Create a Node-based provisioning engine with a browser wizard and an advanced CLI sharing the same logic.
 
----
+Use the owner’s Cloud Shell for cloud credentials and provisioning. The public setup page only launches the pinned release and instructions.
 
-## Completed Work (Archived)
+Provision or validate:
 
-* **SSE Transport Removal:** Streamable HTTP is now the only supported transport; stateful SSE endpoints removed. (Completed: 2026-03-22)
-* **Response Normalization:** All remaining MCP tools normalized to return JSON payloads instead of flat key=value text. (Completed: 2026-03-22)
-* **`store_context` Elimination:** Removed from MCP surface; `remember_context` is the unified write tool. (Completed: 2026-03-22)
-* **`get_consolidation_queue` Removal:** Removed from MCP surface; WIP queue is now an internal workflow. (Completed: 2026-03-22)
-* **`retrieval_text` Exposure Fix:** Removed `retrieval_text` from public `fetch_context` response to prevent leaking implementation details. (Completed: 2026-03-22)
-* **Roadmap Hardening Release:** Added Firestore TTL-ready fields and scripts, removed `content_preview` from search payloads, added `document_id` fetch compatibility, updated Gemini multimodal defaults, deployed production TTL policies, and verified production smoke tests. (Completed: 2026-06-11)
-* **Codebase Bugs Fixed:**
-  * Fixed environment variable naming mismatch (`MCP_ADMIN_TOKEN` vs `MCP_AUTH_TOKEN`).
-  * Updated references in `CLAUDE.md` from `openBrainMcp` to `metaCortexMcp`.
-  * Standardized `WWW-Authenticate` realm and default `serviceName` to use the correct service name.
+- Firebase project and billing prerequisites.
+- Firestore Native mode, indexes, rules, and TTL policies.
+- Functions, Hosting, Firebase Authentication, Secret Manager, and required IAM/API configuration.
+- Runtime model access and embedding dimensions.
+- Owner identity, scoped client configuration, and operational limits.
+
+Make project and region explicit. Default the region to the existing `us-central1` deployment convention while supporting validated alternatives. Use Vertex service identity by default for fresh deployments; preserve explicit API-key configuration for compatible existing installations.
+
+The wizard must:
+
+1. Explain ownership and expected billable services.
+2. Select/create a project and guide required Google consent/billing steps.
+3. Review deployment settings before provisioning.
+4. Show progress and actionable failures.
+5. Resume safely after interruption.
+6. Validate deployment and indexes.
+7. Connect the first agent and verify a save/search/fetch round trip.
+
+Do not depend on maintainer aliases, local paths, credentials, or project IDs. Never delete existing resources automatically during failed-setup recovery.
+
+### E. Build web management and the ChatGPT extension
+
+Use React, TypeScript, and Vite in the existing repository. Share the memory-browser components between the dashboard and extension; use separate adapters for owner APIs and the MCP host bridge.
+
+Add authenticated owner APIs under `/api/v1` for management, client grants, settings, operation progress, and archive workflows. Keep Firestore access server-mediated.
+
+The dashboard includes:
+
+- Search, paginated listing, filters, full memory details, provenance, and history.
+- Saving text/image-backed memories with clear external-artifact behavior.
+- Correction, soft retirement, consolidation review, and archive import/export.
+- Agent connection management and credential revocation.
+- Maintenance enablement, limits, review items, and audit summaries.
+- Recovery status, diagnostics, and operational controls.
+
+Add the MCP UI resources and structured results required for the ChatGPT sidebar/panel experience without breaking existing text-result clients. Route owner administration from the extension to the owner-authenticated dashboard.
+
+No permanent deletion button, endpoint, or MCP tool is included.
+
+### F. Package, validate, and maintain adoption
+
+Update the existing release channels and Journey distribution rather than launching a replacement product.
+
+- Provide current recipes for ChatGPT, Claude, Codex, and generic MCP.
+- Include reusable agent guidance: retrieve relevant context, fetch supporting records, save selectively, report provenance, and treat retrieved content as data.
+- Add configurable request/model-operation limits, bounded retries, and clear throttling errors. Keep full-query telemetry off by default.
+- Implement explicit upgrade, auth migration, recovery, rollback, and data-preserving uninstall procedures.
+- Validate clean installation through browsers on Windows, macOS, and Linux.
+- Run independent first-time-owner setup and recovery trials.
+- Publish versioned release assets, checksums, installation instructions, compatibility notes, and known limitations.
+- Establish ongoing model validation, dependency maintenance, recovery drills, and documentation ownership.
+
+Choose numeric usage defaults from measured acceptance workloads before release; document the selected values and keep them owner-configurable. Do not represent product rate limits as a guaranteed cloud-spend cap.
+
+## 4. Control-plane backlog
+
+Use the version-neutral initiative **MetaCortex self-hosted adoption**. The keys below are planning identifiers, not allocated card numbers.
+
+| Key | Card | Depends on | Completion evidence |
+|---|---|---|---|
+| DOC | Reconcile documentation into the canonical roadmap | — | Every source item has a disposition; maintained docs agree on scope, status, and policies. |
+| BASE | Reconcile current changes and existing worktrees/cards | DOC | Preserved work inventory, integrated baseline, and card 66 disposition. |
+| VERIFY | Establish verification contract and CI | BASE | Backend and added-package checks run from a clean checkout; real gate definitions match commands. |
+| CORE | Close memory/lifecycle correctness gaps | VERIFY | Regression tests for filtering, pagination, deduplication, supersession, races, and partial failures. |
+| RECOVERY | Integrate and verify existing backup/restore work | BASE, VERIFY | Inventory and content-fidelity restore evidence, including unknown collections/subcollections. |
+| ACCESS | Implement owner identity, grants, and OAuth | CORE | Owner binding, protocol tests, revocation, authorization boundaries, and client authentication evidence. |
+| LIMITS | Add usage controls and audit/privacy enforcement | ACCESS | Concurrent limit tests, redaction checks, configurable policies, and useful failure responses. |
+| MANAGE | Implement owner management and maintenance operations | CORE, RECOVERY, ACCESS | Retry-safe APIs/jobs, opt-in bounded maintenance, owner-only corrections, and no permanent deletion surface. |
+| DEPLOY | Generalize deployment and provisioning | VERIFY, ACCESS, LIMITS | Fresh/repeated/interrupted provisioning tests and explicit-target protections. |
+| SETUP | Build Cloud Shell browser wizard | DEPLOY | Browser-led setup with billing/consent handoffs, resume, diagnostics, and first-memory verification. |
+| WEB | Build memory browser and owner dashboard | MANAGE, LIMITS | Authenticated management flows, accessibility, failure states, and permission tests. |
+| CLIENTS | Package and verify core agent integrations | ACCESS, DEPLOY | Dated ChatGPT/Claude/Codex/generic MCP round-trip results and accurate recipes. |
+| CHATGPT | Build the self-hosted ChatGPT extension | WEB, CLIENTS | Sidebar/panel browsing, host-bridge authorization, and owner-dashboard handoff. |
+| UPGRADE | Implement upgrade, migration, and recovery journeys | RECOVERY, SETUP, WEB | Existing-install upgrade, rollback, data-preserving uninstall, and recovery rehearsal. |
+| AUTH-CUTOVER | Complete legacy URL-token migration and removal | CLIENTS, UPGRADE | Known affected clients verified on replacement auth; breaking-release notes and removal tests. |
+| ACCEPT | Run security and adoption acceptance | CHATGPT, UPGRADE, AUTH-CUTOVER | Client/OS matrix, adversarial tests, and independent owner trials pass. |
+| DISTRIBUTE | Publish the self-hosting improvements | ACCEPT | Verified release artifacts and successful installation from a clean public download. |
+| OPERATE | Establish ongoing maintenance and support | DISTRIBUTE | Assigned ownership, triage process, model/dependency checks, and recovery-drill instructions. |
+| TIERING | Evaluate context tiering and broader retrieval experiments | VERIFY; deferred | Hypothesis, frozen baseline, quality/cost comparison, and explicit go/no-go result. |
+
+### Posting rules
+
+- Check the live board for matching work before creation.
+- Reference existing cards 58–65 and 66 instead of duplicating their original deliverables.
+- Create every new card directly in `backlog` using the board API. Do not use an API that briefly makes cards runnable.
+- Use stable `[MC-ADOPTION/<key>]` markers for deduplication and retry recovery.
+- Resolve dependencies to returned card IDs.
+- Include concrete goals, exclusions, acceptance criteria, evidence requirements, and applicable verified gates in every card.
+- Use `software` cards for implementation and `task` cards for reconciliation, external acceptance, publication, and operational handoff.
+- Preserve unrelated queue ordering. Leave placement unspecified unless a verified gate requires it.
+- Read the board back to verify backlog state, dependencies, gate references, and duplicate absence.
+- Write actual card numbers into the canonical roadmap and derive `NEXT-STEPS.md` from the immediate prerequisites.
+
+## 5. Verification and completion
+
+### Required scenarios
+
+- **Authorization:** wrong owner, restricted tool/state, revoked credentials, forged initiator, expired/wrong-audience tokens, invalid OAuth redirects, reused codes, and refresh races.
+- **Memory:** cross-agent duplicate writes, concurrent corrections, stale consolidation previews, partial failures, historical validity, and filtered pagination.
+- **Maintenance:** disabled by default, explicit enablement, bounded batches, uncertain/conflicting candidates escalated, and no unauthorized correction.
+- **Provisioning:** new/existing project, missing billing/IAM, unavailable models, incomplete indexes, interrupted deployment, and safe rerun.
+- **Recovery:** corrupt archives, new collections/subcollections, equal-count/different-content corruption, vector mismatch, interrupted restore, and successful retrieval afterward.
+- **UI:** keyboard access, responsive layout, unsafe content rendering, external artifact links, empty corpus, network loss, expired login, and job progress.
+- **Interoperability:** one client saves a fact, another searches/fetches it, and a third contributes another fact to the same corpus.
+- **Migration:** existing memory and supported credentials survive upgrades; URL-token removal follows verified client migration.
+
+### Definition of done
+
+The documentation reconciliation is complete when all prior substantive work is accounted for, one roadmap governs priorities, and the board matches it without duplicate or active-by-accident cards.
+
+Self-hosted adoption is complete when a new owner can install from the public release, connect the four supported client categories, manage memories through the web UI and ChatGPT extension, enable bounded maintenance, upgrade, and recover their corpus using documented procedures.
+
+All claims must be supported by evidence from the exact release candidate. Passing local tests alone does not establish deployed compatibility, successful recovery, or usability by a first-time owner.

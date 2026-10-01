@@ -105,6 +105,34 @@ for secret_name in GEMINI_API_KEY MCP_ADMIN_TOKEN MCP_CLIENT_PROFILES_JSON; do
   echo "$secret_name: enabled"
 done
 
+echo "== Memory archive =="
+ARCHIVE_DIR="${METACORTEX_ARCHIVE_DIR:-$(read_env_key functions/.env METACORTEX_ARCHIVE_DIR)}"
+
+if [[ -z "$ARCHIVE_DIR" ]]; then
+  echo "warning: METACORTEX_ARCHIVE_DIR is not set; the memory store has no off-GCP archive"
+elif [[ ! -f "$ARCHIVE_DIR/manifest.json" ]]; then
+  echo "warning: no manifest.json in $ARCHIVE_DIR; run 'npm --prefix functions run backup:memories'"
+else
+  node - "$ARCHIVE_DIR/manifest.json" <<'NODE'
+const fs = require("fs");
+
+const manifestPath = process.argv.slice(1).find(arg => arg !== "-") || process.argv[1];
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const ageDays = (Date.now() - manifest.generated_at) / 86400000;
+
+console.log(
+  `archive: ${manifest.document_count} documents, ${ageDays.toFixed(1)} days old`
+);
+
+if (ageDays > 3) {
+  console.log(
+    `warning: memory archive is ${ageDays.toFixed(1)} days old; run 'npm --prefix functions run backup:memories'`
+  );
+}
+NODE
+fi
+
+echo
 echo "== Client profiles =="
 if [[ -f functions/.env.prod ]]; then
   node - <<'NODE'

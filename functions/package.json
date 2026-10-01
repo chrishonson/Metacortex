@@ -21,7 +21,12 @@
     "validate:models": "node scripts/validate-models.mjs",
     "inspect:prod": "node scripts/inspect-prod.mjs",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "backup:memories": "tsx scripts/backup-memories.ts",
+    "backup:firestore-full": "tsx scripts/firestore-full-backup.ts",
+    "restore:memories": "tsx scripts/restore-memories.ts",
+    "restore:firestore-full": "tsx scripts/firestore-full-restore.ts",
+    "gate:firestore-inventory": "tsx scripts/firestore-inventory-gate.ts"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

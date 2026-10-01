@@ -2,9 +2,15 @@
 
 MetaCortex is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
 
+## Status and roadmap
+
+MetaCortex is already released (repository tag `v0.3.0`). This checkout contains a reconciled local baseline; publication and production deployment are separate operations. See the [baseline record](docs/operations/2026-10-01-adoption-baseline.md), [unified roadmap](metacortexplan.md), and [immediate next steps](NEXT-STEPS.md).
+
+The browser setup wizard, owner login/OAuth, management dashboard, and ChatGPT extension are planned, not available in this baseline. Software is MIT-licensed; owners pay their own Firebase/model usage and agent subscriptions. One installation holds one owner's shared corpus; profiles do not provide tenant isolation.
+
 ## Why Metacortex?
 
-Persistent memory across any MCP client (ChatGPT web, Claude, etc.) with zero infrastructure management.
+Persistent memory shared by compatible MCP clients, with Firebase-managed infrastructure. Operators still configure, deploy, monitor, and back up their own project.
 
 > [!TIP]
 > **Memory Layer**: MetaCortex provides the hosted memory service, while autonomous agents such as OpenClaw use it as a shared remote memory backend. See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
@@ -62,9 +68,9 @@ The current MCP surface is intentionally split between:
 
 That means the server currently exposes 6 MCP tools total, but normal browser clients should only see 3 of them by default.
 
-### Client-facing tools
+### Ordinary-agent tools
 
-This is the public/browser contract:
+These are the recommended ordinary-agent tools:
 
 - `save_context`
   The single write tool for normal chat use. The client supplies the memory text, optional topic, optional `draft=true` for rough notes, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
@@ -72,8 +78,10 @@ This is the public/browser contract:
   Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
   Fetch one memory by `id` after `save_context` or `search_context`.
-- `list_context`
-  Enumerate stored memories with cursor pagination and metadata/creation-time/provenance filtering. Returns item summaries and IDs.
+
+### Optional listing permission
+
+`list_context` enumerates stored memories with cursor pagination and metadata/creation-time/provenance filtering. It returns summaries and IDs. Grant it explicitly; it is not part of the three-tool ordinary-agent default.
 
 ## Why `save_context` Is The Write Tool
 
@@ -140,56 +148,19 @@ Recommended browser read/write toolset:
 - `search_context`
 - `fetch_context`
 
-This 3-tool browser contract is the intended v1 public surface.
+This is the default ordinary-agent profile; the server offers six tools overall.
 
-## Browser Client Setup
+## Client setup and authentication status
 
-For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
+Use a dedicated scoped endpoint `<FUNCTION_BASE_URL>/clients/<clientId>/mcp` and its matching bearer credential. Do not register the admin endpoint with an ordinary client. Configure exact origins per profile; clients without an Origin header do not need browser origins.
 
-- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
-- Claude web URL: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- bearer token: the `token` value from the matching client profile
-- allowed browser origins: the matching profile's `allowedOrigins`
+This baseline has static credentials, not OAuth or owner login. Current code also accepts `?auth_token=<SCOPED_TOKEN>` for legacy URL-only clients. That credential is part of a URL and may enter infrastructure logs; do not describe it as secure secret transport. Existing connections are not removed by this baseline. The roadmap disables URL tokens for fresh installations after the auth work, migrates existing clients, then removes support in a documented breaking release.
 
-Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_ADMIN_TOKEN`.
-
-Use separate client profiles per browser client:
-
-- `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
-- `claude-web` with `allowedOrigins=["https://claude.ai"]`
-
-For agent-based clients such as OpenClaw, use a dedicated non-browser scoped profile instead of the admin endpoint. A recommended operating model is documented in [docs/OPENCLAW_MEMORY_OPS.md](docs/OPENCLAW_MEMORY_OPS.md).
-
-### Connecting to ChatGPT
-
-ChatGPT's current MCP UI does not support configuring custom `Authorization: Bearer` headers. To work around this security limitation, MetaCortex supports passing the token securely via the URL.
-
-1. Open ChatGPT Web or Desktop.
-2. Open Settings -> Connected Apps (or MCP Settings).
-3. Click "Add new App" or "Connect MCP Server".
-4. Set **Auth Type** to **No Authentication**.
-5. Set the **MCP URL** to your tokenized endpoint:
-   `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
-
-MetaCortex will validate the token from the URL and reject unauthenticated requests even though ChatGPT is configured for "No Auth".
-
-### Connecting to Claude
-
-Depending on your Claude client (e.g., experimental web extensions or custom UIs), you can configure the connection in two ways:
-
-**Option 1: Standard Headers (Preferred)**
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- **Auth Type**: Bearer Token / Service Token
-- **Token**: `Bearer <YOUR_CLAUDE_TOKEN>`
-
-**Option 2: Tokenized URL (If headers are unsupported)**
-- **Auth Type**: No Authentication
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp?auth_token=<YOUR_CLAUDE_TOKEN>`
-
+Use the capabilities of the specific client/version being connected; do not assume a particular ChatGPT or Claude settings screen supports bearer headers. The future core compatibility matrix covers ChatGPT, Claude, Codex, and generic MCP. No fresh compatibility verification is implied by these examples. See [deployment](docs/DEPLOYMENT.md) and the [client recipe](journey-kit/examples/browser-client-setup.md).
 
 ## Tool Contract
 
-The v1 client-facing tools return one `TextContent` block whose `text` is a single JSON object.
+The client-facing tools return one `TextContent` block whose `text` is a single JSON object.
 
 ### `save_context`
 
@@ -334,7 +305,7 @@ Typical result:
 - the result count is `limit` when provided, otherwise `SEARCH_RESULT_LIMIT`
 - the default state is `active` unless the client profile allows and requests another state
 
-`fetch_context` can still fail with `403` if the document exists but its `branch_state` is outside that client profile's `allowedFilterStates`.
+`fetch_context` can still fail with a neutral `404` if the document exists but its `branch_state` is outside that client profile's `allowedFilterStates`.
 
 ## Write Constraints
 
@@ -357,6 +328,11 @@ Write behavior that matters in production:
 Explicit lifecycle overrides are part of the admin maintenance surface described later in this README.
 
 ## Admin Cleanup And Consolidation
+
+Maintenance may run automatically only after owner opt-in, in a separate trusted session with a configured small batch and review for uncertain changes. User corrections require owner authorization. These policies are not fully enforced by the current static-token service: prompts and caller-supplied initiator metadata are not proof of human action. See [security limitations](docs/SECURITY.md).
+
+There is no permanent deletion feature. Deprecation retains memory history. The current API requires a superseding ID; retirement without one is planned.
+
 
 This section is for operators using the admin endpoint. Browser-hosted clients can usually ignore it.
 
@@ -474,6 +450,10 @@ Production retrieval events are evidence only. They do not become benchmark case
 until `eval:import` is run, and a successful fetch is treated as a positive label;
 the harness does not infer negative relevance judgments.
 
+## Backup and recovery
+
+Existing operator commands are integrated from the archive worktree. [Portable memory archives](docs/MEMORY_ARCHIVE.md) omit embeddings and re-embed on restore. [Full top-level Firestore backups](docs/FULL_BACKUP.md) preserve vectors and discover collection inventory. Their current limits and destructive operator restore semantics are explicit in those guides; future recovery hardening remains on the roadmap.
+
 ## Quick start
 
 1. Install dependencies:
@@ -488,7 +468,7 @@ the harness does not infer negative relevance judgments.
    cp functions/.env.example functions/.env
    ```
 
-   For browser-hosted clients, set a scoped client profile in `functions/.env` or `functions/.env.prod`:
+   For local development, use placeholder/local values only. For deployment, place credentials and profiles in Secret Manager, not production dotenv. Example profile value:
 
    ```dotenv
    MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
@@ -536,6 +516,6 @@ Deployment playbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 For the next production deployment session, start with:
 
 ```bash
-cd /Users/nick/git/metacortex
+cd <your-metacortex-checkout>
 ./scripts/deploy-session-preflight.sh
 ```
