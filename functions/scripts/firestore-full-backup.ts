@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnvironment, readArg } from "./support/cli.js";
 import {
   countDocuments,
+  firestoreProjectId,
   dumpCollection,
   listCollectionIds,
   MANIFEST_SCHEMA,
@@ -36,7 +37,7 @@ if (!archiveDir) {
 
 const firestore = openFirestore(projectId, "backup-source");
 
-console.log(`project: ${firestore.projectId}`);
+console.log(`project: ${firestoreProjectId(firestore)}`);
 console.log(`archive: ${archiveDir}`);
 console.log(`mode: ${dryRun ? "dry-run" : "write"}`);
 console.log("discovery: listCollections()");

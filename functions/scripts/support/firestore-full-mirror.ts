@@ -46,12 +46,22 @@ export function assertWritableProject(projectId: string): void {
   }
 }
 
+// The installed SDK exposes projectId at runtime but omits it from its public
+// TypeScript declaration. Validate the value before using it for target guards.
+export function firestoreProjectId(firestore: Firestore): string {
+  const projectId: unknown = Reflect.get(firestore, "projectId");
+  if (typeof projectId !== "string" || projectId.trim().length === 0) {
+    throw new Error("cannot verify Firestore project; refusing operator operation");
+  }
+  return projectId;
+}
+
 export function openFirestore(projectId: string, role: string): Firestore {
   const name = `full-mirror-${role}-${projectId}`;
   const existing = getApps().find((app: App) => app.name === name);
   const app = existing ?? initializeApp({ projectId }, name);
   const firestore = getFirestore(app);
-  const resolved = firestore.projectId;
+  const resolved = firestoreProjectId(firestore);
 
   if (resolved && resolved !== projectId) {
     throw new Error(
@@ -201,7 +211,7 @@ export async function clearCollection(
   firestore: Firestore,
   collectionId: string
 ): Promise<number> {
-  assertWritableProject(firestore.projectId);
+  assertWritableProject(firestoreProjectId(firestore));
   let deleted = 0;
 
   while (true) {
@@ -225,7 +235,7 @@ export async function writeDocuments(
   collectionId: string,
   docs: Array<Record<string, unknown>>
 ): Promise<number> {
-  assertWritableProject(firestore.projectId);
+  assertWritableProject(firestoreProjectId(firestore));
   let written = 0;
   const collection = firestore.collection(collectionId);
 
@@ -252,7 +262,7 @@ export async function pruneAbsentDocuments(
   collectionId: string,
   keepIds: ReadonlySet<string>
 ): Promise<number> {
-  assertWritableProject(firestore.projectId);
+  assertWritableProject(firestoreProjectId(firestore));
   const existing = await readAllDocs(firestore, collectionId);
   const extraIds = new Set(idsToPrune(existing.map(doc => doc.id), keepIds));
   const toDelete = existing.filter(doc => extraIds.has(doc.id));

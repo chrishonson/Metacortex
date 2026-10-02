@@ -97,7 +97,7 @@ for (const file of ["functions/.env", "functions/.env.prod", "functions/.env.my-
 }
 NODE
 for secret_name in GEMINI_API_KEY MCP_ADMIN_TOKEN MCP_CLIENT_PROFILES_JSON; do
-  secret_state="$(gcloud secrets versions describe latest --secret="$secret_name" --project=my-brain-88870 --format='value(state)')"
+  secret_state="$(gcloud secrets versions describe latest --secret "$secret_name" --project=my-brain-88870 --format='value(state)')"
   if [[ "$secret_state" != "ENABLED" ]]; then
     echo "ERROR: production secret $secret_name is not enabled" >&2
     exit 1

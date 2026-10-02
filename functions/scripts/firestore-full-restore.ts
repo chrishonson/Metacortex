@@ -6,6 +6,7 @@ import {
   assertWritableProject,
   clearCollection,
   countDocuments,
+  firestoreProjectId,
   encodedDocumentIds,
   loadArchiveCollection,
   openFirestore,
@@ -64,7 +65,7 @@ console.log(`collections: ${JSON.stringify(collectionIds)}`);
 
 const firestore = write ? openFirestore(projectId, "restore-target") : undefined;
 if (firestore) {
-  assertWritableProject(firestore.projectId);
+  assertWritableProject(firestoreProjectId(firestore));
 }
 
 const report: Array<{

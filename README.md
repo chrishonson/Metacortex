@@ -513,7 +513,7 @@ Existing operator commands are integrated from the archive worktree. [Portable m
 
 Deployment playbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
-For the next production deployment session, start with:
+For the maintainer’s existing production project, the preflight below checks local configuration and production secrets. New owners should follow the explicit-target deployment playbook instead:
 
 ```bash
 cd <your-metacortex-checkout>

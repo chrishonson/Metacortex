@@ -653,7 +653,7 @@
                 <span class="bullet-marker">⚡</span>
                 <div class="bullet-text">
                   <strong>Real-time Recall & Write</strong>
-                  <span>Writing a memory compiles local variables and stores the vector embedding in the same request.</span>
+                  <span>Writing a memory normalizes its content and stores its embedding in the same request.</span>
                 </div>
               </li>
               <li class="bullet-item">
@@ -807,7 +807,7 @@ async consolidateContext(input) {
                 <span class="bullet-marker">🔑</span>
                 <div class="bullet-text">
                   <strong>Scoped Endpoints</strong>
-                  <span>Ordinary agents default to `save_context`, `search_context`, and `fetch_context` on scoped client paths, limited to `"active"` memories. Deprecation is soft. There is no permanent deletion tool.</span>
+                  <span>Ordinary agents default to `save_context`, `search_context`, and `fetch_context` on scoped client paths, with reads restricted to `"active"` memories. Write-state enforcement is planned. Deprecation is soft. There is no permanent deletion tool.</span>
                 </div>
               </li>
             </ul>
@@ -849,7 +849,7 @@ journey install agentnightshift/metacortex-mcp-memory-firebase
 
 # The packaged kit bootstraps:
 # - Pre-configured Firestore composite indexes
-# - Pre-compiled HTTP endpoint functions
+# - TypeScript HTTP endpoint source
 # - Scoped browser settings & verification scripts
             </div>
             <div class="badge-row">
@@ -872,7 +872,7 @@ journey install agentnightshift/metacortex-mcp-memory-firebase
             <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.95rem;">
               <li>1. Install the MetaCortex package: `journey install agentnightshift/...`</li>
               <li>2. Follow the prompt commands to configure your Gemini API Key.</li>
-              <li>3. Open `journey-kit/README.md` to instantly plug in ChatGPT, Claude, and your local Nanobot agents.</li>
+              <li>3. Open `journey-kit/README.md` for scoped client recipes and authentication checks.</li>
             </ul>
           </div>
           

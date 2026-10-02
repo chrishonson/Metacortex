@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { DOCUMENT_ID_FIELD } from "../scripts/support/firestore-codec.js";
 import {
   encodedDocumentIds,
+  firestoreProjectId,
+  openFirestore,
+  clearCollection,
   idsToPrune,
   removeStaleNdjsonFiles
 } from "../scripts/support/firestore-full-mirror.js";
@@ -51,5 +54,22 @@ describe("removeStaleNdjsonFiles", () => {
     expect(fs.existsSync(path.join(dir, "keep.ndjson"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "gone.ndjson"))).toBe(false);
     expect(fs.readFileSync(path.join(dir, "AUDIT.md"), "utf8")).toBe("leave me");
+  });
+});
+
+describe("Firestore target verification", () => {
+  it("reads the explicitly configured project with the installed SDK", () => {
+    expect(firestoreProjectId(openFirestore("demo-archive-test", "test"))).toBe("demo-archive-test");
+  });
+
+  it("refuses production writes before reading a collection", async () => {
+    await expect(clearCollection(openFirestore("my-brain-88870", "test"), "unused"))
+      .rejects.toThrow(/refusing writes to prod/);
+  });
+
+  it("refuses writes when the SDK project cannot be verified", async () => {
+    const unknownTarget = {} as ReturnType<typeof openFirestore>;
+    await expect(clearCollection(unknownTarget, "unused"))
+      .rejects.toThrow(/cannot verify Firestore project/);
   });
 });

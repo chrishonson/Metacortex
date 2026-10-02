@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status (2026-10-02):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Supporting docs, the Journey kit, and slides were reconciled on 2026-10-02 (see section 6). Implementation and card posting have not occurred.
+**Status (2026-10-02):** planning and supporting-document reconciliation complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`), followed by review and fast-forward of upstream documentation through `82cb302`. Local verification and distribution checks are established; see the [baseline evidence](docs/operations/2026-10-01-adoption-baseline.md). All 19 cards are posted with verified dependencies: 18 in backlog and DISTRIBUTE review-blocked automatically by the control plane. No ready/claimed work was created. Product milestones B–F remain unimplemented; no production deployment occurred.
 
 ### One canonical plan
 
@@ -42,14 +42,14 @@ Code and tests establish local behavior. Release and deployment evidence establi
 ### Current baseline
 
 - The repository contains a `v0.3.0` tag and documented production releases.
-- The branch passes **114 tests and the TypeScript build** (verified 2026-10-01).
+- The branch passes **117 tests, the TypeScript build, and operator script typechecks** (verified 2026-10-02).
 - Six MCP tools exist locally: save, search, fetch, list, deprecate, and consolidate. Profiles expose subsets.
 - Existing capabilities include provenance, temporal fields, image normalization, duplicate-write protection, paginated listing, audit events, and retrieval evaluation.
 - The `save_context` rename is committed (`dde9099`, card 66). Deployed-client migration still requires verification.
 - Production Secret Manager migration is documented as complete. Credential rotation was explicitly excluded and is not unfinished work.
-- Backup/restore implementation exists in `worktree-memory-archive-task1` at `932f730`; cards 58–65 contain implementation, QA, and recovery evidence.
+- Backup/restore work from `worktree-memory-archive-task1` at `932f730` is integrated in `d54ca20`; cards 58–65 retain historical QA/recovery evidence. Recursive discovery, content fidelity, and safe recovery hardening remain RECOVERY work.
 - Additional evaluation work exists in a separate worktree. Preserve it and respect its recorded publication restrictions.
-- The working tree is clean. QA env files are covered by the `functions/.env.*` ignore rule.
+- QA env files remain local and are covered by `functions/.env.*`; personal settings and study data are excluded from the Journey distribution allowlist.
 
 ### Product policies
 
@@ -68,7 +68,7 @@ Code and tests establish local behavior. Release and deployment evidence establi
 | Launch coverage | ChatGPT, Claude, Codex, and a generic MCP client. Other clients receive recipes without unsupported compatibility claims. |
 | ChatGPT distribution | Owners connect their own endpoints. Public directory approval is not a completion requirement. |
 | Priorities | Self-hosting first. Preserve existing evaluation and regression checks; defer new tiering and broader provider research. |
-| Queue behavior | Post all cards directly to backlog. Do not activate workers. |
+| Queue behavior | Request backlog for every new card. The board automatically review-blocks outward-facing publication (DISTRIBUTE #84); preserve that safeguard. Do not activate workers. |
 
 ### Resolve document conflicts
 
@@ -87,7 +87,7 @@ Code and tests establish local behavior. Release and deployment evidence establi
 
 ### A. Reconcile and stabilize the existing product
 
-Preserve the dirty checkout, reconcile card 66, and integrate applicable backup and verification work from existing branches/worktrees. Establish a reviewable baseline without discarding unique commits or assuming old deployment evidence proves current production state.
+The initial checkout was preserved and the rename/backup work integrated. Accept that baseline, reconcile card 66’s remaining deployed-client checks, and retain applicable verification work from existing branches/worktrees. Establish a reviewable baseline without discarding unique commits or assuming old deployment evidence proves current production state.
 
 Restore a valid verification contract in the release baseline. Update documentation and distribution examples together.
 
@@ -194,29 +194,29 @@ Choose numeric usage defaults from measured acceptance workloads before release;
 
 ## 4. Control-plane backlog
 
-Use the version-neutral initiative **MetaCortex self-hosted adoption**. The keys below are planning identifiers, not allocated card numbers.
+Use the version-neutral initiative **MetaCortex self-hosted adoption**. Planning keys map to the allocated control-plane cards below (verified 2026-10-02). Card IDs are included for exact dependency reconciliation.
 
-| Key | Card | Depends on | Completion evidence |
-|---|---|---|---|
-| DOC | Reconcile documentation into the canonical roadmap | — | Every source item has a disposition; maintained docs agree on scope, status, and policies. |
-| BASE | Reconcile current changes and existing worktrees/cards | DOC | Preserved work inventory, integrated baseline, and card 66 disposition. |
-| VERIFY | Establish verification contract and CI | BASE | Backend and added-package checks run from a clean checkout; real gate definitions match commands. |
-| CORE | Close memory/lifecycle correctness gaps | VERIFY | Regression tests for filtering, pagination, deduplication, supersession, races, and partial failures. |
-| RECOVERY | Integrate and verify existing backup/restore work | BASE, VERIFY | Inventory and content-fidelity restore evidence, including unknown collections/subcollections. |
-| ACCESS | Implement owner identity, grants, and OAuth | CORE | Owner binding, protocol tests, revocation, authorization boundaries, and client authentication evidence. |
-| LIMITS | Add usage controls and audit/privacy enforcement | ACCESS | Concurrent limit tests, redaction checks, configurable policies, and useful failure responses. |
-| MANAGE | Implement owner management and maintenance operations | CORE, RECOVERY, ACCESS | Retry-safe APIs/jobs, opt-in bounded maintenance, owner-only corrections, and no permanent deletion surface. |
-| DEPLOY | Generalize deployment and provisioning | VERIFY, ACCESS, LIMITS | Fresh/repeated/interrupted provisioning tests and explicit-target protections. |
-| SETUP | Build Cloud Shell browser wizard | DEPLOY | Browser-led setup with billing/consent handoffs, resume, diagnostics, and first-memory verification. |
-| WEB | Build memory browser and owner dashboard | MANAGE, LIMITS | Authenticated management flows, accessibility, failure states, and permission tests. |
-| CLIENTS | Package and verify core agent integrations | ACCESS, DEPLOY | Dated ChatGPT/Claude/Codex/generic MCP round-trip results and accurate recipes. |
-| CHATGPT | Build the self-hosted ChatGPT extension | WEB, CLIENTS | Sidebar/panel browsing, host-bridge authorization, and owner-dashboard handoff. |
-| UPGRADE | Implement upgrade, migration, and recovery journeys | RECOVERY, SETUP, WEB | Existing-install upgrade, rollback, data-preserving uninstall, and recovery rehearsal. |
-| AUTH-CUTOVER | Complete legacy URL-token migration and removal | CLIENTS, UPGRADE | Known affected clients verified on replacement auth; breaking-release notes and removal tests. |
-| ACCEPT | Run security and adoption acceptance | CHATGPT, UPGRADE, AUTH-CUTOVER | Client/OS matrix, adversarial tests, and independent owner trials pass. |
-| DISTRIBUTE | Publish the self-hosting improvements | ACCEPT | Verified release artifacts and successful installation from a clean public download. |
-| OPERATE | Establish ongoing maintenance and support | DISTRIBUTE | Assigned ownership, triage process, model/dependency checks, and recovery-drill instructions. |
-| TIERING | Evaluate context tiering and broader retrieval experiments | VERIFY; deferred | Hypothesis, frozen baseline, quality/cost comparison, and explicit go/no-go result. |
+| Key | Card | Depends on | Completion evidence | Control-plane ID |
+|---|---|---|---|---|
+| DOC | #67 — Reconcile documentation into the canonical roadmap | — | Every source item has a disposition; maintained docs agree on scope, status, and policies. | `T2EoPAt0Th96kNj5nhFx` |
+| BASE | #68 — Reconcile current changes and existing worktrees/cards | DOC | Preserved work inventory, integrated baseline, and card 66 disposition. | `uRU4R3U15UGW72tIchVZ` |
+| VERIFY | #69 — Establish verification contract and CI | BASE | Backend and added-package checks run from a clean checkout; real gate definitions match commands. | `Fd8VtMHnOZ4oSP5iK3Lt` |
+| CORE | #70 — Close memory/lifecycle correctness gaps | VERIFY | Regression tests for filtering, pagination, deduplication, supersession, races, and partial failures. | `otSzeNLBhbOCttYrn2cs` |
+| RECOVERY | #71 — Integrate and verify existing backup/restore work | BASE, VERIFY | Inventory and content-fidelity restore evidence, including unknown collections/subcollections. | `BtDrMG2sJxfD81ocpiAi` |
+| ACCESS | #72 — Implement owner identity, grants, and OAuth | CORE | Owner binding, protocol tests, revocation, authorization boundaries, and client authentication evidence. | `N5EO6Qbc95xS6VYrpul6` |
+| LIMITS | #73 — Add usage controls and audit/privacy enforcement | ACCESS | Concurrent limit tests, redaction checks, configurable policies, and useful failure responses. | `7KvyBlTRK1uumpF3qQH1` |
+| MANAGE | #74 — Implement owner management and maintenance operations | CORE, RECOVERY, ACCESS | Retry-safe APIs/jobs, opt-in bounded maintenance, owner-only corrections, and no permanent deletion surface. | `EMRnH6rMKLXNxbYaYeLw` |
+| DEPLOY | #75 — Generalize deployment and provisioning | VERIFY, ACCESS, LIMITS | Fresh/repeated/interrupted provisioning tests and explicit-target protections. | `BLSsnfQGLAr1lj6KuHxr` |
+| SETUP | #76 — Build Cloud Shell browser wizard | DEPLOY | Browser-led setup with billing/consent handoffs, resume, diagnostics, and first-memory verification. | `XfcvYQa1P5fDL8NsZ2tv` |
+| WEB | #77 — Build memory browser and owner dashboard | MANAGE, LIMITS | Authenticated management flows, accessibility, failure states, and permission tests. | `LaWUbhG4JtfrglwWJUhk` |
+| CLIENTS | #78 — Package and verify core agent integrations | ACCESS, DEPLOY | Dated ChatGPT/Claude/Codex/generic MCP round-trip results and accurate recipes. | `64lBCl4zrFJAmx0yvF0P` |
+| CHATGPT | #79 — Build the self-hosted ChatGPT extension | WEB, CLIENTS | Sidebar/panel browsing, host-bridge authorization, and owner-dashboard handoff. | `7cZ1lUoLrRQkuGpXyyQC` |
+| UPGRADE | #80 — Implement upgrade, migration, and recovery journeys | RECOVERY, SETUP, WEB | Existing-install upgrade, rollback, data-preserving uninstall, and recovery rehearsal. | `sCWpf3Urv1C8vkvvpL0a` |
+| AUTH-CUTOVER | #81 — Complete legacy URL-token migration and removal | CLIENTS, UPGRADE | Known affected clients verified on replacement auth; breaking-release notes and removal tests. | `eJVcaCPKjrDdnHezEug0` |
+| ACCEPT | #82 — Run security and adoption acceptance | CHATGPT, UPGRADE, AUTH-CUTOVER | Client/OS matrix, adversarial tests, and independent owner trials pass. | `9GmfwCF1hzPrxirPNWxY` |
+| DISTRIBUTE | #84 — Publish the self-hosting improvements | ACCEPT | Verified release artifacts and successful installation from a clean public download. | `HnKmrS8PvxAzK8DosFuY` |
+| OPERATE | #85 — Establish ongoing maintenance and support | DISTRIBUTE | Assigned ownership, triage process, model/dependency checks, and recovery-drill instructions. | `TRP5miRDvjvCQSSprKMH` |
+| TIERING | #83 — Evaluate context tiering and broader retrieval experiments | VERIFY; deferred | Hypothesis, frozen baseline, quality/cost comparison, and explicit go/no-go result. | `1GnYHvNzhytdu9SmxDwj` |
 
 ### Posting rules
 
@@ -228,7 +228,7 @@ Use the version-neutral initiative **MetaCortex self-hosted adoption**. The keys
 - Include concrete goals, exclusions, acceptance criteria, evidence requirements, and applicable verified gates in every card.
 - Use `software` cards for implementation and `task` cards for reconciliation, external acceptance, publication, and operational handoff.
 - Preserve unrelated queue ordering. Leave placement unspecified unless a verified gate requires it.
-- Read the board back to verify backlog state, dependencies, gate references, and duplicate absence.
+- Read the board back to verify backlog state (or mandatory policy review block), dependencies, gate references, and duplicate absence.
 - Write actual card numbers into the canonical roadmap and derive `NEXT-STEPS.md` from the immediate prerequisites.
 
 ## 5. Verification and completion
@@ -267,3 +267,30 @@ All claims must be supported by evidence from the exact release candidate. Passi
 | `slides.html` | Corrected. Removed $0 cost, infinite-scaling, near-zero-latency, one-click, "secure", daily-cron, and unverified native-client claims. Tool count now six. Deletion wording now matches soft-deprecation. |
 | `studies/ci-recurrence/` | Retained. Unrelated CI-failure study data with no MetaCortex claims. |
 
+
+### Disposition of the prior strategic plan
+
+The strategic plan at `08d144f:metacortexplan.md` is preserved in Git. Its substantive items map as follows:
+
+| Prior item | Disposition and current evidence |
+|---|---|
+| Durable user memory; exclude connectors/document indexing | Retained. Archive import and the owner-requested ChatGPT UI are explicit additions; conversation harvesting remains excluded. |
+| TTL hardening for events and fingerprints | Implemented fields and operator scripts retained. Historical deployment evidence is not a fresh production check; retention/privacy and portable provisioning map to LIMITS/DEPLOY. |
+| Search payload redundancy; fetch full content | Implemented summary-only search and fetch retained. Semantic generated summaries remain deferred TIERING work. |
+| Model-default validation | Stable multimodal default and validation script retained. Live model checks belong to deployment/OPERATE; no current availability claim. |
+| Context tiers L0/L1/L2 | Deferred to TIERING, with frozen evaluation baseline and an explicit go/no-go. Not a release dependency. |
+| Temporal validity, changed/corrected semantics | Existing metadata, filtering, and supersession retained. Concurrent/partial-failure correctness and historical-query gaps map to CORE. |
+| Memory/action provenance and legacy backfill | Existing provenance fields, filters, events, and backfill retained. Trusted attribution and correction authority map to ACCESS/MANAGE. |
+| User-only correction through an MCP prompt | Prompt retained as guidance. The old structural-enforcement claim is superseded: self-reported initiator is not authorization. Enforce owner authority under ACCESS/MANAGE. |
+| Audit fixes: token/config names, function name, auth realm, service name | Completed fixes retained. Remaining stale repository guidance corrected under DOC. |
+| Streamable HTTP, JSON responses, removed store/queue tools, hidden retrieval_text, fetch-ID compatibility | Completed contract retained. Card 66 changes the unified write name to save_context without restoring removed aliases. |
+| Competitive matrix and reliability claims about other products | Removed from the active roadmap as unsupported and unnecessary for self-hosted acceptance. Historical text remains in Git. |
+| Old scouting suggestions to prune/discard/publish work | Superseded by the preservation inventory and per-card evidence in the baseline record. No age-based deletion or publication. |
+
+The prior NEXT-STEPS material was not tracked at release commit `08d144f`; its current replacement is a dated view of this roadmap. Dated archive designs retain their historical role. Screenshots and presentation assets are explanatory material, not release acceptance evidence.
+
+### Board reconciliation, 2026-10-02
+
+Created 19 unique `[MC-ADOPTION/<key>]` cards. DOC #67 through ACCEPT #82 and TIERING #83 are backlog, as is OPERATE #85. DISTRIBUTE #84 was created with a backlog request and the `outward_facing` flag; the control plane immediately set it to `blocked` with a pending review escalation. This is the sole queue-state exception, preserving the required publication safeguard. All dependency IDs and software gate IDs were read back and verified. No worker activation or queue reordering occurred; the board has zero ready and zero claimed cards.
+
+DOC/BASE/VERIFY retain delivered local evidence and remaining review/CI/deployment distinctions. They are not requests to redo completed integration. Existing cards 58–65 and 66 were not duplicated. Software cards reference `metacortex_typecheck`, `metacortex_test`, and `metacortex_package`; future packages must add feature-specific gates. TIERING remains deferred and does not block launch.
