@@ -10,7 +10,7 @@
 
 MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — over scoped endpoints with bearer authentication.
 
 > 🧪 **Used daily by the author as their personal MCP memory backend.**
 > Already powers multiple agents across ChatGPT & Claude in production.
@@ -81,7 +81,7 @@ The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints wi
 | 💳 Firebase Blaze plan | Required for Cloud Functions 2nd Gen production deploys. |
 
 > [!TIP]
-> **One-click setup:** Copy `functions/.env.example` → `functions/.env.prod`, fill in three secrets (`GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, client tokens), and deploy. The defaults for everything else already match the bundled indexes and code.
+> **Setup:** Copy `functions/.env.example` → `functions/.env.prod` for non-secret settings only. Store `GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, and `MCP_CLIENT_PROFILES_JSON` in Secret Manager (see `docs/DEPLOYMENT.md`), then deploy. The defaults for everything else already match the bundled indexes and code.
 
 <details>
 <summary><strong>🔧 Advanced Config: Environment Variables</strong></summary>

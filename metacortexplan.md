@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status (2026-10-01):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Remaining DOC reconciliation, implementation, and card posting have not occurred.
+**Status (2026-10-02):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Supporting docs and the Journey kit were reconciled on 2026-10-02 (see section 6). Implementation and card posting have not occurred.
 
 ### One canonical plan
 
@@ -251,3 +251,18 @@ The documentation reconciliation is complete when all prior substantive work is 
 Self-hosted adoption is complete when a new owner can install from the public release, connect the four supported client categories, manage memories through the web UI and ChatGPT extension, enable bounded maintenance, upgrade, and recover their corpus using documented procedures.
 
 All claims must be supported by evidence from the exact release candidate. Passing local tests alone does not establish deployed compatibility, successful recovery, or usability by a first-time owner.
+
+## 6. Reconciliation record
+
+### 2026-10-02
+
+| Item | Disposition |
+|---|---|
+| `docs/ARCHITECTURE.md`, `SECURITY.md`, `DEPLOYMENT.md`, `OPENCLAW_MEMORY_OPS.md`, `MAINTENANCE_AGENT_SPEC.md`, `FULL_BACKUP.md`, `MEMORY_ARCHIVE.md` | Retained. Already aligned with six tools, three-tool ordinary default, Secret Manager, and correction-authority limits (`d54ca20`). |
+| `README.md` | Retained. States six tools and legacy URL-token status. |
+| `CLAUDE.md`, `AGENTS.md` | Corrected tool count to six. |
+| `journey-kit/` (`kit.md`, `README.md`, `examples/browser-client-setup.md`) | Corrected. Secrets moved from `.env.prod` to Secret Manager, tokenized ChatGPT URL no longer the recommended path, "secure" and "one-click" claims removed, model name matched to code default. Kit version number not changed. |
+| `docs/superpowers/` plan and spec | Retained as dated records. |
+| `docs/operations/2026-09-09-secret-migration.md` | Retained as historical evidence. |
+| `slides.html`, `studies/` | Not reviewed. Open item for DOC. |
+

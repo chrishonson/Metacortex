@@ -55,7 +55,7 @@
     {
       "role": "multimodal-normalization",
       "provider": "google",
-      "name": "gemini-3.1-flash-lite-preview",
+      "name": "gemini-3.1-flash-lite",
       "hosting": "cloud API — requires GEMINI_API_KEY"
     }
   ],
@@ -76,7 +76,7 @@
       "name": "Gemini API",
       "kind": "AI API",
       "role": "provides text embeddings and image-to-text normalization",
-      "setup": "Requires GEMINI_API_KEY and uses text-embedding-004 plus gemini-3.1-flash-lite-preview."
+      "setup": "Requires GEMINI_API_KEY and uses text-embedding-004 plus gemini-3.1-flash-lite."
     }
   ],
   "parameters": [
@@ -224,7 +224,7 @@
 
 MCP memory that works everywhere — MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — over scoped endpoints with bearer authentication.
 
 Used daily by the author as their personal MCP memory backend. Already powers multiple agents across ChatGPT and Claude in production.
 
@@ -244,7 +244,7 @@ The install flow assumes you can deploy Cloud Functions and then register the re
 
 ### Models
 
-MetaCortex is verified here with `gpt-5.4` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite-preview` for image-to-text normalization before embedding.
+MetaCortex is verified here with `gpt-5.4` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite` for image-to-text normalization before embedding.
 
 ### Services
 
@@ -256,7 +256,7 @@ Keep `GEMINI_EMBEDDING_DIMENSIONS=768` aligned with the bundled Firestore vector
 
 ### Environment
 
-The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or Linux. The deployment flow is production-oriented and uses `functions/.env.prod` for the deploy target; local emulator work remains optional.
+The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or Linux. The deployment flow is production-oriented and uses `functions/.env.prod` for non-secret settings and Secret Manager for credentials; local emulator work remains optional.
 
 ## Steps
 
@@ -266,22 +266,21 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
    npm --prefix functions install
    ```
 
-2. Create the production env file from the bundled template and fill in your real values:
+2. Create the production env file from the bundled template for non-secret settings, then store credentials as runtime secrets:
 
    ```bash
    cp functions/.env.example functions/.env.prod
+   firebase functions:secrets:set GEMINI_API_KEY
+   firebase functions:secrets:set MCP_ADMIN_TOKEN
+   firebase functions:secrets:set MCP_CLIENT_PROFILES_JSON
    ```
 
-   Use the bundled template as the source of truth for the full variable list. Replace the placeholder values for:
-
-   - `GEMINI_API_KEY`
-   - `MCP_ADMIN_TOKEN`
-   - scoped client tokens inside `MCP_CLIENT_PROFILES_JSON`
+   Do not put these three values in `functions/.env.prod`. Scoped client tokens belong inside `MCP_CLIENT_PROFILES_JSON`. Use the bundled template as the source of truth for the remaining variables.
 
    Keep these non-secret defaults aligned with the shipped Firebase indexes and code:
 
    - `GEMINI_EMBEDDING_MODEL`: `text-embedding-004`
-   - `GEMINI_MULTIMODAL_MODEL`: `gemini-3.1-flash-lite-preview`
+   - `GEMINI_MULTIMODAL_MODEL`: `gemini-3.1-flash-lite`
    - `GEMINI_EMBEDDING_DIMENSIONS`: `768`
    - `MEMORY_COLLECTION`: `memory_vectors`
 
@@ -310,8 +309,7 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
 6. Capture the deployed function base URL and register scoped browser endpoints instead of the admin endpoint:
 
    ```text
-   https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<CHATGPT_TOKEN>
-   https://<FUNCTION_BASE_URL>/clients/claude-web/mcp
+   https://<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp
    ```
 
    Keep the admin endpoint separate:
@@ -336,7 +334,7 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
      --mode browser-read-write
    ```
 
-8. Register the matching values in ChatGPT and Claude. ChatGPT should use the tokenized URL and "No Authentication"; Claude can use either bearer auth or the tokenized URL if the client UI does not support headers.
+8. Register the endpoint in each client with its bearer credential where the client supports it. Current code still accepts `?auth_token=<SCOPED_TOKEN>` as legacy behavior for URL-only clients. That token is part of the URL and may be logged. It is scheduled for removal after OAuth migration, and no client compatibility is verified here.
 
 ## Outputs
 
@@ -346,7 +344,7 @@ The bundled repo slice is enough to keep iterating on the service without fetchi
 
 ## Failures Overcome
 
-The main operational mistakes are predictable: trying to deploy on Spark, letting index dimensions drift from the embedding model, assuming ChatGPT can send bearer headers, or accidentally exposing the admin tool surface to browsers. This kit bakes those lessons into the setup and endpoint registration steps so the install contract stays safe by default.
+The main operational mistakes are predictable: trying to deploy on Spark, letting index dimensions drift from the embedding model, assuming every client version supports bearer headers, or accidentally exposing the admin tool surface to browsers. This kit bakes those lessons into the setup and endpoint registration steps so the install contract stays conservative by default.
 
 ## Validation
 
