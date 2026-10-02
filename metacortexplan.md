@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status (2026-10-02):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Supporting docs and the Journey kit were reconciled on 2026-10-02 (see section 6). Implementation and card posting have not occurred.
+**Status (2026-10-02):** planning complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`). Supporting docs, the Journey kit, and slides were reconciled on 2026-10-02 (see section 6). Implementation and card posting have not occurred.
 
 ### One canonical plan
 
@@ -264,5 +264,6 @@ All claims must be supported by evidence from the exact release candidate. Passi
 | `journey-kit/` (`kit.md`, `README.md`, `examples/browser-client-setup.md`) | Corrected. Secrets moved from `.env.prod` to Secret Manager, tokenized ChatGPT URL no longer the recommended path, "secure" and "one-click" claims removed, model name matched to code default. Kit version number not changed. |
 | `docs/superpowers/` plan and spec | Retained as dated records. |
 | `docs/operations/2026-09-09-secret-migration.md` | Retained as historical evidence. |
-| `slides.html`, `studies/` | Not reviewed. Open item for DOC. |
+| `slides.html` | Corrected. Removed $0 cost, infinite-scaling, near-zero-latency, one-click, "secure", daily-cron, and unverified native-client claims. Tool count now six. Deletion wording now matches soft-deprecation. |
+| `studies/ci-recurrence/` | Retained. Unrelated CI-failure study data with no MetaCortex claims. |
 
