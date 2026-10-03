@@ -1,625 +1,135 @@
-# Deployment Playbook
+# Deployment and operator playbook
 
-This is the single deploy guide for MetaCortex.
+This guide describes the current local baseline, not the planned browser installer. See the [unified roadmap](../metacortexplan.md), [baseline evidence](operations/2026-10-01-adoption-baseline.md), and [security boundaries](SECURITY.md). MetaCortex is already released. Card 66 subsequently deployed on 2026-10-03 UTC; see the [rollout record](operations/2026-10-03-card66-rollout.md).
 
-Use it for:
+## Current contract
 
-- local verification before release
-- the first production deployment
-- the first production smoke test
-- the first weeks of rollout after launch
+- Firebase Cloud Functions 2nd Gen in `us-central1`, Firestore Native mode, and a billed Firebase project.
+- Six server tools, filtered by client profile. Ordinary agents receive save/search/fetch; listing is an explicit grant. Consolidation/deprecation are maintenance operations.
+- Streamable HTTP only, on `<FUNCTION_BASE_URL>/mcp` and `<FUNCTION_BASE_URL>/clients/<clientId>/mcp`.
+- One shared corpus per installation; topic/profile names do not isolate tenants.
+- The local baseline uses `save_context`. Card 66 deployed this contract and verified all nine scoped profiles plus admin; there is no old-name alias. Reconnect clients that cache the old tool catalog.
+- Model and collection settings come from the shipped `.env.example` and the operator's chosen deployment configuration. Validate actual model availability before deployment; model names in a template are not a live availability guarantee.
 
-## Current release contract
+## Prerequisites
 
-The deploy path in this repo currently assumes:
-
-- Firebase Cloud Functions 2nd Gen in `us-central1`
-- Firestore in Native mode
-- Firebase Blaze plan for production deploys
-- Firestore collection `memory_vectors`
-- Firestore collection `memory_events` for audit and observability
-- embedding output dimensions aligned with the Firestore vector indexes
-- runtime model choices supplied by the deploy dotenv files, using
-  [functions/.env.example](../functions/.env.example) as the tracked template
-- total MCP surface of 5 tools
-- public/browser toolset of 3 tools: `save_context`, `search_context`, `fetch_context`
-- admin-only maintenance tools: `deprecate_context`, `consolidate_context`
-- WIP consolidation is available only through the admin maintenance surface
-
-For the first production release, if `memory_vectors` is empty, no embedding migration is required.
-
-## Before you start
-
-Install and verify:
+From your own checkout, install Node matching `.node-version`, npm, Firebase CLI, and Google Cloud CLI. Java is needed for the Firestore emulator. Authenticate your own Firebase/Google account and select the intended project explicitly.
 
 ```bash
-node -v
-npm -v
+node --version
+npm --version
 firebase --version
-java -version
-```
-
-You need:
-
-- Firebase CLI authenticated with `firebase login`
-- a Firebase project with Blaze enabled
-- Firestore created in Native mode
-- access to the correct Firebase project alias
-- a valid `GEMINI_API_KEY`
-- a production `MCP_ADMIN_TOKEN`
-
-If the repo is not bound to the right Firebase project yet:
-
-```bash
-cd /Users/nick/git/metacortex
+gcloud --version
+npm --prefix functions ci
+firebase login
 firebase use --add
 ```
 
-## Runtime config
+Do not reuse the maintainer's project identifiers for a new installation. The existing operator preflight and archive tools still contain maintainer assumptions; generalizing them is DEPLOY work. Inspect the target/configuration before running commands.
 
-Firebase Functions loads dotenv files from `functions/`.
+## Secrets and non-secret configuration
 
-Recommended layout:
-
-- `functions/.env`: local development values
-- `functions/.env.dev`: development project values
-- `functions/.env.prod`: production project values
-
-`functions/.env.prod` is local deployment config and should stay out of Git.
-
-Start from the template:
+`functions/src/index.ts` binds three runtime secrets: `GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, and `MCP_CLIENT_PROFILES_JSON`. Production dotenv must not contain them. Store the values in Secret Manager for the chosen project, using Firebase's interactive secret entry rather than command-line secret literals:
 
 ```bash
-cp /Users/nick/git/metacortex/functions/.env.example /Users/nick/git/metacortex/functions/.env
+firebase functions:secrets:set GEMINI_API_KEY --project <project-id>
+firebase functions:secrets:set MCP_ADMIN_TOKEN --project <project-id>
+firebase functions:secrets:set MCP_CLIENT_PROFILES_JSON --project <project-id>
 ```
 
-Minimum required non-secret production values:
+Set non-secret model, dimension, collection, service, and origin settings in `functions/.env.<alias>` matching the selected Firebase alias. Consult `functions/.env.example`, but do not copy its credential placeholders into production dotenv. Local development may use ignored `.env`; emulators may use ignored `functions/.secret.local` overrides.
 
-```dotenv
-GEMINI_EMBEDDING_MODEL=...
-GEMINI_MULTIMODAL_MODEL=...
-GEMINI_MERGE_MODEL=...
-GEMINI_GENERATION_VERTEX_LOCATION=...
-GEMINI_EMBEDDING_DIMENSIONS=...
-MEMORY_COLLECTION=...
+The runtime currently prefers Vertex when a Firebase project ID is available, and falls back to API-key mode otherwise. Configuration still requires `GEMINI_API_KEY`; removing that unnecessary requirement in Vertex mode is planned. Ensure runtime IAM/model access matches the selected route.
+
+Admin CORS defaults to deny browser origins. Set each scoped profile's `allowedOrigins` separately. Example value for the client-profile secret (replace placeholders privately):
+
+```json
+[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
-Use [functions/.env.example](../functions/.env.example) for the current tracked
-defaults. Keep exact model ids there and in the deployed dotenv file, not
-duplicated in this playbook.
-
-Recommended admin endpoint defaults for the first release:
-
-```dotenv
-MCP_ALLOWED_TOOLS=save_context,search_context,fetch_context,deprecate_context
-MCP_ALLOWED_ORIGINS=
-MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
-SEARCH_RESULT_LIMIT=5
-DEFAULT_FILTER_STATE=active
-```
-
-Origin config split:
-
-- `MCP_ALLOWED_ORIGINS` applies only to the default admin `/mcp` endpoint
-- browser-hosted clients should use `MCP_CLIENT_PROFILES_JSON[].allowedOrigins`
-- leave `MCP_ALLOWED_ORIGINS` empty unless you intentionally want browser access to the admin endpoint
-
-Important constraints:
-
-- `GEMINI_EMBEDDING_DIMENSIONS` must match the vector index dimension in [firestore.indexes.json](../firestore.indexes.json)
-- if you change embedding models or dimensions after seeding data, do not mix vector spaces in the same collection
-- this codebase embeds text; image-backed memories are normalized into text before embedding
-
-Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and Claude web, deploy separate scoped client profiles from day one:
-
-- admin: `<FUNCTION_BASE_URL>/mcp`
-- ChatGPT web: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
-- Claude web: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-
-Recommended browser read/write toolset:
-
-- `save_context`
-- `search_context`
-- `fetch_context`
-
-Do not add `deprecate_context` to browser-hosted client profiles. Keep it on the admin endpoint only.
-
-Recommended web client profile shape (store the JSON value in Secret Manager,
-not in production dotenv):
-
-```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
-```
-
-For non-browser agent clients such as OpenClaw, add a separate scoped profile instead of reusing the admin token. Recommended shape:
-
-```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
-```
-
-Use `allowedOrigins: []` only when the OpenClaw runtime is a headless or non-browser client that does not send an `Origin` header. If the runtime sends `Origin` because it runs inside Electron, a WebView, or another browser-like environment, replace the empty list with the exact origin value or values emitted by that client.
-
-Keep each scoped-client token distinct from `MCP_ADMIN_TOKEN`. The admin token should stay reserved for maintenance and ops-only clients.
+Headless agents that do not send Origin can use `allowedOrigins: []`. Grant `list_context` explicitly when required. Read-state allowlists are not write-state restrictions in the current service.
 
 ## Local verification
 
-Run the preflight first:
-
 ```bash
-cd /Users/nick/git/metacortex
-./scripts/deploy-session-preflight.sh
-```
-
-That script checks:
-
-- git status
-- expected env file presence
-- effective production embedding config versus Firestore index dimensions
-- current Firebase project selection
-- full test suite
-- TypeScript build
-
-Validate the live Gemini model configuration before production deploy:
-
-```bash
-cd /Users/nick/git/metacortex
-npm --prefix functions run validate:models
-```
-
-If you want a manual local round-trip before production:
-
-```bash
-cd /Users/nick/git/metacortex
-npm --prefix functions run serve
-```
-
-Then in another shell:
-
-```bash
-curl -i "http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/healthz"
-```
-
-```bash
-cd /Users/nick/git/metacortex/functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/mcp" \
-MCP_ADMIN_TOKEN="replace-me" \
-npm run smoke -- --mode admin-read-write
-```
-
-Browser-client flow:
-
-```bash
-cd /Users/nick/git/metacortex/functions
-MCP_BASE_URL="http://127.0.0.1:5001/demo-open-brain/us-central1/metaCortexMcp/clients/chatgpt-web/mcp" \
-MCP_ADMIN_TOKEN="replace-chatgpt-token" \
-MCP_SMOKE_MODE="browser-read-write" \
-npm run smoke
-```
-
-Repeat with `/clients/claude-web/mcp` and the Claude token to validate Claude separately.
-
-The automated tests and build can also be run directly:
-
-```bash
-cd /Users/nick/git/metacortex
 npm --prefix functions test
 npm --prefix functions run build
-npm --prefix functions run validate:models
+npm --prefix functions run typecheck:scripts
+node scripts/build-journey-kit.mjs --no-write
 ```
 
-## Deploy
-
-### 1. Confirm the target project
+These checks do not prove live Firestore/model behavior. To run emulators, use local dummy credentials and a demo project. The Gemini calls need a deliberate test configuration; do not assume emulators automatically fake the model service.
 
 ```bash
-cd /Users/nick/git/metacortex
-firebase use
-firebase projects:list
+firebase emulators:start --only functions,firestore --project demo-open-brain
 ```
 
-Do not deploy while unsure which alias is active.
+The operator preflight `scripts/deploy-session-preflight.sh` additionally checks current Git/env/index/profile configuration, production secrets, and optional archive age. It is still tailored to the maintainer's production alias/project. A new owner should use the explicit checks above and must not run a maintainer-targeted preflight as if it were portable.
 
-### 2. Confirm production env values
+## Deploy an intentional release
 
-Verify that `functions/.env.prod` or the dotenv file you plan to deploy with includes the intended values, especially:
-
-- `GEMINI_API_KEY`
-- `MCP_ADMIN_TOKEN`
-- `MCP_ALLOWED_ORIGINS` only if you intentionally want browser access to the admin endpoint
-- `MCP_CLIENT_PROFILES_JSON` with both `chatgpt-web` and `claude-web` profiles
-- model and generation settings copied from the current
-  [functions/.env.example](../functions/.env.example):
-  `GEMINI_EMBEDDING_MODEL`, `GEMINI_MULTIMODAL_MODEL`,
-  `GEMINI_MERGE_MODEL`, and `GEMINI_GENERATION_VERTEX_LOCATION`
-- `GEMINI_EMBEDDING_DIMENSIONS` matching [firestore.indexes.json](../firestore.indexes.json)
-- `MEMORY_COLLECTION`
-
-For the first release, an empty production collection means there is no migration work to do.
-
-If you later switch embedding models or dimensions and want to keep old memories, re-embed them or start with a fresh collection.
-
-Also confirm the actual web-client registration values you will use:
-
-- ChatGPT URL: `<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp`
-- Claude URL: `<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- each bearer token comes from the matching client profile, not `MCP_ADMIN_TOKEN`
-- each web origin must match the profile's `allowedOrigins`
-
-### 3. Backfill TTL fields
-
-The hardening release uses Firestore TTL policies for unbounded operational collections:
-
-- `memory_vectors_write_fingerprints.expires_at`: 30-day retention
-- `memory_events.expires_at`: 90-day retention
-
-Run a dry run first:
+1. Verify the target alias, project ID, runtime account permissions, non-secret dotenv, and enabled Secret Manager versions.
+2. Validate models with `npm --prefix functions run validate:models` in a deliberately configured operator environment. This contacts a model service and may incur usage.
+3. Confirm embedding dimensions match every relevant vector index. Never mix vector spaces; use a separate collection and re-embed for a migration.
+4. Inspect backup/recovery evidence before touching an existing installation.
+5. Deploy rules/indexes, wait for required indexes to become ready, then deploy the function:
 
 ```bash
-cd /Users/nick/git/metacortex
-npm --prefix functions run backfill:ttl
+firebase use <alias>
+firebase deploy --project <alias> --only firestore:rules,firestore:indexes
+firebase deploy --project <alias> --only functions
 ```
 
-If the counts look correct, apply the backfill:
+The Functions predeploy hook builds the source. The alias selects `.env.<alias>`; passing a raw project ID may load a different dotenv file. Always verify effective non-secret settings.
 
-```bash
-cd /Users/nick/git/metacortex
-npm --prefix functions run backfill:ttl -- --write --project my-brain-88870
-```
+Existing production Secret Manager migration is complete: [card-23 record](operations/2026-09-09-secret-migration.md). Do not repeat the plaintext migration or rotate credentials merely because deployment docs changed.
 
-The backfill preserves numeric event `timestamp`, copies legacy numeric fingerprint `expires_at` into `dedupe_expires_at` when needed, and writes Date-valued `expires_at` fields for Firestore TTL.
+## TTL and retention
 
-### 4. Deploy Firestore indexes
+The current code writes Date-valued `expires_at` fields for TTL. Audit/retrieval events target 90 days; write fingerprints target 30 days. Numeric `dedupe_expires_at` separately controls the short duplicate-write window. Firestore TTL must be enabled on each actual collection separately.
 
-```bash
-cd /Users/nick/git/metacortex
-firebase deploy --only firestore:indexes
-```
-
-Required vector indexes:
-
-- `metadata.module_name ASC + embedding VECTOR`
-- `metadata.branch_state ASC + embedding VECTOR`
-- `metadata.branch_state ASC + metadata.module_name ASC + embedding VECTOR`
-
-Wait until those indexes are fully built before trusting search results.
-
-### 5. Deploy the function
-
-```bash
-cd /Users/nick/git/metacortex
-firebase deploy --only functions
-```
-
-Or deploy both together:
-
-```bash
-cd /Users/nick/git/metacortex
-firebase deploy --only firestore:indexes,functions
-```
-
-> **Important:** always use `firebase deploy` with the `prod` alias active (confirmed in step 1),
-> not `firebase deploy --project my-brain-88870`. Firebase loads `functions/.env.prod` based on
-> the **alias** name, not the project ID. Passing the raw project ID silently skips `functions/.env.prod`
-> and omits `MCP_CLIENT_PROFILES_JSON` from the deployment, causing all client endpoints to 404.
-> Use `firebase deploy --project prod` if you need to pass the project explicitly.
-
-Capture the deployed base URL for `metaCortexMcp`.
-
-The useful production routes are:
-
-- `<FUNCTION_BASE_URL>/healthz`
-- `<FUNCTION_BASE_URL>/mcp`
-- `<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp`
-
-### 6. Enable Firestore TTL policies
-
-Enable TTL policies after the `expires_at` fields exist:
-
-```bash
-cd /Users/nick/git/metacortex
-./scripts/deploy-firestore-ttl.sh --project my-brain-88870
-```
-
-Verify the policies:
-
-```bash
-gcloud firestore fields ttls list --project=my-brain-88870
-```
+Use `functions/scripts/backfill-firestore-ttl.mjs` and `scripts/deploy-firestore-ttl.sh` only after inspecting their target defaults/options. Backfill is not automatically necessary for an already-migrated deployment. TTL applies to operational collections, not a product feature for permanently deleting memories.
 
 ## Post-deploy verification
 
-### 1. Health check
+Check `/healthz`, rejected unauthenticated MCP requests, allowed/disallowed browser origins, and MCP initialization/tool discovery for each intended profile. Health alone does not prove model access or retrieval.
+
+Use credentials supplied privately through the environment. Smoke commands may write synthetic memories unless `search-only` is selected:
 
 ```bash
-curl -i "<FUNCTION_BASE_URL>/healthz"
+npm --prefix functions run smoke -- --mode search-only
+npm --prefix functions run smoke -- --mode browser-read-write
 ```
 
-Expected:
+Set `MCP_BASE_URL` to the exact scoped endpoint and `MCP_ADMIN_TOKEN` to that endpoint's matching credential (the smoke script variable name does not require using the admin account). `admin-read-write` is the default; `read-write` remains an alias. Image tests also accept image input and artifact references.
 
-- HTTP `200`
-- response includes `ok: true`
+Verify save → search → fetch returns the same ID, tool discovery matches the profile, and audit events reflect the correct client. Listing needs a profile that explicitly includes it. Current fetches of inaccessible states return neutral not-found behavior.
 
-### 2. Unauthorized request check
+## Client connections and compatibility
 
-```bash
-curl -i \
-  -X POST "<FUNCTION_BASE_URL>/mcp" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'
-```
+Prefer bearer headers where the client supports them. Use [the client recipe](../journey-kit/examples/browser-client-setup.md) for current static-token configuration. Do not assume a specific client settings UI or OAuth support in this baseline.
 
-Expected:
+Legacy query credentials remain accepted by the current code. They may enter infrastructure URL logs. The planned sequence is: implement replacement auth, disable URL tokens for new installations, migrate/test existing clients, then remove support in a documented breaking release. There is no transition switch implemented yet.
 
-- HTTP `401`
+Rotate/revoke a static client today by updating/removing its Secret Manager profile, updating the consumer, and redeploying. Use separate credentials for each client and maintenance boundary. OAuth/grant management in the web UI is future work.
 
-### 3. Client profile deployment check
+## Backup, restore, and rollback
 
-Verify that `MCP_CLIENT_PROFILES_JSON` was bundled into the deployed function by checking
-that client endpoints resolve (not 404). A `404` here means the env file was not picked up —
-the most common cause is deploying with the raw project ID instead of the `prod` alias.
+Use [portable memory archives](MEMORY_ARCHIVE.md) for memory export/re-embedding and [full top-level backup](FULL_BACKUP.md) for as-is vectors and operational collections. Existing inventory checks do not establish recursive, consistent, content-equal recovery. Do not silently strengthen their success claims.
 
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" \
-  -X OPTIONS "<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-  -H "Origin: https://chatgpt.com"
-# Expected: 204
-```
+For rollback, retain the previous source revision and compatible non-secret configuration/secret references. Reverting source alone does not undo schema/data changes. Keep the previous credential values unless an explicit migration requires changing them. Never restore plaintext production secrets into dotenv. Rehearse restore into a separate target; replacement/pruning is an explicit operator action.
 
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" \
-  -X OPTIONS "<FUNCTION_BASE_URL>/clients/claude-web/mcp" \
-  -H "Origin: https://claude.ai"
-# Expected: 204
-```
+## Maintainer environments (not installer defaults)
 
-If either returns `404`, the client profiles were not deployed. Fix:
+The existing production project is `my-brain-88870` (alias `prod`); the QA project is `metacortex-qa` (alias `qa`). Their existence and prior QA restore outcomes are historical evidence from cards 59–65, not fresh live checks. Current local aliases remain private. Keep QA and production credentials distinct. Do not deploy to either environment during a documentation/baseline task.
 
-```bash
-firebase use prod
-firebase deploy --only functions
-```
+## Observability and troubleshooting
 
-### 4. Browser CORS preflight details
+`memory_events` records compact tool/ingress outcomes. Optional `retrieval_query_events` contains full queries and retrieval evidence; keep it disabled unless deliberately required. Logs and query previews can contain private material. Audit collection retention does not remove copies in exported archives.
 
-Confirm the correct origin headers are returned:
-
-```bash
-curl -i \
-  -X OPTIONS "<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-  -H "Origin: https://chatgpt.com"
-```
-
-Expected:
-
-- HTTP `204`
-- `Access-Control-Allow-Origin: https://chatgpt.com`
-
-Repeat with:
-
-```bash
-curl -i \
-  -X OPTIONS "<FUNCTION_BASE_URL>/clients/claude-web/mcp" \
-  -H "Origin: https://claude.ai"
-```
-
-### 5. Authenticated admin MCP smoke test
-
-```bash
-cd /Users/nick/git/metacortex/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/mcp" \
-MCP_ADMIN_TOKEN="<ADMIN_MCP_TOKEN>" \
-MCP_SMOKE_MODE="admin-read-write" \
-npm run smoke
-```
-
-Expected:
-
-- tool listing succeeds
-- `save_context` succeeds
-- `search_context` returns the stored sample
-
-This is the first proof that:
-
-- auth works
-- the live Gemini call works
-- Firestore writes work
-- Firestore vector search works
-
-### 6. Authenticated browser MCP smoke test
-
-```bash
-cd /Users/nick/git/metacortex/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
-MCP_SMOKE_MODE="browser-read-write" \
-npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS networking." --query "shared networking for android and ios"
-```
-
-Expected:
-
-- `save_context` succeeds
-- `search_context` returns a result with `id=...`
-- `fetch_context` accepts that same `id` and returns the full stored record content and metadata
-
-Repeat the same smoke test against `/clients/claude-web/mcp` with `<CLAUDE_WEB_TOKEN>`.
-
-This is the first proof that the 3-tool client-facing browser contract is usable end to end.
-
-### 7. Verify observability events
-
-Open Firestore and inspect `memory_events`.
-
-Confirm:
-
-- at least one event exists for each successful smoke-test tool call
-- admin calls are recorded with `client_id=default`
-- ChatGPT web calls are recorded with `client_id=chatgpt-web`
-- Claude web calls are recorded with `client_id=claude-web`
-- tool events include `tool_name`, `status`, `timestamp`, `latency_ms`, and a compact `request` / `response` or `error`
-- request rejections use `event_type=request` with a `reason` such as `unauthorized` or `origin_not_allowed`
-
-Cloud Logging should also contain structured `metaCortexMcp tool event` and `metaCortexMcp request event` entries for the same calls.
-
-### 8. Verify the written document
-
-Open Firestore and inspect `memory_vectors`.
-
-Confirm:
-
-- one document was written
-- `metadata.branch_state` is `active`
-- the record stores both canonical `content` and internal `retrieval_text`
-- `metadata.created_at` and `metadata.updated_at` are present
-- the stored content is searchable through `search_context`
-
-### 9. Optional multimodal browser smoke test
-
-```bash
-cd /Users/nick/git/metacortex/functions
-MCP_BASE_URL="<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp" \
-MCP_ADMIN_TOKEN="<CHATGPT_WEB_TOKEN>" \
-MCP_SMOKE_MODE="browser-read-write" \
-MCP_IMAGE_BASE64="$(base64 < path/to/image.png | tr -d '\n')" \
-MCP_IMAGE_MIME_TYPE="image/png" \
-MCP_ARTIFACT_REF="gs://your-bucket/path/to/image.png" \
-npm run smoke -- --content "Settings screen screenshot for the Compose UI" --query "compose settings screenshot"
-```
-
-Repeat with `/clients/claude-web/mcp` and `<CLAUDE_WEB_TOKEN>` if Claude web will ingest images.
-
-Expected:
-
-- `save_context` accepts the image-backed memory
-- returned JSON metadata includes `modality=mixed` when both text and image are present
-- `search_context` returns a summary-only result with the same `id=...`
-- `fetch_context` accepts that same `id` and returns the same `artifact_refs`
-
-## Token Management
-
-Use separate tokens for separate trust boundaries:
-
-- `MCP_ADMIN_TOKEN` is the admin token for `/mcp`
-- `MCP_CLIENT_PROFILES_JSON[].token` is the scoped token for each client endpoint
-
-Rotation and revocation rules:
-
-- rotate a web client token by changing that profile's `token` in the `MCP_CLIENT_PROFILES_JSON` Secret Manager version, updating its consumer, and redeploying functions
-- revoke a client by removing the profile or replacing its token and redeploying functions
-- do not reuse `MCP_ADMIN_TOKEN` for browser-hosted clients
-- if ChatGPT web and Claude web should be revoked independently, give them separate client profiles
-- if OpenClaw should be revoked independently from browser clients, give it its own scoped `openclaw` profile
-
-## Observability
-
-After deployment, use these views together:
-
-- `memory_vectors` for the current corpus
-- `memory_events` for client-attributed usage and audit history
-- Cloud Logging for request failures and structured tool-event logs
-
-`memory_events` is populated automatically by successful and failed tool calls plus ingress-level auth/CORS rejections. It is the easiest way to answer:
-
-- which client is writing memories
-- which client is searching or fetching most often
-- which memory ids are being returned or fetched repeatedly
-- how many searches return zero results
-- whether a specific client is generating repeated tool errors
-- whether a specific client is hitting repeated `401` or `403` failures
-
-The event payload is intentionally compact. It records ids, filters, counts, states, reasons, and latency rather than duplicating full memory bodies.
-
-## First-release rollout
-
-Do not bulk-seed the corpus before launch.
-
-For the first release:
-
-- deploy the hosted MCP server
-- prove the hosted round trip works
-- let the first memories come from real work
-- watch retrieval quality before expanding automation
-
-Early target:
-
-- 5 to 20 durable memories
-
-Good early memories:
-
-- stable architecture decisions
-- durable project constraints
-- reusable workflows
-- canonical requirements
-- meaningful screenshots with lasting retrieval value
-
-Recommended rollout order:
-
-1. Admin endpoint reserved for maintenance and smoke tests
-2. Browser client rollout on `save_context`, `search_context`, and `fetch_context`
-3. Controlled writes only for clearly durable events
-4. Search-only downstream clients such as Nanobot
-5. Later use of `deprecate_context` plus internal WIP curation workflows
-
-## Failure checks
-
-If deploy succeeds but search fails:
-
-- confirm vector indexes finished building
-- confirm `GEMINI_EMBEDDING_MODEL` and `GEMINI_EMBEDDING_DIMENSIONS` match what you deployed
-- confirm Firestore is in Native mode
-- confirm the production collection does not mix vectors from different models or dimensions
-
-If requests return `401`:
-
-- verify `Authorization: Bearer <TOKEN>`
-- verify the token belongs to the endpoint you are calling
-- verify the deployed dotenv alias loaded the values you expect
-
-If the function deploys but cannot store documents:
-
-- verify the runtime service account has Firestore access
-- verify the Firestore API is enabled in the backing Google Cloud project
-
-If browser clients get `403 Origin not allowed`:
-
-- verify the request is using a client-scoped endpoint
-- verify that client profile has the expected `allowedOrigins`
-- verify the browser token matches the scoped client endpoint
-- do not use the admin endpoint for browser-hosted clients
-
-## Debugging
-
-Useful commands:
-
-```bash
-cd /Users/nick/git/metacortex
-firebase functions:list
-```
-
-Use Firebase console logs or Cloud Logging for failed production requests.
-
-
-## Production secret storage and rotation
-
-`functions/src/index.ts` binds `MCP_ADMIN_TOKEN`, `GEMINI_API_KEY`, and
-`MCP_CLIENT_PROFILES_JSON` with `defineSecret`. Production dotenv files must not
-contain these keys; retain only non-secret model, collection and service settings.
-`config.ts` continues reading runtime environment values injected by Firebase.
-Local emulators may use private `.secret.local` overrides (never commit them).
-
-Use Secret Manager in `my-brain-88870`. Transfer secret bytes through stdin or an
-in-memory SDK call, never command arguments or terminal output. A new secret
-version is applied by redeploying `metaCortexMcp`; existing instances do not
-automatically switch versions. Verify that function metadata lists all three
-under `secretEnvironmentVariables`, with none under `environmentVariables`.
-Do not print a raw function description while migrating an older deployment.
-
-Storage migration preserves values and does not constitute rotation. Before
-rotating the profile bundle, inventory every current client and its configured
-endpoint. Store each replacement as `metacortex-client-<id>` and update its
-consumer in the same cutover. Browser/remote client settings require access to
-those clients; storing a token in Secret Manager alone is not distribution.
-Smoke-test `tools/list` for each endpoint, then perform a read-only embedding
-search to exercise the Gemini credential. Only retire previous credentials once
-consumer cutover and verification are complete. Do not restore plaintext env
-configuration for rollback: redeploy a known-good code revision with the secret
-bindings retained and explicitly selected prior secret versions if necessary.
+- Search fails: verify index readiness, model availability/access, vector dimensions, and Firestore Native mode.
+- Authentication fails: verify endpoint/profile pairing and deployed Secret Manager bindings; do not print credentials.
+- Origin denied: inspect the actual Origin and its scoped profile; do not broaden admin access.
+- Writes fail: inspect runtime IAM and Firestore/model API access.
+- Deployment misconfigured: verify the selected alias and dotenv/secret separation.
+- Partial maintenance or recovery: stop and inspect operation/source/target state; do not blindly rerun a destructive command.

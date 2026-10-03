@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "gates": [
+    {
+      "id": "metacortex_typecheck",
+      "commands": [
+        "npm --prefix functions run build",
+        "npm --prefix functions run typecheck:scripts"
+      ]
+    },
+    {
+      "id": "metacortex_test",
+      "commands": ["npm --prefix functions test"]
+    },
+    {
+      "id": "metacortex_package",
+      "commands": ["node scripts/check-journey-kit-install.mjs"]
+    }
+  ]
+}

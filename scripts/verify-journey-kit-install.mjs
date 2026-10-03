@@ -12,6 +12,11 @@ const steps = [
     label: "functions build",
     command: "npm",
     args: ["--prefix", "functions", "run", "build"]
+  },
+  {
+    label: "operator scripts typecheck",
+    command: "npm",
+    args: ["--prefix", "functions", "run", "typecheck:scripts"]
   }
 ];
 

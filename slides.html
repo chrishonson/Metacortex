@@ -571,7 +571,7 @@
                 <span class="bullet-marker">✓</span>
                 <div class="bullet-text">
                   <strong>The Brain: MetaCortex</strong>
-                  <span>Cloud-hosted, secure serverless memory core holding unified knowledge representations.</span>
+                  <span>Cloud-hosted serverless memory core holding unified knowledge representations.</span>
                 </div>
               </li>
               <li class="bullet-item">
@@ -602,7 +602,7 @@
             <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 1rem;">
               <div class="card" style="padding: 1.25rem;">
                 <strong style="color: var(--brand-primary); display:block; margin-bottom:0.25rem;">Firebase Cloud Functions 2nd Gen</strong>
-                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Scales to absolute zero, keeping operating costs at $0.00.</span>
+                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Scales to zero when idle. You pay Firebase and Gemini usage in your own project (Blaze plan required).</span>
               </div>
               <div class="card" style="padding: 1.25rem;">
                 <strong style="color: var(--brand-secondary); display:block; margin-bottom:0.25rem;">Firestore Native Vector Search</strong>
@@ -610,7 +610,7 @@
               </div>
               <div class="card" style="padding: 1.25rem;">
                 <strong style="color: var(--brand-accent); display:block; margin-bottom:0.25rem;">Model Context Protocol (MCP)</strong>
-                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Open standard from Anthropic. Natively plug memory into ChatGPT or Claude Desktop.</span>
+                <span style="font-size:0.85rem; color: var(--color-text-secondary);">Open standard from Anthropic. Connect MCP-capable clients such as ChatGPT, Claude, and Codex. Verify each client version's supported authentication.</span>
               </div>
             </div>
           </div>
@@ -618,7 +618,7 @@
           <div>
             <span class="section-title-label">Part 2: Under the Hood</span>
             <h2>Built on <span>Open Standards</span></h2>
-            <p class="slide-subtitle">A highly performant serverless stack with infinite horizontal scaling and zero idle hosting fees.</p>
+            <p class="slide-subtitle">A serverless stack on Cloud Functions and Firestore with no always-on server to host.</p>
             
             <ul class="bullet-list">
               <li class="bullet-item">
@@ -632,7 +632,7 @@
                 <span class="bullet-marker">→</span>
                 <div class="bullet-text">
                   <strong>Timing-Safe Token Auth</strong>
-                  <span>Allows multiple client keys, secure Bearer tokens, and origin check filters.</span>
+                  <span>Allows multiple client keys, Bearer tokens, and origin check filters.</span>
                 </div>
               </li>
             </ul>
@@ -653,14 +653,14 @@
                 <span class="bullet-marker">⚡</span>
                 <div class="bullet-text">
                   <strong>Real-time Recall & Write</strong>
-                  <span>Writing a memory compiles local variables and stores the vector embedding instantaneously.</span>
+                  <span>Writing a memory normalizes its content and stores its embedding in the same request.</span>
                 </div>
               </li>
               <li class="bullet-item">
                 <span class="bullet-marker">⚡</span>
                 <div class="bullet-text">
                   <strong>High-Speed Retrieval</strong>
-                  <span>Under-the-hood vector indexing returns near-zero latency semantic matches.</span>
+                  <span>Firestore vector indexes return semantic matches in a single query.</span>
                 </div>
               </li>
             </ul>
@@ -731,7 +731,7 @@
           <div>
             <span class="section-title-label">Part 4: Memory Hygiene</span>
             <h2>LLM-Driven <span>Consolidation</span></h2>
-            <p class="slide-subtitle">MetaCortex utilizes an isolated background thread to actively clean and deduplicate your knowledge tree.</p>
+            <p class="slide-subtitle">Consolidation merges related memories into one canonical record. Autonomous maintenance is optional and owner-enabled, and is not part of the default install.</p>
             
             <ul class="bullet-list">
               <li class="bullet-item">
@@ -745,7 +745,7 @@
                 <span class="bullet-marker">✓</span>
                 <div class="bullet-text">
                   <strong>Automated LLM Merges</strong>
-                  <span>A daily cron worker compiles WIP threads and directs Gemini to merge them into a single canonical active fact sheet.</span>
+                  <span>A consolidation run compiles WIP memories and directs Gemini to merge them into a single canonical active record.</span>
                 </div>
               </li>
               <li class="bullet-item">
@@ -799,15 +799,15 @@ async consolidateContext(input) {
               <li class="bullet-item">
                 <span class="bullet-marker">🔑</span>
                 <div class="bullet-text">
-                  <strong>The 5-Tool Core API</strong>
-                  <span>`save_context`, `search_context`, `fetch_context`, `deprecate_context`, and `consolidate_context`.</span>
+                  <strong>The 6-Tool Core API</strong>
+                  <span>`save_context`, `search_context`, `fetch_context`, `list_context`, `deprecate_context`, and `consolidate_context`.</span>
                 </div>
               </li>
               <li class="bullet-item">
                 <span class="bullet-marker">🔑</span>
                 <div class="bullet-text">
                   <strong>Scoped Endpoints</strong>
-                  <span>Chat bots can only read/write `"active"` memories on customized scoped client paths. They are barred from administrative deletion.</span>
+                  <span>Ordinary agents default to `save_context`, `search_context`, and `fetch_context` on scoped client paths, with reads restricted to `"active"` memories. Write-state enforcement is planned. Deprecation is soft. There is no permanent deletion tool.</span>
                 </div>
               </li>
             </ul>
@@ -821,7 +821,7 @@ async consolidateContext(input) {
           <div>
             <span class="section-title-label">Part 5: Production Deployment</span>
             <h2>Deploy Instantly via <span>Journey Kit</span></h2>
-            <p class="slide-subtitle">Install, provision, and configure the entire memory layer with a single terminal command.</p>
+            <p class="slide-subtitle">Install the packaged memory layer with Journey, then finish configuration in your own Firebase project.</p>
             
             <ul class="bullet-list">
               <li class="bullet-item">
@@ -835,7 +835,7 @@ async consolidateContext(input) {
                 <span class="bullet-marker">🚀</span>
                 <div class="bullet-text">
                   <strong>Guided Configuration</strong>
-                  <span>Journey automatically guides you through Firebase project setup, Gemini API key linkage, and client profile creation.</span>
+                  <span>The kit walks you through Firebase project setup, Secret Manager credentials, and client profile creation.</span>
                 </div>
               </li>
             </ul>
@@ -849,12 +849,12 @@ journey install agentnightshift/metacortex-mcp-memory-firebase
 
 # The packaged kit bootstraps:
 # - Pre-configured Firestore composite indexes
-# - Pre-compiled HTTP endpoint functions
+# - TypeScript HTTP endpoint source
 # - Scoped browser settings & verification scripts
             </div>
             <div class="badge-row">
               <span class="tech-badge">journey-kit</span>
-              <span class="tech-badge">One-Click Setup</span>
+              <span class="tech-badge">Secret Manager</span>
             </div>
           </div>
         </div>
@@ -872,7 +872,7 @@ journey install agentnightshift/metacortex-mcp-memory-firebase
             <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.95rem;">
               <li>1. Install the MetaCortex package: `journey install agentnightshift/...`</li>
               <li>2. Follow the prompt commands to configure your Gemini API Key.</li>
-              <li>3. Open `journey-kit/README.md` to instantly plug in ChatGPT, Claude, and your local Nanobot agents.</li>
+              <li>3. Open `journey-kit/README.md` for scoped client recipes and authentication checks.</li>
             </ul>
           </div>
           

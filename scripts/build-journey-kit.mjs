@@ -188,6 +188,211 @@ const SOURCE_FILE_MANIFEST = [
     path: "functions/test/support/fakes.ts",
     role: "test-support",
     description: "In-memory fake repository, embeddings, and test factory helpers."
+  },
+  {
+    path: "functions/src/archive.ts",
+    role: "source",
+    description: "MetaCortex source: archive."
+  },
+  {
+    path: "functions/src/archiveFirestore.ts",
+    role: "source",
+    description: "MetaCortex source: archiveFirestore."
+  },
+  {
+    path: "functions/src/gemini.ts",
+    role: "source",
+    description: "MetaCortex source: gemini."
+  },
+  {
+    path: "functions/src/merging.ts",
+    role: "source",
+    description: "MetaCortex source: merging."
+  },
+  {
+    path: "functions/src/retrievalEvaluation.ts",
+    role: "source",
+    description: "MetaCortex source: retrievalEvaluation."
+  },
+  {
+    path: "functions/scripts/backfill-firestore-provenance.mjs",
+    role: "script",
+    description: "MetaCortex script: backfill-firestore-provenance."
+  },
+  {
+    path: "functions/scripts/backfill-firestore-ttl.mjs",
+    role: "script",
+    description: "MetaCortex script: backfill-firestore-ttl."
+  },
+  {
+    path: "functions/scripts/backup-memories.ts",
+    role: "script",
+    description: "MetaCortex script: backup-memories."
+  },
+  {
+    path: "functions/scripts/firestore-full-backup.ts",
+    role: "script",
+    description: "MetaCortex script: firestore-full-backup."
+  },
+  {
+    path: "functions/scripts/firestore-full-restore.ts",
+    role: "script",
+    description: "MetaCortex script: firestore-full-restore."
+  },
+  {
+    path: "functions/scripts/firestore-inventory-gate.ts",
+    role: "script",
+    description: "MetaCortex script: firestore-inventory-gate."
+  },
+  {
+    path: "functions/scripts/genai-client.mjs",
+    role: "script",
+    description: "MetaCortex script: genai-client."
+  },
+  {
+    path: "functions/scripts/inspect-prod.mjs",
+    role: "script",
+    description: "MetaCortex script: inspect-prod."
+  },
+  {
+    path: "functions/scripts/restore-memories.ts",
+    role: "script",
+    description: "MetaCortex script: restore-memories."
+  },
+  {
+    path: "functions/scripts/retrieval-eval.ts",
+    role: "script",
+    description: "MetaCortex script: retrieval-eval."
+  },
+  {
+    path: "functions/scripts/support/cli.ts",
+    role: "script",
+    description: "MetaCortex script: cli."
+  },
+  {
+    path: "functions/scripts/support/firestore-codec.ts",
+    role: "script",
+    description: "MetaCortex script: firestore-codec."
+  },
+  {
+    path: "functions/scripts/support/firestore-full-mirror.ts",
+    role: "script",
+    description: "MetaCortex script: firestore-full-mirror."
+  },
+  {
+    path: "functions/scripts/validate-models.mjs",
+    role: "script",
+    description: "MetaCortex script: validate-models."
+  },
+  {
+    path: "functions/test/archive.test.ts",
+    role: "test",
+    description: "MetaCortex test: archive.test."
+  },
+  {
+    path: "functions/test/archiveFirestore.test.ts",
+    role: "test",
+    description: "MetaCortex test: archiveFirestore.test."
+  },
+  {
+    path: "functions/test/firestore-full-mirror.test.ts",
+    role: "test",
+    description: "MetaCortex test: firestore-full-mirror.test."
+  },
+  {
+    path: "functions/test/memoryRepository.test.ts",
+    role: "test",
+    description: "MetaCortex test: memoryRepository.test."
+  },
+  {
+    path: "functions/test/retrievalEvaluation.test.ts",
+    role: "test",
+    description: "MetaCortex test: retrievalEvaluation.test."
+  },
+  {
+    path: ".gitignore",
+    role: "config",
+    description: "Bundled .gitignore."
+  },
+  {
+    path: "functions/package-lock.json",
+    role: "config",
+    description: "Bundled functions/package-lock.json."
+  },
+  {
+    path: "functions/tsconfig.scripts.json",
+    role: "config",
+    description: "Bundled functions/tsconfig.scripts.json."
+  },
+  {
+    path: "LICENSE",
+    role: "documentation",
+    description: "Bundled LICENSE."
+  },
+  {
+    path: "metacortexplan.md",
+    role: "documentation",
+    description: "Bundled metacortexplan.md."
+  },
+  {
+    path: "NEXT-STEPS.md",
+    role: "documentation",
+    description: "Bundled NEXT-STEPS.md."
+  },
+  {
+    path: "docs/DEPLOYMENT.md",
+    role: "documentation",
+    description: "Bundled docs/DEPLOYMENT.md."
+  },
+  {
+    path: "docs/ARCHITECTURE.md",
+    role: "documentation",
+    description: "Bundled docs/ARCHITECTURE.md."
+  },
+  {
+    path: "docs/SECURITY.md",
+    role: "documentation",
+    description: "Bundled docs/SECURITY.md."
+  },
+  {
+    path: "docs/MEMORY_ARCHIVE.md",
+    role: "documentation",
+    description: "Bundled docs/MEMORY_ARCHIVE.md."
+  },
+  {
+    path: "docs/FULL_BACKUP.md",
+    role: "documentation",
+    description: "Bundled docs/FULL_BACKUP.md."
+  },
+  {
+    path: "docs/MAINTENANCE_AGENT_SPEC.md",
+    role: "documentation",
+    description: "Bundled docs/MAINTENANCE_AGENT_SPEC.md."
+  },
+  {
+    path: "docs/OPENCLAW_MEMORY_OPS.md",
+    role: "documentation",
+    description: "Bundled docs/OPENCLAW_MEMORY_OPS.md."
+  },
+  {
+    path: "docs/operations/2026-09-09-secret-migration.md",
+    role: "documentation",
+    description: "Bundled docs/operations/2026-09-09-secret-migration.md."
+  },
+  {
+    path: "docs/operations/2026-10-03-card66-rollout.md",
+    role: "documentation",
+    description: "Card 66 deployed contract and live verification evidence."
+  },
+  {
+    path: "docs/operations/2026-10-01-adoption-baseline.md",
+    role: "documentation",
+    description: "Bundled docs/operations/2026-10-01-adoption-baseline.md."
+  },
+  {
+    path: "journey-kit/examples/browser-client-setup.md",
+    role: "documentation",
+    description: "Bundled journey-kit/examples/browser-client-setup.md."
   }
 ];
 
