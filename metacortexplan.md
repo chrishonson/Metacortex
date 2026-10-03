@@ -300,3 +300,19 @@ DOC/BASE/VERIFY retain delivered local evidence and remaining review/CI/deployme
 Card 66 landed through PR #12 and is done: production revision `metacortexmcp-00030-zaj`, profile secret version 2, nine scoped clients and admin verified. The [rollout record](docs/operations/2026-10-03-card66-rollout.md) distinguishes endpoint checks from long-running client catalog refreshes. Baseline `9c3feac` is pushed and its hosted typecheck/test/package gates passed. The earlier local-only and undeployed statements in dated records describe the state before this rollout.
 
 The release integration includes the intended roadmap, archive/backup code, verification contract and packaging corrections. Unrelated study data and personal settings remain preserved on `codex/self-hosted-adoption-baseline`; they are not part of the release integration or Journey package. DOC/BASE/VERIFY acceptance precedes CORE #70; remaining cards stay queued until selected.
+
+### 2026-10-03 UTC foundation acceptance (DOC #67)
+
+Reviewed on `release` at `97bc073` (PR #13). Source `ad62a6a` passed the hosted `verify` job: [run 37097980532](https://github.com/chrishonson/Metacortex/actions/runs/37097980532). The checks below were repeated independently from a fresh clone of `release`.
+
+- **Card mapping.** All 19 `[MC-ADOPTION/<key>]` cards on the live board match the table in section 4 by number, key, control-plane ID and dependencies. There are no mismatches and no board card outside the table.
+- **Source items.** `release` tracks 51 Markdown and HTML files. 22 are named in this roadmap or the adoption baseline record, directly or through a listed directory. The other 29 are tooling files outside the ledger's scope: 28 vendored Firebase agent skill pages under `.agents/skills/` and the `/inspect` command in `.claude/commands/`, which only launches the production inspector.
+- **Tool name.** `remember_context` appears only in the dated card 66 rollout record and in a tracked local settings file (see limitations). Maintained documents use `save_context`.
+- **Status wording.** No maintained document still calls the baseline local, unpushed or undeployed. Dated records keep the wording of their date.
+- **Gates from a clean clone.** On macOS with Node 22.22.2, `npm ci` then `metacortex_typecheck`, `metacortex_test` (117 tests in 10 files) and `metacortex_package` (clean Journey installation of 70 files) all passed.
+
+Remaining limitations:
+
+- Hosted CI and the clean-clone run use the local gates only and make no live calls. They are not deployed-client evidence. Deployed-client evidence for the rename is in the card 66 rollout record.
+- Production runs revision `metacortexmcp-00030-zaj`, deployed after PR #12 and before PR #13 merged. Code that arrived with PR #13 is not claimed as deployed.
+- `.claude/settings.local.json` is tracked in this public repository. It holds no credentials, but it contains personal absolute paths and an allow rule for the removed `remember_context` tool. Untrack or scrub it before DISTRIBUTE #84.
