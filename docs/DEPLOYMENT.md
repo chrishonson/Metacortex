@@ -22,7 +22,7 @@ The deploy path in this repo currently assumes:
 - runtime model choices supplied by the deploy dotenv files, using
   [functions/.env.example](../functions/.env.example) as the tracked template
 - total MCP surface of 5 tools
-- public/browser toolset of 3 tools: `remember_context`, `search_context`, `fetch_context`
+- public/browser toolset of 3 tools: `save_context`, `search_context`, `fetch_context`
 - admin-only maintenance tools: `deprecate_context`, `consolidate_context`
 - WIP consolidation is available only through the admin maintenance surface
 
@@ -91,7 +91,7 @@ duplicated in this playbook.
 Recommended admin endpoint defaults for the first release:
 
 ```dotenv
-MCP_ALLOWED_TOOLS=remember_context,search_context,fetch_context,deprecate_context
+MCP_ALLOWED_TOOLS=save_context,search_context,fetch_context,deprecate_context
 MCP_ALLOWED_ORIGINS=
 MCP_ALLOWED_FILTER_STATES=active,merged,deprecated,wip
 SEARCH_RESULT_LIMIT=5
@@ -118,7 +118,7 @@ Use the default `/mcp` endpoint as the admin surface only. For ChatGPT web and C
 
 Recommended browser read/write toolset:
 
-- `remember_context`
+- `save_context`
 - `search_context`
 - `fetch_context`
 
@@ -128,13 +128,13 @@ Recommended web client profile shape (store the JSON value in Secret Manager,
 not in production dotenv):
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
 For non-browser agent clients such as OpenClaw, add a separate scoped profile instead of reusing the admin token. Recommended shape:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
 ```
 
 Use `allowedOrigins: []` only when the OpenClaw runtime is a headless or non-browser client that does not send an `Origin` header. If the runtime sends `Origin` because it runs inside Electron, a WebView, or another browser-like environment, replace the empty list with the exact origin value or values emitted by that client.
@@ -415,7 +415,7 @@ npm run smoke
 Expected:
 
 - tool listing succeeds
-- `remember_context` succeeds
+- `save_context` succeeds
 - `search_context` returns the stored sample
 
 This is the first proof that:
@@ -437,7 +437,7 @@ npm run smoke -- --content "Remember that we use Ktor for shared Android and iOS
 
 Expected:
 
-- `remember_context` succeeds
+- `save_context` succeeds
 - `search_context` returns a result with `id=...`
 - `fetch_context` accepts that same `id` and returns the full stored record content and metadata
 
@@ -489,7 +489,7 @@ Repeat with `/clients/claude-web/mcp` and `<CLAUDE_WEB_TOKEN>` if Claude web wil
 
 Expected:
 
-- `remember_context` accepts the image-backed memory
+- `save_context` accepts the image-backed memory
 - returned JSON metadata includes `modality=mixed` when both text and image are present
 - `search_context` returns a summary-only result with the same `id=...`
 - `fetch_context` accepts that same `id` and returns the same `artifact_refs`
@@ -554,7 +554,7 @@ Good early memories:
 Recommended rollout order:
 
 1. Admin endpoint reserved for maintenance and smoke tests
-2. Browser client rollout on `remember_context`, `search_context`, and `fetch_context`
+2. Browser client rollout on `save_context`, `search_context`, and `fetch_context`
 3. Controlled writes only for clearly durable events
 4. Search-only downstream clients such as Nanobot
 5. Later use of `deprecate_context` plus internal WIP curation workflows

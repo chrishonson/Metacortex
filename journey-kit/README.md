@@ -10,7 +10,7 @@
 
 MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
 
 > 🧪 **Used daily by the author as their personal MCP memory backend.**
 > Already powers multiple agents across ChatGPT & Claude in production.
@@ -34,7 +34,7 @@ After install, Journey will place the kit files in your workspace, guide you thr
 
 ### 1️⃣ Chat clients use a narrow memory contract
 
-The bundled browser profile exposes `remember_context` so a user can store project facts without opening the full admin surface.
+The bundled browser profile exposes `save_context` so a user can store project facts without opening the full admin surface.
 
 ### 2️⃣ Retrieval stays on the same remote backend
 

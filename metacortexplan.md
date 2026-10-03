@@ -85,7 +85,7 @@ The first hardening release addressed Firestore collection scaling, payload opti
 * **Goal:** Prevent "agent drift" during error corrections by ensuring only the user can initiate corrections (retracting assertions that were never true).
 * **Proposal:** Enforce the user-only constraint structurally by exposing corrections as an MCP Prompt (user-controlled), NOT an MCP Tool (model-controlled). This prevents the agent from invoking corrections autonomously.
   
-  A correction is implemented as a thin composition over existing tools: a `remember_context` call (for the corrected memory) + a `deprecate_context` call (for the old superseded memory) carrying `supersession_reason: "corrected"` and `initiator: "user"`. The agent can identify and surface correction candidates in a review queue, but it can never commit them without user action.
+  A correction is implemented as a thin composition over existing tools: a `save_context` call (for the corrected memory) + a `deprecate_context` call (for the old superseded memory) carrying `supersession_reason: "corrected"` and `initiator: "user"`. The agent can identify and surface correction candidates in a review queue, but it can never commit them without user action.
 * **Effort:** Low (no new storage primitive; a prompt plus `supersession_reason`/`initiator` fields, reusing deprecate+remember).
 
 ---
@@ -132,7 +132,7 @@ These should be addressed regardless of strategic direction:
 
 | Tool | Purpose | Annotations |
 |---|---|---|
-| `remember_context` | Write memories (defaults: topic="general", branch_state="active") | idempotent |
+| `save_context` | Write memories (defaults: topic="general", branch_state="active") | idempotent |
 | `search_context` | Semantic search with filters | read-only |
 | `fetch_context` | Get full content by ID | read-only |
 | `deprecate_context` | Soft-delete with supersession tracking | destructive |
@@ -144,7 +144,7 @@ These should be addressed regardless of strategic direction:
 
 * **SSE Transport Removal:** Streamable HTTP is now the only supported transport; stateful SSE endpoints removed. (Completed: 2026-03-22)
 * **Response Normalization:** All remaining MCP tools normalized to return JSON payloads instead of flat key=value text. (Completed: 2026-03-22)
-* **`store_context` Elimination:** Removed from MCP surface; `remember_context` is the unified write tool. (Completed: 2026-03-22)
+* **`store_context` Elimination:** Removed from MCP surface; `save_context` is the unified write tool. (Completed: 2026-03-22)
 * **`get_consolidation_queue` Removal:** Removed from MCP surface; WIP queue is now an internal workflow. (Completed: 2026-03-22)
 * **`retrieval_text` Exposure Fix:** Removed `retrieval_text` from public `fetch_context` response to prevent leaking implementation details. (Completed: 2026-03-22)
 * **Roadmap Hardening Release:** Added Firestore TTL-ready fields and scripts, removed `content_preview` from search payloads, added `document_id` fetch compatibility, updated Gemini multimodal defaults, deployed production TTL policies, and verified production smoke tests. (Completed: 2026-06-11)

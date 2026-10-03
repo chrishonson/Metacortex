@@ -107,7 +107,7 @@ Increase to daily only if write volume justifies it.
 OpenClaw runtime client:
 
 - endpoint: `<FUNCTION_BASE_URL>/clients/openclaw/mcp`
-- tools: `remember_context`, `search_context`, `fetch_context`
+- tools: `save_context`, `search_context`, `fetch_context`
 - state visibility: `active`
 
 Maintenance agent:

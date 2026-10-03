@@ -191,7 +191,7 @@ for (const expectedProfile of expectedProfiles) {
     ? profile.allowedFilterStates.filter(state => typeof state === "string")
     : [];
 
-  for (const requiredTool of ["remember_context", "search_context", "fetch_context"]) {
+  for (const requiredTool of ["save_context", "search_context", "fetch_context"]) {
     if (!allowedTools.includes(requiredTool)) {
       console.log(
         `warning: ${expectedProfile.id} profile is missing recommended tool ${requiredTool}`

@@ -93,7 +93,7 @@ const transport = new StreamableHTTPClientTransport(new URL(url), {
     }
   }
 });
-let rememberedId;
+let savedId;
 
 try {
   await client.connect(transport);
@@ -106,10 +106,10 @@ try {
   }
 
   if (mode === "admin-read-write" || mode === "read-write") {
-    ensureTools(toolNames, ["remember_context", "search_context"]);
+    ensureTools(toolNames, ["save_context", "search_context"]);
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content,
         topic,
@@ -128,15 +128,15 @@ try {
       }
     });
 
-    console.log("\nremember_context:");
-    const rememberText = requireSuccessfulToolResult(rememberResult, "remember_context");
-    console.log(rememberText);
-    rememberedId = extractRememberedId(rememberText);
+    console.log("\nsave_context:");
+    const saveText = requireSuccessfulToolResult(saveResult, "save_context");
+    console.log(saveText);
+    savedId = extractSavedId(saveText);
   } else if (mode === "browser-read-write") {
-    ensureTools(toolNames, ["remember_context", "search_context", "fetch_context"]);
+    ensureTools(toolNames, ["save_context", "search_context", "fetch_context"]);
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content,
         topic,
@@ -155,10 +155,10 @@ try {
       }
     });
 
-    console.log("\nremember_context:");
-    const rememberText = requireSuccessfulToolResult(rememberResult, "remember_context");
-    console.log(rememberText);
-    rememberedId = extractRememberedId(rememberText);
+    console.log("\nsave_context:");
+    const saveText = requireSuccessfulToolResult(saveResult, "save_context");
+    console.log(saveText);
+    savedId = extractSavedId(saveText);
   } else if (mode === "search-only") {
     ensureTools(toolNames, ["search_context"]);
   } else {
@@ -180,11 +180,11 @@ try {
 
   if (mode === "browser-read-write" || fetchFirst) {
     ensureTools(toolNames, ["fetch_context"]);
-    const memoryId = rememberedId ?? extractMemoryId(searchText);
+    const memoryId = savedId ?? extractMemoryId(searchText);
 
     if (!memoryId) {
       throw new Error(
-        "fetch-first expected remember_context or search_context to return an id"
+        "fetch-first expected save_context or search_context to return an id"
       );
     }
 
@@ -239,8 +239,8 @@ function extractMemoryId(searchText) {
   return payload.matches?.[0]?.id;
 }
 
-function extractRememberedId(rememberText) {
-  const payload = JSON.parse(rememberText);
+function extractSavedId(saveText) {
+  const payload = JSON.parse(saveText);
   return payload.item?.id;
 }
 

@@ -26,4 +26,4 @@ npm --prefix functions run smoke -- \
   --mode browser-read-write
 ```
 
-Successful output should list the available tools, show a `remember_context` result when write access is allowed, and return at least one matching item from `search_context`.
+Successful output should list the available tools, show a `save_context` result when write access is allowed, and return at least one matching item from `search_context`.

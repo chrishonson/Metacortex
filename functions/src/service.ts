@@ -22,7 +22,7 @@ import type {
   ListContextResult,
   MemoryDocument,
   MemoryMetadata,
-  RememberContextInput,
+  SaveContextInput,
   SearchContextInput,
   SearchContextResult,
   StoreContextInput,
@@ -110,9 +110,9 @@ export class MetaCortexService {
     };
   }
 
-  async rememberContext(input: RememberContextInput): Promise<StoreContextResult> {
+  async saveContext(input: SaveContextInput): Promise<StoreContextResult> {
     const normalizedTopic = normalizeOptionalText(input.topic) ?? "general";
-    const branchState = resolveRememberBranchState(input);
+    const branchState = resolveSaveBranchState(input);
 
     return this.storeContext({
       content: normalizeOptionalText(input.content),
@@ -381,7 +381,7 @@ export function buildFetchPayload(result: FetchContextResult): Record<string, un
   };
 }
 
-export function buildRememberPayload(result: StoreContextResult): Record<string, unknown> {
+export function buildSavePayload(result: StoreContextResult): Record<string, unknown> {
   return {
     item: {
       id: result.id,
@@ -423,8 +423,8 @@ export function buildConsolidatePayload(
   };
 }
 
-function resolveRememberBranchState(
-  input: RememberContextInput
+function resolveSaveBranchState(
+  input: SaveContextInput
 ): StoreContextInput["branch_state"] {
   if (typeof input.draft !== "undefined" && typeof input.branch_state !== "undefined") {
     throw new HttpError(400, "Provide either draft or branch_state, not both");

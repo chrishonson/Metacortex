@@ -70,7 +70,7 @@ async function generateIsolatedCorpus(): Promise<void> {
   const memoryIdsByKey = new Map<string, string>();
 
   for (const memory of SYNTHETIC_MEMORIES) {
-    const stored = await service.rememberContext({
+    const stored = await service.saveContext({
       content: memory.content,
       topic: memory.topic,
       branch_state: "active"

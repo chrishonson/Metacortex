@@ -71,11 +71,11 @@ describe("MCP integration", () => {
       "deprecate_context",
       "fetch_context",
       "list_context",
-      "remember_context",
+      "save_context",
       "search_context"
     ]);
     expect(
-      tools.tools.find(tool => tool.name === "remember_context")
+      tools.tools.find(tool => tool.name === "save_context")
     ).toMatchObject({
       description: expect.stringContaining("Do not send both"),
       inputSchema: {
@@ -99,7 +99,7 @@ describe("MCP integration", () => {
     expect(
       tools.tools.find(tool => tool.name === "fetch_context")
     ).toMatchObject({
-      description: expect.stringContaining("returned by remember_context"),
+      description: expect.stringContaining("returned by save_context"),
       inputSchema: {
         properties: expect.objectContaining({
           id: expect.any(Object),
@@ -109,8 +109,8 @@ describe("MCP integration", () => {
     });
     expect(tools.tools.map(tool => tool.name)).not.toContain("get_consolidation_queue");
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content:
           "We are using Ktor for the Android/iOS networking layer in the main branch.",
@@ -118,7 +118,7 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(parseJsonTextContent(rememberResult)).toMatchObject({
+    expect(parseJsonTextContent(saveResult)).toMatchObject({
       item: {
         id: "memory-1",
         content:
@@ -160,7 +160,7 @@ describe("MCP integration", () => {
     expect(searchPayload.matches?.[0]).not.toHaveProperty("content_preview");
 
     const replacementResult = await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: {
         content: "We standardized on Ktor 3 for shared networking.",
         topic: "kmp-networking"
@@ -203,8 +203,8 @@ describe("MCP integration", () => {
       "Tool get_consolidation_queue not found"
     );
 
-    const invalidRememberResult = await client.callTool({
-      name: "remember_context",
+    const invalidSaveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "This should fail.",
         topic: "kmp-networking",
@@ -213,8 +213,8 @@ describe("MCP integration", () => {
       }
     });
 
-    expect(invalidRememberResult.isError).toBe(true);
-    expect(textContent(invalidRememberResult)).toContain(
+    expect(invalidSaveResult.isError).toBe(true);
+    expect(textContent(invalidSaveResult)).toContain(
       "Provide either draft or branch_state, not both"
     );
   });
@@ -248,24 +248,24 @@ describe("MCP integration", () => {
 
     await client.connect(transport);
 
-    // Call remember_context to create a memory
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    // Call save_context to create a memory
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking.",
         topic: "kmp-networking"
       }
     });
 
-    const rememberPayload = parseJsonTextContent(rememberResult) as any;
-    expect(rememberPayload).toMatchObject({
+    const savePayload = parseJsonTextContent(saveResult) as any;
+    expect(savePayload).toMatchObject({
       write_status: "created"
     });
-    const firstId = rememberPayload.item.id;
+    const firstId = savePayload.item.id;
 
-    // Call remember_context again to create a second "replacement" memory
+    // Call save_context again to create a second "replacement" memory
     const replacementResult = await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: {
         content: "We standardized on Ktor 3 for shared networking.",
         topic: "kmp-networking"
@@ -312,9 +312,9 @@ describe("MCP integration", () => {
     const searchPayload = parseJsonTextContent(searchResult) as any;
     expect(searchPayload.matches.map((m: any) => m.id)).not.toContain(firstId);
 
-    // Additionally call remember_context to create a third memory
+    // Additionally call save_context to create a third memory
     const thirdResult = await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: {
         content: "We use Ktor for Android and iOS networking.",
         topic: "kmp-networking"
@@ -487,7 +487,7 @@ describe("MCP integration", () => {
     expect(prompts.prompts.map(prompt => prompt.name)).toContain("correct_memory");
   });
 
-  it("accepts valid_from/valid_until on remember_context over MCP and honors them on search", async () => {
+  it("accepts valid_from/valid_until on save_context over MCP and honors them on search", async () => {
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
       createMetaCortexApp({
@@ -516,8 +516,8 @@ describe("MCP integration", () => {
 
     await client.connect(transport);
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking.",
         topic: "kmp-networking",
@@ -526,11 +526,11 @@ describe("MCP integration", () => {
       }
     });
 
-    const rememberPayload = parseJsonTextContent(rememberResult) as any;
-    expect(rememberPayload).toMatchObject({
+    const savePayload = parseJsonTextContent(saveResult) as any;
+    expect(savePayload).toMatchObject({
       write_status: "created"
     });
-    const memoryId = rememberPayload.item.id;
+    const memoryId = savePayload.item.id;
 
     const insideResult = await client.callTool({
       name: "search_context",
@@ -563,7 +563,7 @@ describe("MCP integration", () => {
     expect(afterPayload.matches.map((m: any) => m.id)).not.toContain(memoryId);
   });
 
-  it("remember_context with origin over MCP end-to-end", async () => {
+  it("save_context with origin over MCP end-to-end", async () => {
     const runtime = createTestRuntime();
     const baseUrl = await startServer(
       createMetaCortexApp({
@@ -592,8 +592,8 @@ describe("MCP integration", () => {
 
     await client.connect(transport);
 
-    const rememberResult1 = await client.callTool({
-      name: "remember_context",
+    const saveResult1 = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking.",
         topic: "kmp-networking",
@@ -601,11 +601,11 @@ describe("MCP integration", () => {
       }
     });
 
-    const rememberPayload1 = parseJsonTextContent(rememberResult1) as any;
-    expect(rememberPayload1).toMatchObject({
+    const savePayload1 = parseJsonTextContent(saveResult1) as any;
+    expect(savePayload1).toMatchObject({
       write_status: "created"
     });
-    const id1 = rememberPayload1.item.id;
+    const id1 = savePayload1.item.id;
 
     const fetchResult1 = await client.callTool({
       name: "fetch_context",
@@ -616,19 +616,19 @@ describe("MCP integration", () => {
     const fetchPayload1 = parseJsonTextContent(fetchResult1) as any;
     expect(fetchPayload1.item.metadata.provenance.origin).toBe("user_asserted");
 
-    const rememberResult2 = await client.callTool({
-      name: "remember_context",
+    const saveResult2 = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Compose for UI.",
         topic: "kmp-ui"
       }
     });
 
-    const rememberPayload2 = parseJsonTextContent(rememberResult2) as any;
-    expect(rememberPayload2).toMatchObject({
+    const savePayload2 = parseJsonTextContent(saveResult2) as any;
+    expect(savePayload2).toMatchObject({
       write_status: "created"
     });
-    const id2 = rememberPayload2.item.id;
+    const id2 = savePayload2.item.id;
 
     const fetchResult2 = await client.callTool({
       name: "fetch_context",
@@ -669,25 +669,25 @@ describe("MCP integration", () => {
 
     await client.connect(transport);
 
-    const rememberResult1 = await client.callTool({
-      name: "remember_context",
+    const saveResult1 = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking.",
         topic: "kmp-networking",
         origin: "user_asserted"
       }
     });
-    const id1 = (parseJsonTextContent(rememberResult1) as any).item.id;
+    const id1 = (parseJsonTextContent(saveResult1) as any).item.id;
 
-    const rememberResult2 = await client.callTool({
-      name: "remember_context",
+    const saveResult2 = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking also.",
         topic: "kmp-networking",
         origin: "agent_inferred"
       }
     });
-    const id2 = (parseJsonTextContent(rememberResult2) as any).item.id;
+    const id2 = (parseJsonTextContent(saveResult2) as any).item.id;
 
     const searchResult = await client.callTool({
       name: "search_context",
@@ -734,8 +734,8 @@ describe("MCP integration", () => {
 
     await client.connect(transport);
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We are using Ktor for networking.",
         topic: "kmp-networking",
@@ -745,11 +745,11 @@ describe("MCP integration", () => {
       }
     });
 
-    const rememberPayload = parseJsonTextContent(rememberResult) as any;
-    expect(rememberPayload).toMatchObject({
+    const savePayload = parseJsonTextContent(saveResult) as any;
+    expect(savePayload).toMatchObject({
       write_status: "created"
     });
-    const id = rememberPayload.item.id;
+    const id = savePayload.item.id;
 
     const fetchResult = await client.callTool({
       name: "fetch_context",
@@ -839,7 +839,7 @@ describe("MCP integration", () => {
     });
     expect(scopedSearchPayload.matches?.[0]).not.toHaveProperty("content_preview");
     const disallowedResult = await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: {
         content: "should fail",
         topic: "kmp-networking"
@@ -847,7 +847,7 @@ describe("MCP integration", () => {
     });
 
     expect(disallowedResult.isError).toBe(true);
-    expect(textContent(disallowedResult)).toContain("Tool remember_context not found");
+    expect(textContent(disallowedResult)).toContain("Tool save_context not found");
 
     const disallowedStateResult = await client.callTool({
       name: "search_context",
@@ -896,11 +896,11 @@ describe("MCP integration", () => {
     await client.connect(transport);
 
     await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: { content: "Draft: use Ktor for Android.", topic: "kmp-networking", draft: true }
     });
     await client.callTool({
-      name: "remember_context",
+      name: "save_context",
       arguments: { content: "Draft: Ktor supports multiplatform.", topic: "kmp-networking", draft: true }
     });
 
@@ -1016,7 +1016,7 @@ describe("MCP integration", () => {
     });
   });
 
-  it("supports ChatGPT web remember, search, and fetch flows", async () => {
+  it("supports ChatGPT web save, search, and fetch flows", async () => {
     const runtime = createTestRuntime({
       retrievalEventLoggingEnabled: true,
       clientProfiles: [
@@ -1024,7 +1024,7 @@ describe("MCP integration", () => {
           id: "chatgpt-web",
           [authTokenField]: accessCredential("chatgpt"),
           allowedOrigins: ["https://chatgpt.com"],
-          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedTools: ["save_context", "search_context", "fetch_context"],
           allowedFilterStates: ["active"]
         }
       ]
@@ -1063,19 +1063,19 @@ describe("MCP integration", () => {
     const tools = await client.listTools();
     expect(tools.tools.map(tool => tool.name).sort()).toEqual([
       "fetch_context",
-      "remember_context",
+      "save_context",
       "search_context"
     ]);
 
-    const rememberResult = await client.callTool({
-      name: "remember_context",
+    const saveResult = await client.callTool({
+      name: "save_context",
       arguments: {
         content: "We use Ktor for shared Android and iOS networking.",
         topic: "kmp-networking"
       }
     });
 
-    expect(parseJsonTextContent(rememberResult)).toMatchObject({
+    expect(parseJsonTextContent(saveResult)).toMatchObject({
       item: {
         id: "memory-1",
         content: "We use Ktor for shared Android and iOS networking.",
@@ -1149,7 +1149,7 @@ describe("MCP integration", () => {
     expect(runtime.observer.listEvents()).toMatchObject([
       {
         client_id: "chatgpt-web",
-        tool_name: "remember_context",
+        tool_name: "save_context",
         status: "success",
         response: {
           id: "memory-1",
@@ -1215,7 +1215,7 @@ describe("MCP integration", () => {
         id: "default",
         authToken: "test-access",
         allowedOrigins: [],
-        allowedTools: ["remember_context", "list_context"],
+        allowedTools: ["save_context", "list_context"],
         allowedFilterStates: ["active", "deprecated"]
       }
     });
@@ -1255,7 +1255,7 @@ describe("MCP integration", () => {
 
     for (let i = 1; i <= 3; i++) {
       await client.callTool({
-        name: "remember_context",
+        name: "save_context",
         arguments: {
           content: `Test memory ${i} content`,
           topic: "testing",
@@ -1290,7 +1290,7 @@ describe("MCP integration", () => {
         id: "default",
         authToken: "test-access",
         allowedOrigins: [],
-        allowedTools: ["remember_context"],
+        allowedTools: ["save_context"],
         allowedFilterStates: ["active"]
       }
     });

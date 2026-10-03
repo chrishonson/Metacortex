@@ -224,7 +224,7 @@
 
 MCP memory that works everywhere — MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
 
 Used daily by the author as their personal MCP memory backend. Already powers multiple agents across ChatGPT and Claude in production.
 
@@ -340,7 +340,7 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
 
 ## Outputs
 
-After the workflow succeeds you have one remote MCP service, one admin endpoint, and at least two scoped browser endpoints that expose only `remember_context`, `search_context`, and `fetch_context`. You also have repeatable smoke-test commands and a deploy preflight script that can be reused for future releases.
+After the workflow succeeds you have one remote MCP service, one admin endpoint, and at least two scoped browser endpoints that expose only `save_context`, `search_context`, and `fetch_context`. You also have repeatable smoke-test commands and a deploy preflight script that can be reused for future releases.
 
 The bundled repo slice is enough to keep iterating on the service without fetching extra application files. Another agent can inspect the shipped TypeScript source, tests, and Firebase config directly from the installed kit.
 

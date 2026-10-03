@@ -67,20 +67,20 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | Tool | Purpose |
 |------|---------|
-| `remember_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
+| `save_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata and provenance origin filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `list_context` | Enumerate stored memories with filters and pagination |
 | `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
-`remember_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
+`save_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
 
 ### MCP Prompts
 
 | Prompt | Purpose |
 |--------|---------|
-| `correct_memory` | User-initiated correction (belief-axis retraction: the old record was never true). Registered as an MCP Prompt, not a Tool, so only a user — never the agent — can invoke it. Arguments: `incorrect_memory_id`, `corrected_content` (required), `topic`, `valid_from`, `valid_until` (optional, strings). Returns a single user-role message instructing the agent to call `remember_context` (corrected content), then `deprecate_context` (`supersession_reason: "corrected"`, `initiator: "user"`) against the old id, then report both ids back. Registered unconditionally for every client; the underlying tools stay gated by each client's `allowedTools`. |
+| `correct_memory` | User-initiated correction (belief-axis retraction: the old record was never true). Registered as an MCP Prompt, not a Tool, so only a user — never the agent — can invoke it. Arguments: `incorrect_memory_id`, `corrected_content` (required), `topic`, `valid_from`, `valid_until` (optional, strings). Returns a single user-role message instructing the agent to call `save_context` (corrected content), then `deprecate_context` (`supersession_reason: "corrected"`, `initiator: "user"`) against the old id, then report both ids back. Registered unconditionally for every client; the underlying tools stay gated by each client's `allowedTools`. |
 
 ### Key Source Files (all under `functions/src/`)
 
@@ -102,7 +102,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 ### Data Flow
 
-**remember_context**: Chat/admin input → server defaults/inference for metadata (including provenance, where origin defaults to agent_inferred) and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata (including provenance origin)
+**save_context**: Chat/admin input → server defaults/inference for metadata (including provenance, where origin defaults to agent_inferred) and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata (including provenance origin)
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional topic filter; optional `valid_at` post-filters results in the service layer by temporal validity window, and optional `filter_origin` post-filters by provenance origin
 

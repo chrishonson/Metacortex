@@ -1,5 +1,5 @@
 export const MCP_TOOL_NAMES = [
-  "remember_context",
+  "save_context",
   "search_context",
   "fetch_context",
   "deprecate_context",
@@ -90,7 +90,7 @@ export interface SearchContextInput {
   filter_origin?: ProvenanceOrigin;
 }
 
-export interface RememberContextInput {
+export interface SaveContextInput {
   content?: string;
   topic?: string;
   draft?: boolean;

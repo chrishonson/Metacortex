@@ -18,7 +18,7 @@ Recommended profile:
 {
   "id": "openclaw",
   "token": "replace-openclaw-token",
-  "allowedTools": ["remember_context", "search_context", "fetch_context"],
+  "allowedTools": ["save_context", "search_context", "fetch_context"],
   "allowedFilterStates": ["active"],
   "allowedOrigins": []
 }
@@ -32,7 +32,7 @@ Purpose:
 - search prior memories before answering
 - fetch the canonical stored item behind a search result
 
-This profile's `allowedFilterStates: ["active"]` setting limits search and fetch visibility to active memories. It does not restrict `remember_context` writes.
+This profile's `allowedFilterStates: ["active"]` setting limits search and fetch visibility to active memories. It does not restrict `save_context` writes.
 
 Do not give this client `deprecate_context`.
 Do not send `draft=true` or an explicit `branch_state` from normal OpenClaw runtime traffic. Leave lifecycle control to the isolated maintenance lane.
@@ -111,7 +111,7 @@ Memory maintenance summary
 Add an `openclaw` profile alongside browser profiles:
 
 ```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
+MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]},{"id":"openclaw","token":"replace-openclaw-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":[]}]
 ```
 
 As above, keep `allowedOrigins: []` only for a runtime that sends no `Origin` header. Browser-like OpenClaw shells must list their concrete origin values here.

@@ -19,7 +19,7 @@ The practical target is a remote MCP server that chat clients such as ChatGPT we
 
 ### 1. Chat clients use a narrow memory contract
 
-MetaCortex gives browser clients a three-tool memory contract. The first write comes through `remember_context`, which stores canonical text and lifecycle metadata on the server side.
+MetaCortex gives browser clients a three-tool memory contract. The first write comes through `save_context`, which stores canonical text and lifecycle metadata on the server side.
 
 ### 2. Retrieval stays on the same remote backend
 
@@ -49,9 +49,9 @@ This project is set up for these workflows:
 2. The search results include stable `id` values and external artifact refs when available.
    The model can call `fetch_context` with that same `id` for the one result it wants in full.
 3. A user says, "Remember that we use Ktor for shared Android and iOS networking."
-   The model calls `remember_context`.
+   The model calls `save_context`.
 4. A user shares a screenshot and says to save it for later retrieval.
-   The model calls `remember_context` with image input plus `artifact_refs` if the real asset lives in storage.
+   The model calls `save_context` with image input plus `artifact_refs` if the real asset lives in storage.
 
 ## Tool strategy
 
@@ -66,18 +66,18 @@ That means the server currently exposes 6 MCP tools total, but normal browser cl
 
 This is the public/browser contract:
 
-- `remember_context`
+- `save_context`
   The single write tool for normal chat use. The client supplies the memory text, optional topic, optional `draft=true` for rough notes, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
 - `search_context`
   Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
-  Fetch one memory by `id` after `remember_context` or `search_context`.
+  Fetch one memory by `id` after `save_context` or `search_context`.
 - `list_context`
   Enumerate stored memories with cursor pagination and metadata/creation-time/provenance filtering. Returns item summaries and IDs.
 
-## Why `remember_context` Is The Write Tool
+## Why `save_context` Is The Write Tool
 
-`remember_context` keeps the public write surface simple:
+`save_context` keeps the public write surface simple:
 
 - `topic` is the public label and maps to the stored `module_name` internally
 - normal writes store canonical memory as `active`
@@ -115,7 +115,7 @@ What happens today:
 
 That means the practical image flow is:
 
-1. save a screenshot with `remember_context`
+1. save a screenshot with `save_context`
 2. store the real asset elsewhere
 3. include its `artifact_refs`
 4. let semantic search find the memory
@@ -136,7 +136,7 @@ Security model:
 
 Recommended browser read/write toolset:
 
-- `remember_context`
+- `save_context`
 - `search_context`
 - `fetch_context`
 
@@ -191,7 +191,7 @@ Depending on your Claude client (e.g., experimental web extensions or custom UIs
 
 The v1 client-facing tools return one `TextContent` block whose `text` is a single JSON object.
 
-### `remember_context`
+### `save_context`
 
 Minimal text memory:
 
@@ -288,7 +288,7 @@ If nothing matches, the result is:
 
 ### `fetch_context`
 
-Preferred input: pass the same `id` returned by `remember_context` or `search_context`. `document_id` is accepted as a compatibility alias for older connector wrappers.
+Preferred input: pass the same `id` returned by `save_context` or `search_context`. `document_id` is accepted as a compatibility alias for older connector wrappers.
 
 Example input:
 
@@ -348,7 +348,7 @@ Write behavior that matters in production:
 - exact duplicate writes within the current idempotency window are replay-safe and reuse the existing memory `id`
 - duplicate suppression is intentionally light and based on the normalized write fingerprint, not semantic similarity
 
-`remember_context` defaults:
+`save_context` defaults:
 
 - omitted `topic` becomes `general`
 - omitted `draft` and omitted lifecycle overrides store `branch_state=active`
@@ -380,8 +380,8 @@ Lifecycle states:
 
 Recommended usage:
 
-1. Browser clients save durable memories with `remember_context`.
-2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `remember_context`, `search_context`, and `fetch_context` only.
+1. Browser clients save durable memories with `save_context`.
+2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `save_context`, `search_context`, and `fetch_context` only.
 3. Use `draft=true` only for provisional notes that should not appear in normal active search.
 4. Use `consolidate_context` to merge a batch of WIP drafts or fragmented active memories into one canonical record.
 5. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
@@ -389,7 +389,7 @@ Recommended usage:
 
 Current lifecycle behavior:
 
-- `remember_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
+- `save_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
 - `draft` and `branch_state` are mutually exclusive
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
 - `consolidate_context` calls Gemini to merge N source memories into one, stores the result as `active`, and deprecates all sources with `superseded_by` pointing to the merged id
@@ -423,7 +423,7 @@ it uses the same 90-day TTL target as `memory_events`.
 Examples:
 
 - public tool payloads use `id` for fetchable memory identifiers
-- `remember_context` events record the written `id`, `topic`, `branch_state`, and `modality`
+- `save_context` events record the written `id`, `topic`, `branch_state`, and `modality`
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
 - `fetch_context` events record which `id` was read
 - `deprecate_context` events record `id`, `superseding_id`, and `previous_state`
@@ -491,7 +491,7 @@ the harness does not infer negative relevance judgments.
    For browser-hosted clients, set a scoped client profile in `functions/.env` or `functions/.env.prod`:
 
    ```dotenv
-   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
+   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
    ```
 
 3. Run verification:
