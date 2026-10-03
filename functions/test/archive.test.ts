@@ -365,5 +365,3 @@ describe("restoreMemories", () => {
     expect(target.written[0].embedding).toHaveLength(3);
   });
 });
-
-

@@ -1,6 +1,6 @@
 # Deployment and operator playbook
 
-This guide describes the current local baseline, not the planned browser installer. See the [unified roadmap](../metacortexplan.md), [baseline evidence](operations/2026-10-01-adoption-baseline.md), and [security boundaries](SECURITY.md). MetaCortex is already released; no new deployment occurred during baseline reconciliation.
+This guide describes the current local baseline, not the planned browser installer. See the [unified roadmap](../metacortexplan.md), [baseline evidence](operations/2026-10-01-adoption-baseline.md), and [security boundaries](SECURITY.md). MetaCortex is already released. Card 66 subsequently deployed on 2026-10-03 UTC; see the [rollout record](operations/2026-10-03-card66-rollout.md).
 
 ## Current contract
 
@@ -8,7 +8,7 @@ This guide describes the current local baseline, not the planned browser install
 - Six server tools, filtered by client profile. Ordinary agents receive save/search/fetch; listing is an explicit grant. Consolidation/deprecation are maintenance operations.
 - Streamable HTTP only, on `<FUNCTION_BASE_URL>/mcp` and `<FUNCTION_BASE_URL>/clients/<clientId>/mcp`.
 - One shared corpus per installation; topic/profile names do not isolate tenants.
-- The local baseline uses `save_context`. Card 66 still requires verification of deployed tool/profile migration; there is no old-name alias.
+- The local baseline uses `save_context`. Card 66 deployed this contract and verified all nine scoped profiles plus admin; there is no old-name alias. Reconnect clients that cache the old tool catalog.
 - Model and collection settings come from the shipped `.env.example` and the operator's chosen deployment configuration. Validate actual model availability before deployment; model names in a template are not a live availability guarantee.
 
 ## Prerequisites

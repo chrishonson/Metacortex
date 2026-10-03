@@ -55,3 +55,7 @@ All adoption cards were requested in backlog; 18 remain there. DISTRIBUTE #84 is
 ## Board evidence
 
 On 2026-10-02, read back all 19 unique adoption cards (#67–85), their dependency IDs, declared gates, and null leases. Board totals after posting: 84 cards; 24 backlog, 3 blocked, 43 done, 14 abandoned, zero ready/claimed/failed-out. The extra blocked item is publication #84's mandatory review escalation. No existing queue ordering or completed-card states changed.
+
+## Subsequent execution, 2026-10-03 UTC
+
+The user authorized pushing and deployments. Baseline `9c3feac` was pushed and [hosted CI passed](https://github.com/chrishonson/Metacortex/actions/runs/37096977416) all declared gates. Card 66 then landed and deployed; see the [completed rollout](2026-10-03-card66-rollout.md). Earlier local-only and pending-rollout statements above are historical, not current blockers. Release integration preserves study/personal data on the original branch while including only the intended product/baseline changes.

@@ -1,9 +1,11 @@
 # Next steps
 
-**As of 2026-10-02.** Derived from [the canonical roadmap](metacortexplan.md); this file has no separate backlog.
+**As of 2026-10-03 UTC.** Derived from [the canonical roadmap](metacortexplan.md).
 
-1. Review and accept DOC #67 / BASE #68 / VERIFY #69 evidence in [the baseline record](docs/operations/2026-10-01-adoption-baseline.md). Documentation, existing-work integration, local checks, and clean Journey packaging are delivered locally. Observe CI after an intentional push; local verification is not a hosted CI run.
-2. Resolve card 66’s remaining deployed-client/profile verification during a separately authorized release. Keep completed archive/QA work from cards 58–65 as historical evidence; RECOVERY tracks the remaining hardening.
-3. Select the next implementation card when ready. CORE follows VERIFY; RECOVERY follows BASE/VERIFY. Keep TIERING deferred and nonblocking.
+1. Finish release integration and acceptance of DOC #67 / BASE #68 / VERIFY #69. The baseline is pushed; [hosted CI passed](https://github.com/chrishonson/Metacortex/actions/runs/37096977416). Preserve completed work and the independent gate definitions.
+2. Start CORE #70 after foundation acceptance: lifecycle correctness, filtering/pagination, idempotency, concurrency and partial-failure handling. RECOVERY #71 follows BASE/VERIFY. TIERING #83 stays deferred.
+3. Continue the dependency graph in the roadmap, recording exact source, gate and live evidence as each card completes.
 
-The complete 19-card graph is posted: 18 backlog, with DISTRIBUTE #84 automatically review-blocked under the board’s outward-facing policy. No cards are ready or claimed. Do not activate workers, deploy, publish, or perform live restores as part of this baseline task. Actual card references and verified dependency IDs are recorded in the roadmap.
+Card 66 is **done**: PR #12 merged, the new write contract deployed, and all nine scoped profiles plus admin passed save/search/fetch and old-name rejection. See [the rollout record](docs/operations/2026-10-03-card66-rollout.md). Long-running clients may need a tool-catalog refresh.
+
+Execute selected work in this session; do not activate unrelated workers. Publication #84 retains its required review block. Product deployment, release, recovery and UI acceptance remain separate evidence requirements for their respective cards.

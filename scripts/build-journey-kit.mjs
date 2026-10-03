@@ -380,6 +380,11 @@ const SOURCE_FILE_MANIFEST = [
     description: "Bundled docs/operations/2026-09-09-secret-migration.md."
   },
   {
+    path: "docs/operations/2026-10-03-card66-rollout.md",
+    role: "documentation",
+    description: "Card 66 deployed contract and live verification evidence."
+  },
+  {
     path: "docs/operations/2026-10-01-adoption-baseline.md",
     role: "documentation",
     description: "Bundled docs/operations/2026-10-01-adoption-baseline.md."

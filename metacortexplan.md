@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status (2026-10-02):** planning and supporting-document reconciliation complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`), followed by review and fast-forward of upstream documentation through `82cb302`. Local verification and distribution checks are established; see the [baseline evidence](docs/operations/2026-10-01-adoption-baseline.md). All 19 cards are posted with verified dependencies: 18 in backlog and DISTRIBUTE review-blocked automatically by the control plane. No ready/claimed work was created. Product milestones B–F remain unimplemented; no production deployment occurred.
+**Status (2026-10-02):** planning and supporting-document reconciliation complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`), followed by review and fast-forward of upstream documentation through `82cb302`. Local verification and distribution checks are established; see the [baseline evidence](docs/operations/2026-10-01-adoption-baseline.md). All 19 cards are posted with verified dependencies: 18 in backlog and DISTRIBUTE review-blocked automatically by the control plane. No ready/claimed work was created. Card 66 is now merged and deployed; see the [rollout evidence](docs/operations/2026-10-03-card66-rollout.md). Product milestones B–F remain unimplemented.
 
 ### One canonical plan
 
@@ -45,7 +45,7 @@ Code and tests establish local behavior. Release and deployment evidence establi
 - The branch passes **117 tests, the TypeScript build, and operator script typechecks** (verified 2026-10-02).
 - Six MCP tools exist locally: save, search, fetch, list, deprecate, and consolidate. Profiles expose subsets.
 - Existing capabilities include provenance, temporal fields, image normalization, duplicate-write protection, paginated listing, audit events, and retrieval evaluation.
-- The `save_context` rename is committed (`dde9099`, card 66). Deployed-client migration still requires verification.
+- The `save_context` rename is committed (`dde9099`, card 66). The nine deployed profiles and admin endpoint passed live checks on 2026-10-03 UTC; card 66 is done.
 - Production Secret Manager migration is documented as complete. Credential rotation was explicitly excluded and is not unfinished work.
 - Backup/restore work from `worktree-memory-archive-task1` at `932f730` is integrated in `d54ca20`; cards 58–65 retain historical QA/recovery evidence. Recursive discovery, content fidelity, and safe recovery hardening remain RECOVERY work.
 - Additional evaluation work exists in a separate worktree. Preserve it and respect its recorded publication restrictions.
@@ -87,7 +87,7 @@ Code and tests establish local behavior. Release and deployment evidence establi
 
 ### A. Reconcile and stabilize the existing product
 
-The initial checkout was preserved and the rename/backup work integrated. Accept that baseline, reconcile card 66’s remaining deployed-client checks, and retain applicable verification work from existing branches/worktrees. Establish a reviewable baseline without discarding unique commits or assuming old deployment evidence proves current production state.
+The initial checkout was preserved and the rename/backup work integrated. Accept that baseline and card 66’s completed rollout evidence, and retain applicable verification work from existing branches/worktrees. Establish a reviewable baseline without discarding unique commits or assuming old deployment evidence proves current production state.
 
 Restore a valid verification contract in the release baseline. Update documentation and distribution examples together.
 
@@ -294,3 +294,9 @@ The prior NEXT-STEPS material was not tracked at release commit `08d144f`; its c
 Created 19 unique `[MC-ADOPTION/<key>]` cards. DOC #67 through ACCEPT #82 and TIERING #83 are backlog, as is OPERATE #85. DISTRIBUTE #84 was created with a backlog request and the `outward_facing` flag; the control plane immediately set it to `blocked` with a pending review escalation. This is the sole queue-state exception, preserving the required publication safeguard. All dependency IDs and software gate IDs were read back and verified. No worker activation or queue reordering occurred; the board has zero ready and zero claimed cards.
 
 DOC/BASE/VERIFY retain delivered local evidence and remaining review/CI/deployment distinctions. They are not requests to redo completed integration. Existing cards 58–65 and 66 were not duplicated. Software cards reference `metacortex_typecheck`, `metacortex_test`, and `metacortex_package`; future packages must add feature-specific gates. TIERING remains deferred and does not block launch.
+
+### 2026-10-03 UTC execution update
+
+Card 66 landed through PR #12 and is done: production revision `metacortexmcp-00030-zaj`, profile secret version 2, nine scoped clients and admin verified. The [rollout record](docs/operations/2026-10-03-card66-rollout.md) distinguishes endpoint checks from long-running client catalog refreshes. Baseline `9c3feac` is pushed and its hosted typecheck/test/package gates passed. The earlier local-only and undeployed statements in dated records describe the state before this rollout.
+
+The release integration includes the intended roadmap, archive/backup code, verification contract and packaging corrections. Unrelated study data and personal settings remain preserved on `codex/self-hosted-adoption-baseline`; they are not part of the release integration or Journey package. DOC/BASE/VERIFY acceptance precedes CORE #70; remaining cards stay queued until selected.
