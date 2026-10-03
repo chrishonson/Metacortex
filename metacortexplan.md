@@ -316,3 +316,4 @@ Remaining limitations:
 - Hosted CI and the clean-clone run use the local gates only and make no live calls. They are not deployed-client evidence. Deployed-client evidence for the rename is in the card 66 rollout record.
 - Production runs revision `metacortexmcp-00030-zaj`, deployed after PR #12 and before PR #13 merged. Code that arrived with PR #13 is not claimed as deployed.
 - `.claude/settings.local.json` is tracked in this public repository. It holds no credentials, but it contains personal absolute paths and an allow rule for the removed `remember_context` tool. Untrack or scrub it before DISTRIBUTE #84.
+- The reconciliation ledger above lists `studies/ci-recurrence/` as retained. The study data is not on `release`. It remains on `codex/self-hosted-adoption-baseline`, which is the intended release exclusion.
