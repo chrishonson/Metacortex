@@ -331,7 +331,7 @@ Explicit lifecycle overrides are part of the admin maintenance surface described
 
 Maintenance may run automatically only after owner opt-in, in a separate trusted session with a configured small batch and review for uncertain changes. User corrections require owner authorization. These policies are not fully enforced by the current static-token service: prompts and caller-supplied initiator metadata are not proof of human action. See [security limitations](docs/SECURITY.md).
 
-There is no permanent deletion feature. Deprecation retains memory history. The current API requires a superseding ID; retirement without one is planned.
+There is no permanent deletion feature. Deprecation retains memory history. Omit `superseding_id` to retire a memory with no replacement. A supplied one must exist, differ from the memory, and not lead back to it. Repeating the same deprecation changes nothing, and a different one on an already deprecated memory is rejected.
 
 
 This section is for operators using the admin endpoint. Browser-hosted clients can usually ignore it.
