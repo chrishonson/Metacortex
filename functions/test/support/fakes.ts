@@ -129,7 +129,8 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     if (existing && existing.expiresAt >= params.metadata.created_at) {
       const record = this.records.find(item => item.id === existing.documentId);
 
-      if (record) {
+      // Mirrors FirestoreMemoryRepository: a memory that left the requested state is not this write.
+      if (record && record.metadata.branch_state === params.metadata.branch_state) {
         return {
           document: toMemoryDocument(record),
           created: false
@@ -192,25 +193,38 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 
   async deprecate(
     documentId: string,
-    supersedingDocumentId: string,
+    supersedingDocumentId: string | undefined,
     options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }> {
     const record = this.records.find(r => r.id === documentId);
 
     if (!record) {
-      throw new Error(`Document ${documentId} not found`);
+      throw new HttpError(404, "Document not found");
     }
 
     const previousState = record.metadata.branch_state;
     const resolvedReason = options?.supersessionReason ?? "changed";
+
+    // Mirrors FirestoreMemoryRepository: repeating a deprecation is a no-op, a different one conflicts.
+    if (previousState === "deprecated") {
+      if (
+        record.metadata.superseded_by === supersedingDocumentId &&
+        record.metadata.supersession_reason === resolvedReason
+      ) {
+        return { previousState };
+      }
+
+      throw new HttpError(409, `Document ${documentId} is already deprecated with different details`);
+    }
+
     const now = Date.now();
 
     record.metadata = {
       ...record.metadata,
       branch_state: "deprecated",
-      superseded_by: supersedingDocumentId,
       updated_at: now,
       supersession_reason: resolvedReason,
+      ...(supersedingDocumentId ? { superseded_by: supersedingDocumentId } : {}),
       ...(resolvedReason === "changed" ? { valid_until: now } : {}),
       ...(options?.initiator ? { initiator: options.initiator } : {})
     };

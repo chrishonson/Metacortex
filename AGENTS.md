@@ -72,7 +72,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `list_context` | Optional paginated metadata listing; grant explicitly to ordinary clients |
-| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID |
+| `deprecate_context` | Soft-delete: mark document as deprecated, optionally record superseding document ID |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
 ### Key Source Files (all under `functions/src/`)
@@ -101,7 +101,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **fetch_context**: Document ID → direct Firestore read of one stored memory
 
-**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`
+**deprecate_context**: Document ID + optional superseding ID → in one transaction, update `branch_state` to "deprecated" and set `superseded_by` when given; repeating the same call is a no-op and a different one on a deprecated document is a 409
 
 **consolidate_context**: Topic (default WIP queue) or explicit `source_ids` → gather source memories → Gemini merge of N contents into one → store merged result as `active` → deprecate every source with `superseded_by` pointing to the merged ID
 

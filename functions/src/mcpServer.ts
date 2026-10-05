@@ -412,7 +412,7 @@ export function createMetaCortexMcpServer(
       {
         title: "List Context",
         description:
-          "Enumerate stored memories without vector search. Supports cursor-based pagination and filtering by topic, state, origin, and creation time. Returns a JSON object with items, next_cursor, and applied_filters. Note: due to origin post-filtering, a page may contain fewer than limit items while next_cursor is non-null.",
+          "Enumerate stored memories without vector search. Supports cursor-based pagination and filtering by topic, state, origin, and creation time. Returns a JSON object with items, next_cursor, and applied_filters. next_cursor is null on the last page. With filter_origin the server scans up to 1000 memories to fill a page, so a page can hold fewer than limit items while next_cursor is non-null when matches are rare.",
         inputSchema: {
           filter_topic: z
             .string()
@@ -557,7 +557,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Deprecate Context",
         description:
-          "Soft-delete an obsolete memory by setting its state to deprecated and recording which id supersedes it. The memory remains in the database for historical audits but vanishes from default active searches.",
+          "Soft-delete an obsolete memory by setting its state to deprecated, recording which id supersedes it when there is a replacement. The memory remains in the database for historical audits but vanishes from default active searches. Repeating the same call changes nothing. Deprecating an already deprecated memory with different details is rejected.",
         inputSchema: {
           id: z
             .string()
@@ -566,7 +566,8 @@ export function createMetaCortexMcpServer(
           superseding_id: z
             .string()
             .min(1)
-            .describe("The id of the new memory that replaces it."),
+            .optional()
+            .describe("The id of the new memory that replaces it. Omit to retire the memory with no replacement. It must exist, differ from id, and not lead back to it."),
           supersession_reason: z
             .enum(SUPERSESSION_REASONS)
             .optional()
