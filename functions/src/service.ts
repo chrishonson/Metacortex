@@ -31,6 +31,14 @@ import type {
 } from "./types.js";
 import type { MemoryRepository } from "./memoryRepository.js";
 
+/** Filters on valid_at and origin run after the vector search, so ask for more candidates than the limit. */
+const SEARCH_OVERFETCH_FACTOR = 5;
+const SEARCH_OVERFETCH_CAP = 100;
+/** Origin cannot be queried, so a filtered list scans batches of this size, up to the scan budget. */
+const LIST_SCAN_BATCH_SIZE = 100;
+const MAX_LIST_SCANS = 10;
+const MAX_SUPERSESSION_CHAIN = 50;
+
 export class MetaCortexService {
   constructor(
     private readonly contentPreparer: MemoryContentPreparer,
@@ -134,13 +142,17 @@ export class MetaCortexService {
     const normalizedQuery = normalizeRequiredText(input.query, "query");
     const filterTopic = normalizeOptionalText(input.filter_topic);
     const filterState = input.filter_state ?? this.config.defaultFilterState;
+    const limit = input.limit ?? this.config.topK;
+    const filtersAfterSearch = typeof input.valid_at === "number" || Boolean(input.filter_origin);
     const queryVector = await this.embeddings.embed({
       text: normalizedQuery,
       taskType: "RETRIEVAL_QUERY"
     });
     let matches = await this.repository.search({
       queryVector,
-      limit: input.limit ?? this.config.topK,
+      limit: filtersAfterSearch
+        ? Math.max(limit, Math.min(limit * SEARCH_OVERFETCH_FACTOR, SEARCH_OVERFETCH_CAP))
+        : limit,
       filterModule: filterTopic,
       filterState
     });
@@ -154,7 +166,7 @@ export class MetaCortexService {
     }
 
     return {
-      matches,
+      matches: matches.slice(0, limit),
       appliedFilters: {
         filter_topic: filterTopic,
         filter_state: filterState
@@ -170,23 +182,46 @@ export class MetaCortexService {
 
     const filterState = input.filter_state ?? this.config.defaultFilterState;
     const filterTopic = normalizeOptionalText(input.filter_topic);
+    // Without an origin filter one extra document tells us whether another page exists.
+    const batchSize = input.filter_origin ? LIST_SCAN_BATCH_SIZE : limit + 1;
 
-    const { documents } = await this.repository.list({
-      filterState,
-      filterModule: filterTopic,
-      createdAfter: input.created_after,
-      createdBefore: input.created_before,
-      limit,
-      cursorId: input.cursor
-    });
+    const items: MemoryDocument[] = [];
+    let lastConsumed = input.cursor;
+    let hasMore = false;
 
-    const nextCursor = documents.length === limit ? documents[documents.length - 1].id : null;
+    scan: for (let scans = 0; scans < MAX_LIST_SCANS; scans++) {
+      const { documents } = await this.repository.list({
+        filterState,
+        filterModule: filterTopic,
+        createdAfter: input.created_after,
+        createdBefore: input.created_before,
+        limit: batchSize,
+        cursorId: lastConsumed
+      });
 
-    let items = documents;
-    if (input.filter_origin) {
-      items = documents.filter(
-        doc => doc.metadata.provenance?.origin === input.filter_origin
-      );
+      for (const doc of documents) {
+        if (input.filter_origin && doc.metadata.provenance?.origin !== input.filter_origin) {
+          lastConsumed = doc.id;
+          continue;
+        }
+
+        if (items.length === limit) {
+          hasMore = true;
+          break scan;
+        }
+
+        items.push(doc);
+        lastConsumed = doc.id;
+      }
+
+      if (documents.length < batchSize) {
+        break;
+      }
+
+      if (scans === MAX_LIST_SCANS - 1) {
+        // The scan budget is spent. The caller can continue from the last document examined.
+        hasMore = true;
+      }
     }
 
     return {
@@ -195,7 +230,7 @@ export class MetaCortexService {
         summary: summarizeMemoryContent(doc.content),
         metadata: doc.metadata
       })),
-      next_cursor: nextCursor,
+      next_cursor: hasMore ? lastConsumed ?? null : null,
       applied_filters: {
         filter_topic: filterTopic,
         filter_state: filterState as BranchState,
@@ -219,9 +254,15 @@ export class MetaCortexService {
 
   async deprecateContext(input: DeprecateContextInput): Promise<DeprecateContextResult> {
     const resolvedReason: SupersessionReason = input.supersession_reason ?? "changed";
+    const supersedingId = normalizeOptionalText(input.superseding_id);
+
+    if (supersedingId) {
+      await this.assertValidReplacement(input.id, supersedingId);
+    }
+
     const { previousState } = await this.repository.deprecate(
       input.id,
-      input.superseding_id,
+      supersedingId,
       {
         supersessionReason: resolvedReason,
         initiator: input.initiator
@@ -230,10 +271,37 @@ export class MetaCortexService {
 
     return {
       id: input.id,
-      superseding_id: input.superseding_id,
+      superseding_id: supersedingId,
       previous_state: previousState,
       supersession_reason: resolvedReason
     };
+  }
+
+  /** A replacement must exist, differ from the memory, and not lead back to it through supersession. */
+  private async assertValidReplacement(id: string, supersedingId: string): Promise<void> {
+    if (supersedingId === id) {
+      throw new HttpError(400, "A memory cannot supersede itself");
+    }
+
+    let current: string | undefined = supersedingId;
+
+    for (let hops = 0; current && hops < MAX_SUPERSESSION_CHAIN; hops++) {
+      const document = await this.repository.get(current);
+
+      if (!document) {
+        if (hops === 0) {
+          throw new HttpError(404, "Superseding document not found");
+        }
+
+        return;
+      }
+
+      if (document.metadata.superseded_by === id) {
+        throw new HttpError(409, "Supersession would form a cycle");
+      }
+
+      current = document.metadata.superseded_by;
+    }
   }
 
   async getConsolidationQueue(
@@ -269,6 +337,13 @@ export class MetaCortexService {
         if (!doc) {
           throw new HttpError(404, "Document not found");
         }
+
+        if (doc.metadata.branch_state === "deprecated") {
+          throw new HttpError(
+            409,
+            `Source memory ${doc.id} is already deprecated. Consolidate only memories that are still in use.`
+          );
+        }
       }
 
       sources = (fetched as NonNullable<(typeof fetched)[number]>[]).map(doc => ({
@@ -295,14 +370,27 @@ export class MetaCortexService {
       branch_state: "active"
     });
 
-    await Promise.all(
-      sources.map(source => this.repository.deprecate(source.id, stored.id))
-    );
+    // One at a time, so a failure leaves a known state to report instead of an unknown mix.
+    const deprecatedIds: string[] = [];
+
+    for (const [index, source] of sources.entries()) {
+      try {
+        await this.repository.deprecate(source.id, stored.id);
+        deprecatedIds.push(source.id);
+      } catch (error) {
+        throw buildPartialConsolidationError(
+          stored.id,
+          deprecatedIds,
+          sources.slice(index).map(remaining => remaining.id),
+          error
+        );
+      }
+    }
 
     return {
       merged_id: stored.id,
       merged_content: stored.content,
-      deprecated_ids: sources.map(source => source.id),
+      deprecated_ids: deprecatedIds,
       topic,
       source_count: sources.length
     };
@@ -317,6 +405,24 @@ function normalizeRequiredText(value: string, fieldName: string): string {
   }
 
   return normalized;
+}
+
+function buildPartialConsolidationError(
+  mergedId: string,
+  deprecatedIds: string[],
+  remainingIds: string[],
+  cause: unknown
+): HttpError {
+  const reason = cause instanceof Error ? cause.message : String(cause);
+  const status = cause instanceof HttpError ? cause.statusCode : 500;
+
+  return new HttpError(
+    status,
+    `Consolidation stored merged memory ${mergedId} but stopped at ${remainingIds[0]} (${reason}). ` +
+      `Deprecated: ${deprecatedIds.length > 0 ? deprecatedIds.join(", ") : "none"}. ` +
+      `Not deprecated: ${remainingIds.join(", ")}. ` +
+      `Finish by calling deprecate_context on each remaining id with superseding_id ${mergedId}.`
+  );
 }
 
 function resolveFetchContextId(input: FetchContextInput): string {

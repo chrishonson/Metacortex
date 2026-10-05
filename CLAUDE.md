@@ -73,7 +73,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `list_context` | Enumerate stored memories with filters and pagination |
 | `list_context` | Optional paginated metadata listing; grant explicitly to ordinary clients |
-| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
+| `deprecate_context` | Soft-delete: mark document as deprecated, optionally record the superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
 `save_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
@@ -110,7 +110,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 **fetch_context**: Document ID → direct Firestore read of one stored memory
 
-**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`; `supersession_reason` ("changed" default sets `valid_until` to now, "corrected" does not) and optional `initiator` are recorded on the deprecated document
+**deprecate_context**: Document ID + optional superseding ID → in one transaction, update `branch_state` to "deprecated" and set `superseded_by` when given (it must exist, differ from the document, and not form a cycle); repeating the same call is a no-op and a different one on a deprecated document is a 409; `supersession_reason` ("changed" default sets `valid_until` to now, "corrected" does not) and optional `initiator` are recorded on the deprecated document
 
 **consolidate_context**: Topic (default WIP queue) or explicit `source_ids` → gather source memories → Gemini merge of N contents into one → store merged result as `active` → deprecate every source with `superseded_by` pointing to the merged ID
 

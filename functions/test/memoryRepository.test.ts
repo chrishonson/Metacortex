@@ -70,6 +70,114 @@ describe("FirestoreMemoryRepository", () => {
     expect(result.document.id).toBe("memory-existing");
     expect(result.document.content).toBe("Existing Ktor networking memory.");
   });
+
+  it("does not return a deprecated document as the duplicate of a write in another state", async () => {
+    const firestore = new FakeFirestore();
+    const repository = new FirestoreMemoryRepository(
+      firestore as unknown as Firestore,
+      "memory_vectors"
+    );
+    const now = 1_700_000_000_000;
+
+    firestore.setRawDocument("memory_vectors", "memory-existing", {
+      content: "Existing Ktor networking memory.",
+      retrieval_text: "Existing Ktor networking memory.",
+      embedding: [1, 0, 0],
+      metadata: { ...buildMetadata(now), branch_state: "deprecated" }
+    });
+    firestore.setRawDocument("memory_vectors_write_fingerprints", "fingerprint-1", {
+      id: "memory-existing",
+      dedupe_expires_at: now + 15 * 60 * 1000,
+      updated_at: now
+    });
+
+    const result = await repository.store({
+      content: "Existing Ktor networking memory.",
+      retrievalText: "Existing Ktor networking memory.",
+      embedding: [1, 0, 0],
+      idempotencyKey: "fingerprint-1",
+      metadata: buildMetadata(now)
+    });
+
+    expect(result.created).toBe(true);
+    expect(result.document.id).not.toBe("memory-existing");
+    expect(firestore.getRawDocument("memory_vectors_write_fingerprints", "fingerprint-1")?.id).toBe(
+      result.document.id
+    );
+  });
+
+  describe("deprecate", () => {
+    const now = 1_700_000_000_000;
+
+    function seededRepository() {
+      const firestore = new FakeFirestore();
+      firestore.setRawDocument("memory_vectors", "memory-1", {
+        content: "Ktor networking memory.",
+        retrieval_text: "Ktor networking memory.",
+        embedding: [1, 0, 0],
+        metadata: buildMetadata(now)
+      });
+      const repository = new FirestoreMemoryRepository(
+        firestore as unknown as Firestore,
+        "memory_vectors"
+      );
+
+      return { firestore, repository };
+    }
+
+    function storedMetadata(firestore: FakeFirestore): Record<string, unknown> {
+      return firestore.getRawDocument("memory_vectors", "memory-1")?.metadata as Record<string, unknown>;
+    }
+
+    it("marks the document deprecated and records the replacement and the end of validity", async () => {
+      const { firestore, repository } = seededRepository();
+
+      const result = await repository.deprecate("memory-1", "memory-2");
+
+      expect(result.previousState).toBe("active");
+      expect(storedMetadata(firestore)).toMatchObject({
+        branch_state: "deprecated",
+        superseded_by: "memory-2",
+        supersession_reason: "changed"
+      });
+      expect(typeof storedMetadata(firestore).valid_until).toBe("number");
+    });
+
+    it("retires a document with no replacement without writing a superseded_by field", async () => {
+      const { firestore, repository } = seededRepository();
+
+      await repository.deprecate("memory-1", undefined);
+
+      expect(storedMetadata(firestore).branch_state).toBe("deprecated");
+      expect(storedMetadata(firestore)).not.toHaveProperty("superseded_by");
+    });
+
+    it("writes nothing when the same deprecation is repeated", async () => {
+      const { firestore, repository } = seededRepository();
+      const options = { supersessionReason: "corrected", initiator: "user" } as const;
+      await repository.deprecate("memory-1", "memory-2", options);
+      const before = JSON.stringify(firestore.getRawDocument("memory_vectors", "memory-1"));
+
+      const again = await repository.deprecate("memory-1", "memory-2", options);
+
+      expect(again.previousState).toBe("deprecated");
+      expect(JSON.stringify(firestore.getRawDocument("memory_vectors", "memory-1"))).toBe(before);
+    });
+
+    it("refuses a deprecation that differs from the one already recorded", async () => {
+      const { firestore, repository } = seededRepository();
+      await repository.deprecate("memory-1", "memory-2");
+
+      await expect(repository.deprecate("memory-1", "memory-3")).rejects.toMatchObject({ statusCode: 409 });
+      expect(storedMetadata(firestore).superseded_by).toBe("memory-2");
+    });
+
+    it("reports a missing document as not found", async () => {
+      const { repository } = seededRepository();
+
+      await expect(repository.deprecate("missing", "memory-2")).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
 });
 
 function buildMetadata(now: number): MemoryMetadata {
@@ -163,6 +271,25 @@ class FakeTransaction {
 
   set(ref: FakeDocumentReference, data: Record<string, unknown>): void {
     this.firestore.setRawDocument(ref.collectionName, ref.id, data);
+  }
+
+  /** Applies Firestore-style updates, where a dotted key such as "metadata.branch_state" reaches a nested field. */
+  update(ref: FakeDocumentReference, changes: Record<string, unknown>): void {
+    const next = structuredClone(ref.data ?? {}) as Record<string, unknown>;
+
+    for (const [path, value] of Object.entries(changes)) {
+      const keys = path.split(".");
+      let target = next;
+
+      for (const key of keys.slice(0, -1)) {
+        target[key] = { ...((target[key] as Record<string, unknown> | undefined) ?? {}) };
+        target = target[key] as Record<string, unknown>;
+      }
+
+      target[keys[keys.length - 1]] = value;
+    }
+
+    this.firestore.setRawDocument(ref.collectionName, ref.id, next);
   }
 }
 

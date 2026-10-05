@@ -23,7 +23,7 @@ HTTP requests pass CORS and credential checks before a stateless Streamable HTTP
 ## Data flows
 
 - **Save:** text and optional image → normalized canonical/retrieval text → embedding → Firestore document, metadata, and duplicate-write fingerprint.
-- **Search:** query embedding → Firestore state/topic filters and nearest-neighbor search → temporal/provenance post-filtering → compact summaries and IDs. Post-filtering can return fewer results than the requested limit.
+- **Search:** query embedding → Firestore state/topic filters and nearest-neighbor search → temporal/provenance post-filtering → compact summaries and IDs. When a temporal or provenance filter is set, the search asks for up to five times the limit so filtering has candidates to keep, and returns at most the limit. A very selective filter can still return fewer results than the limit.
 - **Fetch:** ID → document → client state-visibility check → public content and metadata. Internal `retrieval_text` is omitted.
 - **List:** cursor-based enumeration with metadata/creation filters → summaries, IDs, and next cursor. It is not part of the default ordinary-agent profile.
 - **Deprecate:** update lifecycle/supersession metadata; preserve the record for history. The current API requires a replacement ID.
