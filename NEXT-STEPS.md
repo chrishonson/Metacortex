@@ -2,7 +2,7 @@
 
 **As of 2026-10-03 UTC.** Derived from [the canonical roadmap](metacortexplan.md).
 
-1. Finish release integration and acceptance of DOC #67 / BASE #68 / VERIFY #69. The baseline is pushed; [hosted CI passed](https://github.com/chrishonson/Metacortex/actions/runs/37096977416). Preserve completed work and the independent gate definitions.
+1. Close BASE #68 and VERIFY #69 on the board. DOC #67 is accepted, with the evidence in [the acceptance record](metacortexplan.md#2026-10-03-utc-foundation-acceptance-doc-67). The baseline is on `release` at `97bc073`, [hosted CI passed](https://github.com/chrishonson/Metacortex/actions/runs/37097980532), and a fresh clone passed all three gates. BASE's preserved-work inventory is in [the baseline record](docs/operations/2026-10-01-adoption-baseline.md). Preserve completed work and the independent gate definitions.
 2. Start CORE #70 after foundation acceptance: lifecycle correctness, filtering/pagination, idempotency, concurrency and partial-failure handling. RECOVERY #71 follows BASE/VERIFY. TIERING #83 stays deferred.
 3. Continue the dependency graph in the roadmap, recording exact source, gate and live evidence as each card completes.
 
