@@ -1,102 +1,48 @@
-# Visual Design & System Architecture
+# MetaCortex architecture
 
-MetaCortex is a serverless MCP (Model Context Protocol) memory service. This document visualizes the system boundaries, personas, and primary use cases to provide a clear mental model of the ecosystem.
+## Current implementation
 
-## 👥 Personas
-
-| Persona | Role | Primary Toolset |
-| :--- | :--- | :--- |
-| **The Developer** | Builds and extends the project. | `firebase deploy`, `npm test`, CLI tools. |
-| **Nanobot** | Local AI Agent inheriting this memory. | `search_context`, `remember_context`. |
-| **The AI Assistant** | Browser-hosted assistant (ChatGPT/Claude). | `search_context`, `remember_context`, `fetch_context`. |
-| **The Operator** | Manages the memory corpus. | `deprecate_context`, `consolidate_context`, Firestore, internal curation workflows. |
-
-## 🏗️ System Boundaries
-
-The system is partitioned into trust zones to ensure security and scalability.
+MetaCortex is an already-released, serverless user-memory service: Express and the MCP SDK run in Firebase Cloud Functions 2nd Gen; Firestore stores canonical memories and vectors. The [roadmap](../metacortexplan.md) is authoritative for future work. The [baseline record](operations/2026-10-01-adoption-baseline.md) distinguishes local integration from deployment evidence.
 
 ```mermaid
-graph TD
-    subgraph "External World"
-        A["ChatGPT / Claude (Browser)"]
-        B["Nanobot (Local Agent)"]
-    end
-
-    subgraph "Firebase Secure Zone"
-        direction TB
-        subgraph "Cloud Functions"
-            C["Scoped MCP<br/>Endpoints"]
-            D["Admin MCP<br/>Endpoint"]
-        end
-        
-        subgraph "Firestore"
-            E[("memory_vectors<br/>(Durable Memory)")]
-            F[("memory_events<br/>(Audit Logs)")]
-        end
-        
-        subgraph "Gemini Core"
-            G["Embedding API"]
-            H["Multimodal API"]
-        end
-    end
-
-    A -- "Scoped Token" --> C
-    B -- "Admin Token" --> D
-    
-    C --> E
+flowchart TD
+    A[ChatGPT / Claude / Codex / other agents] -->|Dedicated scoped credentials| B[Client MCP endpoint]
+    C[Operator / explicitly enabled isolated maintenance agent] -->|Admin credentials| D[Admin MCP endpoint]
+    B --> E[Shared memory service]
     D --> E
-    C --> F
-    D --> F
-    
-    E -- "Vector Search" --> G
-    C -- "Normalization" --> H
+    E -->|Prepare images / embed / consolidate| F[Gemini through Vertex or API-key mode]
+    E --> G[(Firestore memories and vectors)]
+    B --> H[(Audit and optional retrieval events)]
+    D --> H
 ```
 
-> [!NOTE]
-> **Normalization Path**: Since vector search is text-based, the system "normalizes" image memories into descriptive text using Gemini. This allows semantic search to find visual content (like screenshots) using natural language queries.
+Agents share one corpus. Client profiles restrict tools, origins, and readable lifecycle states; they do not create tenant or topic isolation. Ordinary agents use save, search, and fetch. Listing is an explicit additional permission. Maintenance tools remain separate from ordinary conversation traffic.
 
-## 🔄 Primary Use Cases
+HTTP requests pass CORS and credential checks before a stateless Streamable HTTP MCP request. The public `/healthz` endpoint reports health/topology. SSE is not supported. The current implementation also accepts legacy `auth_token` query credentials; OAuth, revocable dynamic grants, and their migration are planned, not implemented.
 
-### 1. Persistent Memory Growth
-The AI Assistant saves new project decisions or requirements on behalf of the user.
+## Data flows
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as AI Assistant
-    participant S as MCP Server
-    participant G as Gemini
-    participant F as Firestore
+- **Save:** text and optional image → normalized canonical/retrieval text → embedding → Firestore document, metadata, and duplicate-write fingerprint.
+- **Search:** query embedding → Firestore state/topic filters and nearest-neighbor search → temporal/provenance post-filtering → compact summaries and IDs. When a temporal or provenance filter is set, the search asks for up to five times the limit so filtering has candidates to keep, and returns at most the limit. A very selective filter can still return fewer results than the limit.
+- **Fetch:** ID → document → client state-visibility check → public content and metadata. Internal `retrieval_text` is omitted.
+- **List:** cursor-based enumeration with metadata/creation filters → summaries, IDs, and next cursor. It is not part of the default ordinary-agent profile.
+- **Deprecate:** update lifecycle/supersession metadata; preserve the record for history. The current API requires a replacement ID.
+- **Consolidate:** read sources → Gemini merge → create an active record → deprecate sources. This sequence is not presently atomic; retries/partial failures are a CORE milestone.
 
-    U->>A: "Remember that we use Ktor."
-    A->>S: remember_context(content)
-    S->>G: Embed text
-    G-->>S: Vector [768]
-    S->>F: Store Vector + Metadata
-    S-->>A: Memory ID Created
-    A-->>U: "Saved to project memory."
-```
+Images are normalized into text. Raw image assets are not stored or backed up; `artifact_refs` link to separately managed assets.
 
-### 2. Contextual Retrieval (MetaCortex)
-The Assistant searches the project's memory to answer a user's question.
+## Storage and model boundaries
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as AI Assistant
-    participant S as MCP Server
-    participant F as Firestore
+Firestore client rules deny direct access to known server collections. Admin SDK access is controlled by IAM. Memory, fingerprints, audit events, retrieval telemetry, and evaluation data are separate collections. Collection/topic names are not authorization boundaries.
 
-    U->>A: "How do we handle networking?"
-    A->>S: search_context(query)
-    S->>F: findNearest(query_vector)
-    F-->>S: Top 5 Matches
-    S-->>A: Match Results + Snippets
-    A->>U: "We use Ktor for Android/iOS..."
-```
+Embedding dimensions must match indexes. Never mix embedding spaces in one collection. Configuration and runtime clients are cached per cold start. Deployed runtime selection currently prefers Vertex when a Firebase project ID is available; API-key mode remains supported and the existing config still requires its key.
 
-## 🎨 Conceptual Visualization: Brain & Body
+## Ownership and maintenance policy
 
-The relationship between **MetaCortex** and **Nanobot** is one of remote intelligence and local manifestation. The "Cortex" resides in the cloud (Firebase/Gemini), providing durable memory and reasoning, while Nanobot acts as its "Body" on the local machine, executing tasks and interacting with the local environment.
+The current correction prompt is a workflow convention, not proof of human authorization. Provenance and `initiator` fields are caller-provided. Ordinary agents must not receive maintenance authority. Optional isolated maintenance may consolidate or deprecate only under explicit owner authorization and conservative batch/review rules. Server-enforced owner identity, bounded maintenance, and correction authorization are future work.
 
-![Final unified conceptual architecture showing the Cloud Intelligence (MetaCortex, ChatGPT, Claude) and the Local Body (Nanobot)](graphics/architecture.png)
+No permanent deletion feature is planned. Physical database removal is manual administration. Existing operator restore/prune commands are recovery operations, not agent memory tools.
+
+## Planned additions
+
+Owner Google login/OAuth, browser-led Cloud Shell setup, an owner web dashboard, and a ChatGPT extension are in the [unified roadmap](../metacortexplan.md). They do not describe the current release. Local Docker hosting, multi-user tenancy, external document ingestion, and automatic conversation harvesting are out of scope.

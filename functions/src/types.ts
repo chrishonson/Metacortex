@@ -1,5 +1,5 @@
 export const MCP_TOOL_NAMES = [
-  "remember_context",
+  "save_context",
   "search_context",
   "fetch_context",
   "deprecate_context",
@@ -90,7 +90,7 @@ export interface SearchContextInput {
   filter_origin?: ProvenanceOrigin;
 }
 
-export interface RememberContextInput {
+export interface SaveContextInput {
   content?: string;
   topic?: string;
   draft?: boolean;
@@ -134,14 +134,15 @@ export interface FetchContextResult {
 
 export interface DeprecateContextInput {
   id: string;
-  superseding_id: string;
+  /** Omit to retire the memory with no replacement. */
+  superseding_id?: string;
   supersession_reason?: SupersessionReason;
   initiator?: "user" | "agent";
 }
 
 export interface DeprecateContextResult {
   id: string;
-  superseding_id: string;
+  superseding_id?: string;
   previous_state: BranchState;
   supersession_reason: SupersessionReason;
 }

@@ -51,3 +51,10 @@ skills-lock.json
 
 # Local Secret Manager emulator overrides
 functions/.secret.local
+
+# Local dotenv files for any deployment alias; keep the example distributable.
+functions/.env.*
+!functions/.env.example
+
+# Personal Claude Code permissions with absolute local paths
+.claude/settings.local.json

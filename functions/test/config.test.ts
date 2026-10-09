@@ -68,7 +68,7 @@ describe("loadConfig", () => {
       [geminiApiKeyEnv]: accessCredential("gemini"),
       [adminTokenEnv]: accessCredential("admin"),
       MCP_ALLOWED_ORIGINS: "https://admin.example",
-      MCP_ALLOWED_TOOLS: "remember_context,search_context",
+      MCP_ALLOWED_TOOLS: "save_context,search_context",
       [clientProfilesEnv]: JSON.stringify([
         {
           id: "autonomous-agent",
@@ -78,14 +78,14 @@ describe("loadConfig", () => {
         {
           id: "chatgpt-web",
           [tokenField]: accessCredential("chatgpt"),
-          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedTools: ["save_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://chatgpt.com"],
           allowedFilterStates: ["active"]
         },
         {
           id: "claude-web",
           [tokenField]: accessCredential("claude"),
-          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedTools: ["save_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
         }
@@ -97,7 +97,7 @@ describe("loadConfig", () => {
       "https://admin.example"
     ]);
     expect(config.defaultClientProfile.allowedTools).toEqual([
-      "remember_context",
+      "save_context",
       "search_context"
     ]);
     expect(config.clientProfiles.map(profile => profile.id)).toEqual([
@@ -109,7 +109,7 @@ describe("loadConfig", () => {
     expect(config.clientProfiles[1]?.allowedFilterStates).toEqual(["active"]);
     expect(config.clientProfiles[2]?.allowedFilterStates).toEqual(["active"]);
     expect(config.clientProfiles[1]?.allowedTools).toEqual([
-      "remember_context",
+      "save_context",
       "search_context",
       "fetch_context"
     ]);
@@ -117,7 +117,7 @@ describe("loadConfig", () => {
       "https://chatgpt.com"
     ]);
     expect(config.clientProfiles[2]?.allowedTools).toEqual([
-      "remember_context",
+      "save_context",
       "search_context",
       "fetch_context"
     ]);

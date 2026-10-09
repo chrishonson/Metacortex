@@ -14,6 +14,7 @@ All commands run from the repo root:
 npm --prefix functions install          # Install dependencies
 npm --prefix functions test             # Run all tests with coverage (vitest)
 npm --prefix functions run test:watch   # Watch mode
+npm --prefix functions run typecheck:scripts # Type-check operator scripts
 npm --prefix functions run build        # TypeScript compile → lib/
 npm --prefix functions run clean        # Remove lib/ and coverage/
 npm --prefix functions run serve        # Start Firebase emulators (functions + firestore)
@@ -21,10 +22,10 @@ npm --prefix functions run serve        # Start Firebase emulators (functions + 
 
 Run a single test file:
 ```bash
-npx --prefix functions vitest run test/config.test.ts
+npm --prefix functions test -- test/config.test.ts
 ```
 
-Deploy:
+Maintainer deployment (preflight targets the existing production project; new owners follow `docs/DEPLOYMENT.md`):
 ```bash
 ./scripts/deploy-session-preflight.sh       # Pre-deploy checks (git, env, dims, tests, build)
 firebase deploy --only firestore:indexes    # Deploy vector indexes first
@@ -39,7 +40,7 @@ MCP_ADMIN_TOKEN="replace-me" \
 npm run smoke
 ```
 
-The smoke test supports `--mode read-write` (default, stores then searches) and `--mode search-only` (read-only client validation). It also accepts `--image-base64` and `--image-mime-type` for multimodal testing.
+The smoke test supports `--mode admin-read-write` (default; `read-write` remains an alias) and `--mode search-only` (read-only client validation). It also accepts `--image-base64` and `--image-mime-type` for multimodal testing.
 
 ## Architecture
 
@@ -67,20 +68,21 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 | Tool | Purpose |
 |------|---------|
-| `remember_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
+| `save_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata and provenance origin filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
 | `list_context` | Enumerate stored memories with filters and pagination |
-| `deprecate_context` | Soft-delete: mark document as deprecated, record superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
+| `list_context` | Optional paginated metadata listing; grant explicitly to ordinary clients |
+| `deprecate_context` | Soft-delete: mark document as deprecated, optionally record the superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
-`remember_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
+`save_context` also accepts optional `valid_from`/`valid_until` (epoch-ms numbers) so a write can carry its temporal validity window from creation. It also accepts optional `origin`, `source_session`, `derived_from`, and `confidence` for provenance tracking (`origin` defaults to `agent_inferred` when omitted). `search_context` and `list_context` accept optional `filter_origin` to filter memories by provenance origin as a post-filter.
 
 ### MCP Prompts
 
 | Prompt | Purpose |
 |--------|---------|
-| `correct_memory` | User-initiated correction (belief-axis retraction: the old record was never true). Registered as an MCP Prompt, not a Tool, so only a user — never the agent — can invoke it. Arguments: `incorrect_memory_id`, `corrected_content` (required), `topic`, `valid_from`, `valid_until` (optional, strings). Returns a single user-role message instructing the agent to call `remember_context` (corrected content), then `deprecate_context` (`supersession_reason: "corrected"`, `initiator: "user"`) against the old id, then report both ids back. Registered unconditionally for every client; the underlying tools stay gated by each client's `allowedTools`. |
+| `correct_memory` | User-initiated correction (belief-axis retraction: the old record was never true). Registered as an MCP Prompt, not a Tool, so only a user — never the agent — can invoke it. Arguments: `incorrect_memory_id`, `corrected_content` (required), `topic`, `valid_from`, `valid_until` (optional, strings). Returns a single user-role message instructing the agent to call `save_context` (corrected content), then `deprecate_context` (`supersession_reason: "corrected"`, `initiator: "user"`) against the old id, then report both ids back. Registered unconditionally for every client; the underlying tools stay gated by each client's `allowedTools`. |
 
 ### Key Source Files (all under `functions/src/`)
 
@@ -102,19 +104,19 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 
 ### Data Flow
 
-**remember_context**: Chat/admin input → server defaults/inference for metadata (including provenance, where origin defaults to agent_inferred) and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata (including provenance origin)
+**save_context**: Chat/admin input → server defaults/inference for metadata (including provenance, where origin defaults to agent_inferred) and lifecycle state → Gemini multimodal normalization (if image) → canonical `content` + internal `retrieval_text` → Gemini embedding (deployment currently pinned to 768-dim) → Firestore document with vector + metadata (including provenance origin)
 
 **search_context**: Query text → Gemini embedding → Firestore `findNearest()` (cosine distance, top-K) with required `branch_state` and optional topic filter; optional `valid_at` post-filters results in the service layer by temporal validity window, and optional `filter_origin` post-filters by provenance origin
 
 **fetch_context**: Document ID → direct Firestore read of one stored memory
 
-**deprecate_context**: Document ID + superseding ID → update `branch_state` to "deprecated", set `superseded_by`; `supersession_reason` ("changed" default sets `valid_until` to now, "corrected" does not) and optional `initiator` are recorded on the deprecated document
+**deprecate_context**: Document ID + optional superseding ID → in one transaction, update `branch_state` to "deprecated" and set `superseded_by` when given (it must exist, differ from the document, and not form a cycle); repeating the same call is a no-op and a different one on a deprecated document is a 409; `supersession_reason` ("changed" default sets `valid_until` to now, "corrected" does not) and optional `initiator` are recorded on the deprecated document
 
 **consolidate_context**: Topic (default WIP queue) or explicit `source_ids` → gather source memories → Gemini merge of N contents into one → store merged result as `active` → deprecate every source with `superseded_by` pointing to the merged ID
 
 ### Testing Approach
 
-Five test layers, all using vitest with in-memory fakes (no real Gemini/Firestore calls):
+Tests use vitest with in-memory fakes (no real Gemini/Firestore calls). The suite also covers archives, full-backup helpers, repository queries, and retrieval evaluation:
 
 | Test | Scope |
 |------|-------|
@@ -157,14 +159,18 @@ Test fakes in `functions/test/support/fakes.ts`:
 | `MEMORY_COLLECTION` | `memory_vectors` | Firestore collection name |
 | `SEARCH_RESULT_LIMIT` | `5` | Max search results returned |
 | `DEFAULT_FILTER_STATE` | `active` | Default branch_state filter for search |
-| `MCP_ALLOWED_TOOLS` | all five tools | Comma-separated tool allowlist for default client |
+| `MCP_ALLOWED_TOOLS` | all six tools | Comma-separated tool allowlist for default client |
 | `MCP_ALLOWED_ORIGINS` | _(empty = deny all)_ | Comma-separated CORS origin allowlist for the default admin `/mcp` endpoint only |
 | `MCP_ALLOWED_FILTER_STATES` | all four states | Comma-separated branch_state allowlist |
 | `MCP_CLIENT_PROFILES_JSON` | _(empty)_ | JSON array of custom client profiles; browser origins belong in each profile's `allowedOrigins[]` |
 | `SERVICE_NAME` | `metacortex` | Service identifier in responses |
 | `SERVICE_VERSION` | `0.3.0` | Service version in responses |
 
-Template: `functions/.env.example` → copy to `functions/.env`
+Local template: `functions/.env.example` → ignored `functions/.env`. Production uses Secret Manager for credentials; omit those keys entirely from production dotenv. See `docs/DEPLOYMENT.md`.
+
+## Verification gates
+
+CI and control-plane software cards use `verification.json` through `python3 scripts/run-gate.py <gate-id>`. Current gates: `metacortex_typecheck`, `metacortex_test`, and `metacortex_package`. The package gate installs locked dependencies in a temporary directory and checks the distributable source without live smoke calls.
 
 ## Deployment Workflow
 

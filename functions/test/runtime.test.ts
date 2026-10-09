@@ -31,20 +31,20 @@ describe("runtime caching", () => {
       [geminiApiKeyEnv]: accessCredential("gemini"),
       [adminTokenEnv]: accessCredential("admin"),
       MCP_ALLOWED_ORIGINS: "https://admin.example",
-      MCP_ALLOWED_TOOLS: "remember_context,search_context",
+      MCP_ALLOWED_TOOLS: "save_context,search_context",
       MCP_ALLOWED_FILTER_STATES: "active,merged,deprecated,wip",
       [clientProfilesEnv]: JSON.stringify([
         {
           id: "chatgpt-web",
           [tokenField]: accessCredential("chatgpt"),
-          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedTools: ["save_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://chatgpt.com"],
           allowedFilterStates: ["active"]
         },
         {
           id: "claude-web",
           [tokenField]: accessCredential("claude"),
-          allowedTools: ["remember_context", "search_context", "fetch_context"],
+          allowedTools: ["save_context", "search_context", "fetch_context"],
           allowedOrigins: ["https://claude.ai"],
           allowedFilterStates: ["active"]
         }
@@ -67,7 +67,7 @@ describe("runtime caching", () => {
       "https://admin.example"
     ]);
     expect(runtime.config.defaultClientProfile.allowedTools).toEqual([
-      "remember_context",
+      "save_context",
       "search_context"
     ]);
     expect(runtime.config.clientProfiles.map(profile => profile.id)).toEqual([

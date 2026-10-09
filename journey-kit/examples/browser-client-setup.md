@@ -4,15 +4,17 @@ Use scoped client profiles for browser-hosted assistants instead of registering 
 
 Example `MCP_CLIENT_PROFILES_JSON` value:
 
-```dotenv
-MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
+```json
+[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
 ```
 
-Register these URLs after deploy:
+Store this value as the `MCP_CLIENT_PROFILES_JSON` Secret Manager secret, not in dotenv.
+
+Register these endpoints after deploy, each with its own bearer credential:
 
 ```text
-ChatGPT: https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<CHATGPT_TOKEN>
+ChatGPT: https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp
 Claude:  https://<FUNCTION_BASE_URL>/clients/claude-web/mcp
 ```
 
-ChatGPT should be configured as "No Authentication" because the token is already in the URL. Claude can use bearer auth with the scoped token or fall back to the tokenized URL if the client UI does not support custom headers.
+Use the authentication options the specific client version offers. Current code still accepts `?auth_token=<SCOPED_TOKEN>` for URL-only clients as legacy behavior. The token appears in the URL and may be logged. It will be removed after the OAuth migration. No client compatibility is verified by this example.

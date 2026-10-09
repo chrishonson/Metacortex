@@ -1,83 +1,41 @@
-# Security Notes
+# Security and operational boundaries
 
-Known security warnings for the deployed MetaCortex service. These are documented for tracking and not yet resolved.
+This document describes current implementation and accepted policy. Planned controls are tracked in the [roadmap](../metacortexplan.md); documentation does not claim they are already enforced.
 
----
+## Current controls
 
-## FIXED-1: `memory_events` and fingerprint collections explicitly denied
+- Dedicated client tokens, tool allowlists, readable-state allowlists, and per-profile origin rules.
+- Separate admin endpoint and three-tool ordinary-agent profiles; `list_context` requires an explicit grant.
+- Firestore rules deny direct client access to memory, audit, fingerprint, and evaluation collections. Admin SDK access uses IAM.
+- Runtime secrets are bound through Secret Manager. The [2026-09-09 migration](operations/2026-09-09-secret-migration.md) is complete; it did not rotate credentials.
+- Requests have a 1 MB JSON limit, including base64 image input. Raw image assets are not stored.
+- Full retrieval-query telemetry is opt-in. Audit summaries can still include a query preview and error metadata; treat them as private data.
 
-**File:** `firestore.rules`
+## Verified gaps and disposition
 
-`memory_events` and `memory_vectors_write_fingerprints` are explicitly covered by deny-all Firestore security rules. They are server-only collections and should remain inaccessible to client SDK traffic.
+| Gap | Current behavior | Planned work |
+|---|---|---|
+| Legacy URL credentials | `auth_token` query authentication is accepted and may appear in infrastructure URL logs. | ACCESS/AUTH-CUTOVER: new-install disablement, verified client migration, then breaking removal. No silent removal in this baseline. |
+| No owner/OAuth enforcement | Static credentials authorize profiles. A correction prompt or `initiator=user` is not proof of human action. | ACCESS/CORE: validated identities and owner-authorized corrections. |
+| Shared corpus | Profiles do not isolate topics, projects, or users. | Intentional single-owner design; document rather than imply tenancy. |
+| Write-state policy | Read-state allowlists do not restrict advanced save lifecycle fields. | CORE: test and enforce the documented permission contract. |
+| Unbounded model usage | No per-client or installation-wide quotas are implemented. | LIMITS: configurable concurrent-safe limits and bounded retries. |
+| Partial lifecycle operations | Consolidation writes a replacement before separate source updates. | CORE/MANAGE: retry-safe atomic or recoverable operations. |
+| Backup limitations | Existing inventory gate checks top-level collection counts, not full content fidelity or a consistent recursive snapshot. | RECOVERY; see the archive runbooks before operating. |
+| Credential comparison | Length mismatch returns before the timing-safe comparison. | ACCESS hardening; do not overstate constant-time guarantees. |
+| Public topology / headers | Health reveals endpoint paths; JSON defensive headers are limited. | LIMITS review, lower priority than authorization and recovery. |
+| CORS method advertisement | DELETE is advertised but the stateless transport rejects it. | LIMITS protocol/header consistency review. |
 
-Current rule shape:
-```
-match /memory_events/{document=**} {
-  allow read, write: if false;
-}
+## Accepted authority policy
 
-match /memory_vectors_write_fingerprints/{document=**} {
-  allow read, write: if false;
-}
-```
+Normal agents receive save/search/fetch only. Listing is opt-in. An isolated maintenance identity may automatically consolidate/deprecate only after the owner enables it, with bounded batches, audit records, and escalation when meaning conflicts. User corrections require owner authorization. No product or agent interface may permanently delete memories.
 
----
+The current maintenance guides are operator policy, not server-enforced quotas or ownership checks. Do not claim those planned controls are active.
 
-## WARN-2: Token length leakage in `isAuthorized()`
+## Secret and archive handling
 
-**File:** `functions/src/app.ts`, around the `isAuthorized` function
+Never commit deployment dotenv files, Secret Manager overrides, tokens, or memory exports. `.env.example` contains placeholders only. Production dotenv contains non-secret configuration; local emulator secrets belong in ignored overrides.
 
-The early-return on length mismatch before calling `timingSafeEqual` reveals whether a provided bearer token has the same byte length as the expected token. An attacker can enumerate token length by trying tokens of varying lengths and observing the fast-fail path.
+The portable archive writes plaintext memories into a private Git repository and pushes by default. Use dry-run for inspection and `--no-push` when only a local archive commit is intended. Full restore with `--write` prunes documents absent from archived collections; it is an explicit operator recovery action. Neither action is part of normal agent access.
 
-Risk is low if tokens are fixed-format (e.g., UUID, 32-char hex), but the behavior is worth noting.
-
-**Fix:** Pad or hash both sides to a constant length before comparison to eliminate the length oracle.
-
----
-
-## WARN-3: `/healthz` reveals endpoint topology
-
-**File:** `functions/src/app.ts`, `/healthz` route
-
-The public, unauthenticated `/healthz` response includes an `endpoints` array that reveals the full internal URL structure of the service. This is not directly exploitable but reduces obscurity.
-
-**Fix:** Remove the `endpoints` field from the healthz response, or gate it behind auth.
-
----
-
-## WARN-4: No rate limiting on Gemini API calls
-
-**File:** `functions/src/service.ts`, `functions/src/embeddings.ts`
-
-Every authenticated `remember_context` or `search_context` call triggers one or more Gemini API calls (embedding and optionally multimodal normalization). A valid client token can trigger unbounded Gemini API usage, with no per-client quota enforcement beyond Cloud Functions concurrency limits.
-
-**Fix options:**
-- Add Cloud Armor or Firebase App Check for browser-facing client profiles
-- Implement per-client request quotas or token-bucket rate limiting in the function
-- Monitor Gemini billing alerts as a short-term mitigation
-
----
-
-## WARN-5: `DELETE` in CORS `Allow-Methods` but returns 405
-
-**File:** `functions/src/app.ts`, `applyCorsHeaders` function
-
-The `Access-Control-Allow-Methods` header advertises `DELETE` support, but the `DELETE /` route handler returns 405. This is a minor inconsistency — browsers may preemptively allow DELETE requests that the server will reject.
-
-**Fix:** Remove `DELETE` from `Access-Control-Allow-Methods`, or add proper DELETE handling consistent with MCP spec requirements.
-
----
-
-## INFO: No security headers
-
-**File:** `functions/src/app.ts`
-
-API responses do not set common defensive headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options`). Impact is low for a pure JSON API, but `nosniff` is a cheap hardening win.
-
----
-
-## INFO: Express v5 in use
-
-**File:** `functions/package.json`
-
-Express v5 is relatively new. Monitor for security advisories as the ecosystem matures.
+Do not disable private-repository, IAM, or credential protections to simplify installation. Report sensitive issues privately to the repository maintainer rather than including credentials or private memory in public issues. A formal public security-response policy is part of DISTRIBUTE/OPERATE.

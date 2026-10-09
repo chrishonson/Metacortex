@@ -97,7 +97,7 @@ for (const file of ["functions/.env", "functions/.env.prod", "functions/.env.my-
 }
 NODE
 for secret_name in GEMINI_API_KEY MCP_ADMIN_TOKEN MCP_CLIENT_PROFILES_JSON; do
-  secret_state="$(gcloud secrets versions describe latest --secret="$secret_name" --project=my-brain-88870 --format='value(state)')"
+  secret_state="$(gcloud secrets versions describe latest --secret "$secret_name" --project=my-brain-88870 --format='value(state)')"
   if [[ "$secret_state" != "ENABLED" ]]; then
     echo "ERROR: production secret $secret_name is not enabled" >&2
     exit 1
@@ -105,6 +105,34 @@ for secret_name in GEMINI_API_KEY MCP_ADMIN_TOKEN MCP_CLIENT_PROFILES_JSON; do
   echo "$secret_name: enabled"
 done
 
+echo "== Memory archive =="
+ARCHIVE_DIR="${METACORTEX_ARCHIVE_DIR:-$(read_env_key functions/.env METACORTEX_ARCHIVE_DIR)}"
+
+if [[ -z "$ARCHIVE_DIR" ]]; then
+  echo "warning: METACORTEX_ARCHIVE_DIR is not set; the memory store has no off-GCP archive"
+elif [[ ! -f "$ARCHIVE_DIR/manifest.json" ]]; then
+  echo "warning: no manifest.json in $ARCHIVE_DIR; run 'npm --prefix functions run backup:memories'"
+else
+  node - "$ARCHIVE_DIR/manifest.json" <<'NODE'
+const fs = require("fs");
+
+const manifestPath = process.argv.slice(1).find(arg => arg !== "-") || process.argv[1];
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const ageDays = (Date.now() - manifest.generated_at) / 86400000;
+
+console.log(
+  `archive: ${manifest.document_count} documents, ${ageDays.toFixed(1)} days old`
+);
+
+if (ageDays > 3) {
+  console.log(
+    `warning: memory archive is ${ageDays.toFixed(1)} days old; run 'npm --prefix functions run backup:memories'`
+  );
+}
+NODE
+fi
+
+echo
 echo "== Client profiles =="
 if [[ -f functions/.env.prod ]]; then
   node - <<'NODE'
@@ -191,7 +219,7 @@ for (const expectedProfile of expectedProfiles) {
     ? profile.allowedFilterStates.filter(state => typeof state === "string")
     : [];
 
-  for (const requiredTool of ["remember_context", "search_context", "fetch_context"]) {
+  for (const requiredTool of ["save_context", "search_context", "fetch_context"]) {
     if (!allowedTools.includes(requiredTool)) {
       console.log(
         `warning: ${expectedProfile.id} profile is missing recommended tool ${requiredTool}`

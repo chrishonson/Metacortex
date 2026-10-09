@@ -3,26 +3,19 @@
   "gates": [
     {
       "id": "metacortex_typecheck",
-      "placement": [
-        "cloud-linux",
-        "cloud-macos",
-        "local"
-      ],
       "commands": [
         "npm --prefix functions run build",
+        "npm --prefix functions run typecheck:scripts",
         "npm --prefix functions run typecheck:eval"
       ]
     },
     {
       "id": "metacortex_test",
-      "placement": [
-        "cloud-linux",
-        "cloud-macos",
-        "local"
-      ],
-      "commands": [
-        "npm --prefix functions test"
-      ]
+      "commands": ["npm --prefix functions test"]
+    },
+    {
+      "id": "metacortex_package",
+      "commands": ["node scripts/check-journey-kit-install.mjs"]
     }
   ]
 }

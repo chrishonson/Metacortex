@@ -38,9 +38,13 @@ export interface MemoryRepository {
   store(params: StoreMemoryParams): Promise<{ document: MemoryDocument; created: boolean }>;
   search(params: SearchMemoryParams): Promise<MemoryDocument[]>;
   get(documentId: string): Promise<MemoryDocument | null>;
+  /**
+   * Retires a document, optionally pointing at the memory that replaces it. Repeating the same
+   * deprecation changes nothing. A deprecation that differs from the recorded one is a conflict.
+   */
   deprecate(
     documentId: string,
-    supersedingDocumentId: string,
+    supersedingDocumentId: string | undefined,
     options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }>;
   getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]>;
@@ -95,13 +99,16 @@ export class FirestoreMemoryRepository implements MemoryRepository {
           );
 
           if (existingSnapshot.exists) {
-            return {
-              document: mapFirestoreDocument(
-                existingSnapshot.id,
-                existingSnapshot.data() as FirestoreMemoryDocument
-              ),
-              created: false
-            };
+            const existing = mapFirestoreDocument(
+              existingSnapshot.id,
+              existingSnapshot.data() as FirestoreMemoryDocument
+            );
+
+            // A memory that has since left the requested state, for example one deprecated after
+            // the first save, is no longer this write. Returning it would silently drop the save.
+            if (existing.metadata.branch_state === params.metadata.branch_state) {
+              return { document: existing, created: false };
+            }
           }
         }
       }
@@ -177,43 +184,63 @@ export class FirestoreMemoryRepository implements MemoryRepository {
 
   async deprecate(
     documentId: string,
-    supersedingDocumentId: string,
+    supersedingDocumentId: string | undefined,
     options?: { supersessionReason?: SupersessionReason; initiator?: "user" | "agent" }
   ): Promise<{ previousState: BranchState }> {
     const docRef = this.firestore
       .collection(this.collectionName)
       .doc(documentId);
-
-    const snapshot = await docRef.get();
-
-    if (!snapshot.exists) {
-      throw new HttpError(404, "Document not found");
-    }
-
-    const data = snapshot.data() as FirestoreMemoryDocument;
-    const previousState = data.metadata.branch_state;
-
-    const now = Date.now();
     const resolvedReason = options?.supersessionReason ?? "changed";
 
-    const updates: Record<string, unknown> = {
-      "metadata.branch_state": "deprecated",
-      "metadata.superseded_by": supersedingDocumentId,
-      "metadata.updated_at": now,
-      "metadata.supersession_reason": resolvedReason
-    };
+    return this.firestore.runTransaction(async transaction => {
+      const snapshot = await transaction.get(docRef);
 
-    if (resolvedReason === "changed") {
-      updates["metadata.valid_until"] = now;
-    }
+      if (!snapshot.exists) {
+        throw new HttpError(404, "Document not found");
+      }
 
-    if (options?.initiator) {
-      updates["metadata.initiator"] = options.initiator;
-    }
+      const { metadata } = snapshot.data() as FirestoreMemoryDocument;
+      const previousState = metadata.branch_state;
 
-    await docRef.update(updates);
+      if (previousState === "deprecated") {
+        // A retried call must not move valid_until or updated_at, and a different one must not overwrite.
+        if (
+          metadata.superseded_by === supersedingDocumentId &&
+          metadata.supersession_reason === resolvedReason
+        ) {
+          return { previousState };
+        }
 
-    return { previousState };
+        throw new HttpError(
+          409,
+          `Document ${documentId} is already deprecated with different details ` +
+            `(superseded_by: ${metadata.superseded_by ?? "none"}, reason: ${metadata.supersession_reason ?? "unknown"})`
+        );
+      }
+
+      const now = Date.now();
+      const updates: Record<string, unknown> = {
+        "metadata.branch_state": "deprecated",
+        "metadata.updated_at": now,
+        "metadata.supersession_reason": resolvedReason
+      };
+
+      if (supersedingDocumentId) {
+        updates["metadata.superseded_by"] = supersedingDocumentId;
+      }
+
+      if (resolvedReason === "changed") {
+        updates["metadata.valid_until"] = now;
+      }
+
+      if (options?.initiator) {
+        updates["metadata.initiator"] = options.initiator;
+      }
+
+      transaction.update(docRef, updates);
+
+      return { previousState };
+    });
   }
 
   async getConsolidationQueue(moduleName?: string): Promise<MemoryDocument[]> {

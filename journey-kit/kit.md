@@ -55,7 +55,7 @@
     {
       "role": "multimodal-normalization",
       "provider": "google",
-      "name": "gemini-3.1-flash-lite-preview",
+      "name": "gemini-3.1-flash-lite",
       "hosting": "cloud API — requires GEMINI_API_KEY"
     }
   ],
@@ -76,7 +76,7 @@
       "name": "Gemini API",
       "kind": "AI API",
       "role": "provides text embeddings and image-to-text normalization",
-      "setup": "Requires GEMINI_API_KEY and uses text-embedding-004 plus gemini-3.1-flash-lite-preview."
+      "setup": "Requires GEMINI_API_KEY and uses text-embedding-004 plus gemini-3.1-flash-lite."
     }
   ],
   "parameters": [
@@ -118,8 +118,8 @@
       "scope": "general"
     },
     {
-      "problem": "ChatGPT web cannot reliably send custom bearer headers for MCP connections.",
-      "resolution": "Use the tokenized scoped endpoint URL for ChatGPT while keeping bearer-token support for other clients.",
+      "problem": "MCP authentication support differs across client versions.",
+      "resolution": "Verify authentication supported by each client version. URL tokens remain legacy compatibility only, pending replacement-authentication verification and breaking-release removal.",
       "scope": "general"
     },
     {
@@ -191,7 +191,8 @@
     ],
     "secrets": [
       "GEMINI_API_KEY",
-      "MCP_ADMIN_TOKEN"
+      "MCP_ADMIN_TOKEN",
+      "MCP_CLIENT_PROFILES_JSON"
     ],
     "kits": []
   },
@@ -222,9 +223,9 @@
 
 ## Goal
 
-MCP memory that works everywhere — MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
+MetaCortex provides a shared memory layer in the owner’s Firebase project for compatible MCP clients. Verify the authentication and tool contract of each client version.
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — over scoped endpoints with bearer authentication.
 
 Used daily by the author as their personal MCP memory backend. Already powers multiple agents across ChatGPT and Claude in production.
 
@@ -244,7 +245,7 @@ The install flow assumes you can deploy Cloud Functions and then register the re
 
 ### Models
 
-MetaCortex is verified here with `gpt-5.4` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite-preview` for image-to-text normalization before embedding.
+MetaCortex is verified here with `gpt-5.4` as the packaging and validation agent model. Runtime retrieval depends on Gemini APIs: `text-embedding-004` for embeddings at 768 dimensions and `gemini-3.1-flash-lite` for image-to-text normalization before embedding.
 
 ### Services
 
@@ -256,7 +257,7 @@ Keep `GEMINI_EMBEDDING_DIMENSIONS=768` aligned with the bundled Firestore vector
 
 ### Environment
 
-The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or Linux. The deployment flow is production-oriented and uses `functions/.env.prod` for the deploy target; local emulator work remains optional.
+The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or Linux. The deployment flow is production-oriented and uses `functions/.env.prod` for non-secret settings and Secret Manager for credentials; local emulator work remains optional.
 
 ## Steps
 
@@ -266,52 +267,42 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
    npm --prefix functions install
    ```
 
-2. Create the production env file from the bundled template and fill in your real values:
-
-   ```bash
-   cp functions/.env.example functions/.env.prod
-   ```
-
-   Use the bundled template as the source of truth for the full variable list. Replace the placeholder values for:
-
-   - `GEMINI_API_KEY`
-   - `MCP_ADMIN_TOKEN`
-   - scoped client tokens inside `MCP_CLIENT_PROFILES_JSON`
-
-   Keep these non-secret defaults aligned with the shipped Firebase indexes and code:
-
-   - `GEMINI_EMBEDDING_MODEL`: `text-embedding-004`
-   - `GEMINI_MULTIMODAL_MODEL`: `gemini-3.1-flash-lite-preview`
-   - `GEMINI_EMBEDDING_DIMENSIONS`: `768`
-   - `MEMORY_COLLECTION`: `memory_vectors`
-
-3. Authenticate the Firebase CLI and bind the bundle to the target project because `.firebaserc` is not shipped:
+2. Authenticate and bind the kit to your own project because `.firebaserc` is not shipped. Choose an alias, such as `prod`, for that project:
 
    ```bash
    firebase login
    firebase use --add
    ```
 
-   If you already know the alias or project binding, `firebase use <alias>` is sufficient.
-
-4. Run the bundled preflight to catch git-state, env, index-dimension, test, and build issues before deploy:
+3. Create `functions/.env.<alias>` with only the non-secret settings from `functions/.env.example`. Omit `GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, and `MCP_CLIENT_PROFILES_JSON` entirely, including their placeholder assignments. Store these as secrets against the project you selected:
 
    ```bash
-   ./scripts/deploy-session-preflight.sh
+   firebase functions:secrets:set GEMINI_API_KEY --project <project-id>
+   firebase functions:secrets:set MCP_ADMIN_TOKEN --project <project-id>
+   firebase functions:secrets:set MCP_CLIENT_PROFILES_JSON --project <project-id>
    ```
 
-5. Deploy Firestore rules and indexes first, then deploy the function:
+   Keep `GEMINI_EMBEDDING_MODEL=text-embedding-004`, `GEMINI_MULTIMODAL_MODEL=gemini-3.1-flash-lite`, `GEMINI_EMBEDDING_DIMENSIONS=768`, and `MEMORY_COLLECTION=memory_vectors` aligned with the bundled code/indexes. Validate model access before deployment; defaults do not guarantee live availability. See `docs/DEPLOYMENT.md` for Vertex/API-key behavior.
+
+4. Run local verification:
 
    ```bash
-   firebase deploy --only firestore:rules,firestore:indexes
-   firebase deploy --only functions
+   node scripts/verify-journey-kit-install.mjs
+   ```
+
+   Leave smoke credentials unset for this local-only check. The included `scripts/deploy-session-preflight.sh` and some operator scripts retain maintainer-specific defaults; do not run them against a new installation without inspecting their targets. Portable provisioning remains planned work.
+
+5. Verify the chosen alias, matching dotenv file, secrets, and billing, then deploy rules/indexes followed by the function. Wait for indexes to become ready:
+
+   ```bash
+   firebase deploy --project <alias> --only firestore:rules,firestore:indexes
+   firebase deploy --project <alias> --only functions
    ```
 
 6. Capture the deployed function base URL and register scoped browser endpoints instead of the admin endpoint:
 
    ```text
-   https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<CHATGPT_TOKEN>
-   https://<FUNCTION_BASE_URL>/clients/claude-web/mcp
+   https://<FUNCTION_BASE_URL>/clients/<CLIENT_ID>/mcp
    ```
 
    Keep the admin endpoint separate:
@@ -336,17 +327,17 @@ The bundled workflow assumes Node.js 22, npm, and the Firebase CLI on macOS or L
      --mode browser-read-write
    ```
 
-8. Register the matching values in ChatGPT and Claude. ChatGPT should use the tokenized URL and "No Authentication"; Claude can use either bearer auth or the tokenized URL if the client UI does not support headers.
+8. Register the endpoint in each client with its bearer credential where the client supports it. Current code still accepts `?auth_token=<SCOPED_TOKEN>` as legacy behavior for URL-only clients. That token is part of the URL and may be logged. It is scheduled for removal after OAuth migration, and no client compatibility is verified here.
 
 ## Outputs
 
-After the workflow succeeds you have one remote MCP service, one admin endpoint, and at least two scoped browser endpoints that expose only `remember_context`, `search_context`, and `fetch_context`. You also have repeatable smoke-test commands and a deploy preflight script that can be reused for future releases.
+After the workflow succeeds you have one remote MCP service, one admin endpoint, and at least two scoped browser endpoints that expose only `save_context`, `search_context`, and `fetch_context`. You also have repeatable smoke-test commands and the existing maintainer preflight; inspect its project assumptions before reuse.
 
 The bundled repo slice is enough to keep iterating on the service without fetching extra application files. Another agent can inspect the shipped TypeScript source, tests, and Firebase config directly from the installed kit.
 
 ## Failures Overcome
 
-The main operational mistakes are predictable: trying to deploy on Spark, letting index dimensions drift from the embedding model, assuming ChatGPT can send bearer headers, or accidentally exposing the admin tool surface to browsers. This kit bakes those lessons into the setup and endpoint registration steps so the install contract stays safe by default.
+The main operational mistakes are predictable: trying to deploy on Spark, letting index dimensions drift from the embedding model, assuming every client version supports bearer headers, or accidentally exposing the admin tool surface to browsers. This kit bakes those lessons into the setup and endpoint registration steps so the install contract stays conservative by default.
 
 ## Validation
 
@@ -356,7 +347,7 @@ Local verification should always pass before you deploy:
 node scripts/verify-journey-kit-install.mjs
 ```
 
-That script runs `npm --prefix functions test` and `npm --prefix functions run build`. If `MCP_BASE_URL` and `MCP_ADMIN_TOKEN` are not set, it exits successfully after the local checks and reports that deployed smoke verification was skipped.
+That script runs tests, the Functions build, and operator script typechecks. If `MCP_BASE_URL` and `MCP_ADMIN_TOKEN` are not set, it exits successfully after the local checks and reports that deployed smoke verification was skipped.
 
 Once a real endpoint exists, rerun the same root verification entrypoint with the deployment env vars set:
 
@@ -381,6 +372,6 @@ Or export `MCP_BASE_URL` plus `MCP_ADMIN_TOKEN` first and run the root verifier.
 
 - Never publish real tokens, API keys, or project-specific secrets in `.env` files, examples, or client registration screenshots.
 - Do not expose the admin `/mcp` endpoint to browser-hosted clients. Use scoped `/clients/<clientId>/mcp` endpoints instead.
-- Keep `deprecate_context` off browser-facing profiles so assistants cannot mutate memory lifecycle state from the public surface.
+- Keep both maintenance tools off ordinary profiles. Current read-state allowlists do not enforce write-state restrictions; server-side enforcement is planned.
 - Do not ingest secrets or credentials into MetaCortex memories. Stored content is designed for retrieval, not secret management.
-- Add production rate limits, careful token handling, and narrow allowed origins before exposing the service to shared users.
+- This is one owner’s shared agent corpus. Rate limits and owner/OAuth management remain roadmap work; profiles do not provide tenant isolation.

@@ -13,7 +13,7 @@ import {
   buildDeprecatePayload,
   buildFetchPayload,
   buildListPayload,
-  buildRememberPayload,
+  buildSavePayload,
   buildSearchPayload,
   MetaCortexService
 } from "./service.js";
@@ -42,7 +42,7 @@ export function createMetaCortexMcpServer(
     allowedFilterStates: readonly BranchState[];
   }
 ): McpServer {
-  const rememberContextInputSchema = z
+  const saveContextInputSchema = z
     .object({
       content: z
         .string()
@@ -135,7 +135,7 @@ export function createMetaCortexMcpServer(
         .min(1)
         .optional()
         .describe(
-          "The stable memory id returned by remember_context or search_context."
+          "The stable memory id returned by save_context or search_context."
         ),
       document_id: z
         .string()
@@ -257,14 +257,14 @@ export function createMetaCortexMcpServer(
     }
   };
 
-  if (allowedTools.has("remember_context")) {
+  if (allowedTools.has("save_context")) {
     server.registerTool(
-      "remember_context",
+      "save_context",
       {
-        title: "Remember Context",
+        title: "Save Context",
         description:
           "Save a durable memory for future retrieval. This is the single write tool for both chat clients and admin workflows. The server defaults topic to general and branch_state to active. Use draft=true as a shorthand for wip, or set branch_state explicitly for advanced lifecycle control. Do not send both.",
-        inputSchema: rememberContextInputSchema
+        inputSchema: saveContextInputSchema
       },
       async args => {
         const requestedBranchState = args.branch_state ?? (args.draft ? "wip" : "active");
@@ -280,9 +280,9 @@ export function createMetaCortexMcpServer(
           valid_until: args.valid_until
         };
         const result = await observeToolCall(
-          "remember_context",
+          "save_context",
           requestSummary,
-          () => service.rememberContext(args),
+          () => service.saveContext(args),
           record => ({
             id: record.id,
             topic: record.metadata.module_name,
@@ -294,7 +294,7 @@ export function createMetaCortexMcpServer(
         );
 
         return {
-          content: [jsonTextContent(buildRememberPayload(result))]
+          content: [jsonTextContent(buildSavePayload(result))]
         };
       }
     );
@@ -412,7 +412,7 @@ export function createMetaCortexMcpServer(
       {
         title: "List Context",
         description:
-          "Enumerate stored memories without vector search. Supports cursor-based pagination and filtering by topic, state, origin, and creation time. Returns a JSON object with items, next_cursor, and applied_filters. Note: due to origin post-filtering, a page may contain fewer than limit items while next_cursor is non-null.",
+          "Enumerate stored memories without vector search. Supports cursor-based pagination and filtering by topic, state, origin, and creation time. Returns a JSON object with items, next_cursor, and applied_filters. next_cursor is null on the last page. With filter_origin the server scans up to 1000 memories to fill a page, so a page can hold fewer than limit items while next_cursor is non-null when matches are rare.",
         inputSchema: {
           filter_topic: z
             .string()
@@ -498,7 +498,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Fetch Context",
         description:
-          "Fetch one stored memory by id. Pass the id returned by remember_context or search_context.",
+          "Fetch one stored memory by id. Pass the id returned by save_context or search_context.",
         inputSchema: fetchContextInputSchema
       },
       async args => {
@@ -557,7 +557,7 @@ export function createMetaCortexMcpServer(
       {
         title: "Deprecate Context",
         description:
-          "Soft-delete an obsolete memory by setting its state to deprecated and recording which id supersedes it. The memory remains in the database for historical audits but vanishes from default active searches.",
+          "Soft-delete an obsolete memory by setting its state to deprecated, recording which id supersedes it when there is a replacement. The memory remains in the database for historical audits but vanishes from default active searches. Repeating the same call changes nothing. Deprecating an already deprecated memory with different details is rejected.",
         inputSchema: {
           id: z
             .string()
@@ -566,7 +566,8 @@ export function createMetaCortexMcpServer(
           superseding_id: z
             .string()
             .min(1)
-            .describe("The id of the new memory that replaces it."),
+            .optional()
+            .describe("The id of the new memory that replaces it. Omit to retire the memory with no replacement. It must exist, differ from id, and not lead back to it."),
           supersession_reason: z
             .enum(SUPERSESSION_REASONS)
             .optional()
@@ -646,7 +647,7 @@ export function createMetaCortexMcpServer(
     {
       title: "Correct Memory",
       description:
-        "User-initiated correction: retract a memory that was never true and replace it with the corrected fact. This composes remember_context and deprecate_context; only a user can invoke a prompt, so the agent can never trigger a correction on its own.",
+        "User-initiated correction: retract a memory that was never true and replace it with the corrected fact. This composes save_context and deprecate_context; only a user can invoke a prompt, so the agent can never trigger a correction on its own.",
       argsSchema: {
         incorrect_memory_id: z
           .string()
@@ -683,7 +684,7 @@ export function createMetaCortexMcpServer(
               type: "text",
               text:
                 "This is a USER-INITIATED correction: the memory below was never true (a belief-axis retraction), not a fact that merely changed over time. Perform the following steps in order:\n\n" +
-                `1. Call remember_context with content: "${args.corrected_content}"${topicLine}${validFromLine}${validUntilLine}\n` +
+                `1. Call save_context with content: "${args.corrected_content}"${topicLine}${validFromLine}${validUntilLine}\n` +
                 `2. Call deprecate_context with id: "${args.incorrect_memory_id}", superseding_id: <the id returned by step 1>, supersession_reason: "corrected", initiator: "user"\n` +
                 "3. Report both the deprecated id and the new corrected id back to the user."
             }
@@ -726,8 +727,8 @@ function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
   const allowedToolSet = new Set(allowedTools);
   const instructions = [
     "MetaCortex stores durable project memories and returns tool results as JSON text.",
-    allowedToolSet.has("remember_context")
-      ? "Use remember_context for writes. Prefer topic plus plain content, and send either draft or branch_state, not both."
+    allowedToolSet.has("save_context")
+      ? "Use save_context for writes. Prefer topic plus plain content, and send either draft or branch_state, not both."
       : undefined,
     allowedToolSet.has("search_context")
       ? "Use search_context for retrieval and filter_topic to narrow by topic."
@@ -736,7 +737,7 @@ function buildServerInstructions(allowedTools: readonly McpToolName[]): string {
       ? "Use list_context to enumerate memories with filters and pagination."
       : undefined,
     allowedToolSet.has("fetch_context")
-      ? "Use fetch_context with the id returned by remember_context or search_context when you need the full stored record."
+      ? "Use fetch_context with the id returned by save_context or search_context when you need the full stored record."
       : undefined,
     allowedToolSet.has("consolidate_context")
       ? "Use consolidate_context to merge WIP draft memories into one canonical active memory, or pass source_ids to consolidate specific memories."

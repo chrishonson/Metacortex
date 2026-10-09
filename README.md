@@ -2,9 +2,15 @@
 
 MetaCortex is a serverless MCP memory service backed by Firestore vector search and deployed through Firebase Cloud Functions 2nd Gen.
 
+## Status and roadmap
+
+MetaCortex is already released (repository tag `v0.3.0`). This checkout contains a reconciled local baseline; publication and production deployment are separate operations. See the [baseline record](docs/operations/2026-10-01-adoption-baseline.md), [unified roadmap](metacortexplan.md), and [immediate next steps](NEXT-STEPS.md).
+
+The browser setup wizard, owner login/OAuth, management dashboard, and ChatGPT extension are planned, not available in this baseline. Software is MIT-licensed; owners pay their own Firebase/model usage and agent subscriptions. One installation holds one owner's shared corpus; profiles do not provide tenant isolation.
+
 ## Why Metacortex?
 
-Persistent memory across any MCP client (ChatGPT web, Claude, etc.) with zero infrastructure management.
+Persistent memory shared by compatible MCP clients, with Firebase-managed infrastructure. Operators still configure, deploy, monitor, and back up their own project.
 
 > [!TIP]
 > **Memory Layer**: MetaCortex provides the hosted memory service, while autonomous agents such as OpenClaw use it as a shared remote memory backend. See the full [Architecture & Use Cases](docs/ARCHITECTURE.md) for details.
@@ -19,7 +25,7 @@ The practical target is a remote MCP server that chat clients such as ChatGPT we
 
 ### 1. Chat clients use a narrow memory contract
 
-MetaCortex gives browser clients a three-tool memory contract. The first write comes through `remember_context`, which stores canonical text and lifecycle metadata on the server side.
+MetaCortex gives browser clients a three-tool memory contract. The first write comes through `save_context`, which stores canonical text and lifecycle metadata on the server side.
 
 ### 2. Retrieval stays on the same remote backend
 
@@ -49,9 +55,9 @@ This project is set up for these workflows:
 2. The search results include stable `id` values and external artifact refs when available.
    The model can call `fetch_context` with that same `id` for the one result it wants in full.
 3. A user says, "Remember that we use Ktor for shared Android and iOS networking."
-   The model calls `remember_context`.
+   The model calls `save_context`.
 4. A user shares a screenshot and says to save it for later retrieval.
-   The model calls `remember_context` with image input plus `artifact_refs` if the real asset lives in storage.
+   The model calls `save_context` with image input plus `artifact_refs` if the real asset lives in storage.
 
 ## Tool strategy
 
@@ -62,22 +68,24 @@ The current MCP surface is intentionally split between:
 
 That means the server currently exposes 6 MCP tools total, but normal browser clients should only see 3 of them by default.
 
-### Client-facing tools
+### Ordinary-agent tools
 
-This is the public/browser contract:
+These are the recommended ordinary-agent tools:
 
-- `remember_context`
+- `save_context`
   The single write tool for normal chat use. The client supplies the memory text, optional topic, optional `draft=true` for rough notes, optional image input, and optional `artifact_refs`. The server fills in sensible defaults.
 - `search_context`
   Vector search over stored memories. Results include stable `id` values and artifact refs when available.
 - `fetch_context`
-  Fetch one memory by `id` after `remember_context` or `search_context`.
-- `list_context`
-  Enumerate stored memories with cursor pagination and metadata/creation-time/provenance filtering. Returns item summaries and IDs.
+  Fetch one memory by `id` after `save_context` or `search_context`.
 
-## Why `remember_context` Is The Write Tool
+### Optional listing permission
 
-`remember_context` keeps the public write surface simple:
+`list_context` enumerates stored memories with cursor pagination and metadata/creation-time/provenance filtering. It returns summaries and IDs. Grant it explicitly; it is not part of the three-tool ordinary-agent default.
+
+## Why `save_context` Is The Write Tool
+
+`save_context` keeps the public write surface simple:
 
 - `topic` is the public label and maps to the stored `module_name` internally
 - normal writes store canonical memory as `active`
@@ -115,7 +123,7 @@ What happens today:
 
 That means the practical image flow is:
 
-1. save a screenshot with `remember_context`
+1. save a screenshot with `save_context`
 2. store the real asset elsewhere
 3. include its `artifact_refs`
 4. let semantic search find the memory
@@ -136,62 +144,25 @@ Security model:
 
 Recommended browser read/write toolset:
 
-- `remember_context`
+- `save_context`
 - `search_context`
 - `fetch_context`
 
-This 3-tool browser contract is the intended v1 public surface.
+This is the default ordinary-agent profile; the server offers six tools overall.
 
-## Browser Client Setup
+## Client setup and authentication status
 
-For browser-hosted MCP clients, register the scoped endpoint, not the admin endpoint:
+Use a dedicated scoped endpoint `<FUNCTION_BASE_URL>/clients/<clientId>/mcp` and its matching bearer credential. Do not register the admin endpoint with an ordinary client. Configure exact origins per profile; clients without an Origin header do not need browser origins.
 
-- ChatGPT web URL: `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
-- Claude web URL: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- bearer token: the `token` value from the matching client profile
-- allowed browser origins: the matching profile's `allowedOrigins`
+This baseline has static credentials, not OAuth or owner login. Current code also accepts `?auth_token=<SCOPED_TOKEN>` for legacy URL-only clients. That credential is part of a URL and may enter infrastructure logs; do not describe it as secure secret transport. Existing connections are not removed by this baseline. The roadmap disables URL tokens for fresh installations after the auth work, migrates existing clients, then removes support in a documented breaking release.
 
-Do not register `https://<FUNCTION_BASE_URL>/mcp` with ChatGPT web or Claude web. That endpoint is the admin surface and uses `MCP_ADMIN_TOKEN`.
-
-Use separate client profiles per browser client:
-
-- `chatgpt-web` with `allowedOrigins=["https://chatgpt.com"]`
-- `claude-web` with `allowedOrigins=["https://claude.ai"]`
-
-For agent-based clients such as OpenClaw, use a dedicated non-browser scoped profile instead of the admin endpoint. A recommended operating model is documented in [docs/OPENCLAW_MEMORY_OPS.md](docs/OPENCLAW_MEMORY_OPS.md).
-
-### Connecting to ChatGPT
-
-ChatGPT's current MCP UI does not support configuring custom `Authorization: Bearer` headers. To work around this security limitation, MetaCortex supports passing the token securely via the URL.
-
-1. Open ChatGPT Web or Desktop.
-2. Open Settings -> Connected Apps (or MCP Settings).
-3. Click "Add new App" or "Connect MCP Server".
-4. Set **Auth Type** to **No Authentication**.
-5. Set the **MCP URL** to your tokenized endpoint:
-   `https://<FUNCTION_BASE_URL>/clients/chatgpt-web/mcp?auth_token=<YOUR_CHATGPT_TOKEN>`
-
-MetaCortex will validate the token from the URL and reject unauthenticated requests even though ChatGPT is configured for "No Auth".
-
-### Connecting to Claude
-
-Depending on your Claude client (e.g., experimental web extensions or custom UIs), you can configure the connection in two ways:
-
-**Option 1: Standard Headers (Preferred)**
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp`
-- **Auth Type**: Bearer Token / Service Token
-- **Token**: `Bearer <YOUR_CLAUDE_TOKEN>`
-
-**Option 2: Tokenized URL (If headers are unsupported)**
-- **Auth Type**: No Authentication
-- **MCP URL**: `https://<FUNCTION_BASE_URL>/clients/claude-web/mcp?auth_token=<YOUR_CLAUDE_TOKEN>`
-
+Use the capabilities of the specific client/version being connected; do not assume a particular ChatGPT or Claude settings screen supports bearer headers. The future core compatibility matrix covers ChatGPT, Claude, Codex, and generic MCP. No fresh compatibility verification is implied by these examples. See [deployment](docs/DEPLOYMENT.md) and the [client recipe](journey-kit/examples/browser-client-setup.md).
 
 ## Tool Contract
 
-The v1 client-facing tools return one `TextContent` block whose `text` is a single JSON object.
+The client-facing tools return one `TextContent` block whose `text` is a single JSON object.
 
-### `remember_context`
+### `save_context`
 
 Minimal text memory:
 
@@ -288,7 +259,7 @@ If nothing matches, the result is:
 
 ### `fetch_context`
 
-Preferred input: pass the same `id` returned by `remember_context` or `search_context`. `document_id` is accepted as a compatibility alias for older connector wrappers.
+Preferred input: pass the same `id` returned by `save_context` or `search_context`. `document_id` is accepted as a compatibility alias for older connector wrappers.
 
 Example input:
 
@@ -334,7 +305,7 @@ Typical result:
 - the result count is `limit` when provided, otherwise `SEARCH_RESULT_LIMIT`
 - the default state is `active` unless the client profile allows and requests another state
 
-`fetch_context` can still fail with `403` if the document exists but its `branch_state` is outside that client profile's `allowedFilterStates`.
+`fetch_context` can still fail with a neutral `404` if the document exists but its `branch_state` is outside that client profile's `allowedFilterStates`.
 
 ## Write Constraints
 
@@ -348,7 +319,7 @@ Write behavior that matters in production:
 - exact duplicate writes within the current idempotency window are replay-safe and reuse the existing memory `id`
 - duplicate suppression is intentionally light and based on the normalized write fingerprint, not semantic similarity
 
-`remember_context` defaults:
+`save_context` defaults:
 
 - omitted `topic` becomes `general`
 - omitted `draft` and omitted lifecycle overrides store `branch_state=active`
@@ -357,6 +328,11 @@ Write behavior that matters in production:
 Explicit lifecycle overrides are part of the admin maintenance surface described later in this README.
 
 ## Admin Cleanup And Consolidation
+
+Maintenance may run automatically only after owner opt-in, in a separate trusted session with a configured small batch and review for uncertain changes. User corrections require owner authorization. These policies are not fully enforced by the current static-token service: prompts and caller-supplied initiator metadata are not proof of human action. See [security limitations](docs/SECURITY.md).
+
+There is no permanent deletion feature. Deprecation retains memory history. Omit `superseding_id` to retire a memory with no replacement. A supplied one must exist, differ from the memory, and not lead back to it. Repeating the same deprecation changes nothing, and a different one on an already deprecated memory is rejected.
+
 
 This section is for operators using the admin endpoint. Browser-hosted clients can usually ignore it.
 
@@ -380,8 +356,8 @@ Lifecycle states:
 
 Recommended usage:
 
-1. Browser clients save durable memories with `remember_context`.
-2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `remember_context`, `search_context`, and `fetch_context` only.
+1. Browser clients save durable memories with `save_context`.
+2. Agent clients such as OpenClaw should use a dedicated scoped client profile with `save_context`, `search_context`, and `fetch_context` only.
 3. Use `draft=true` only for provisional notes that should not appear in normal active search.
 4. Use `consolidate_context` to merge a batch of WIP drafts or fragmented active memories into one canonical record.
 5. Admin flows can set explicit `branch_state` when they need non-default lifecycle control.
@@ -389,7 +365,7 @@ Recommended usage:
 
 Current lifecycle behavior:
 
-- `remember_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
+- `save_context` defaults to `active`, supports `draft=true` for `wip`, and also accepts explicit `branch_state` for advanced writes
 - `draft` and `branch_state` are mutually exclusive
 - `deprecate_context` does not delete data; it sets `branch_state=deprecated` and records `superseded_by`
 - `consolidate_context` calls Gemini to merge N source memories into one, stores the result as `active`, and deprecates all sources with `superseded_by` pointing to the merged id
@@ -423,7 +399,7 @@ it uses the same 90-day TTL target as `memory_events`.
 Examples:
 
 - public tool payloads use `id` for fetchable memory identifiers
-- `remember_context` events record the written `id`, `topic`, `branch_state`, and `modality`
+- `save_context` events record the written `id`, `topic`, `branch_state`, and `modality`
 - `search_context` events record the requested filters, `result_count`, and returned `result_ids`
 - `fetch_context` events record which `id` was read
 - `deprecate_context` events record `id`, `superseding_id`, and `previous_state`
@@ -479,6 +455,10 @@ Production retrieval events are evidence only. They do not become benchmark case
 until `eval:import` is run, and a successful fetch is treated as a weak implicit label;
 the harness does not infer negative relevance judgments.
 
+## Backup and recovery
+
+Existing operator commands are integrated from the archive worktree. [Portable memory archives](docs/MEMORY_ARCHIVE.md) omit embeddings and re-embed on restore. [Full top-level Firestore backups](docs/FULL_BACKUP.md) preserve vectors and discover collection inventory. Their current limits and destructive operator restore semantics are explicit in those guides; future recovery hardening remains on the roadmap.
+
 ## Quick start
 
 1. Install dependencies:
@@ -493,10 +473,10 @@ the harness does not infer negative relevance judgments.
    cp functions/.env.example functions/.env
    ```
 
-   For browser-hosted clients, set a scoped client profile in `functions/.env` or `functions/.env.prod`:
+   For local development, use placeholder/local values only. For deployment, place credentials and profiles in Secret Manager, not production dotenv. Example profile value:
 
    ```dotenv
-   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["remember_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
+   MCP_CLIENT_PROFILES_JSON=[{"id":"chatgpt-web","token":"replace-chatgpt-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://chatgpt.com"]},{"id":"claude-web","token":"replace-claude-token","allowedTools":["save_context","search_context","fetch_context"],"allowedFilterStates":["active"],"allowedOrigins":["https://claude.ai"]}]
    ```
 
 3. Run verification:
@@ -538,9 +518,9 @@ the harness does not infer negative relevance judgments.
 
 Deployment playbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
-For the next production deployment session, start with:
+For the maintainer’s existing production project, the preflight below checks local configuration and production secrets. New owners should follow the explicit-target deployment playbook instead:
 
 ```bash
-cd /Users/nick/git/metacortex
+cd <your-metacortex-checkout>
 ./scripts/deploy-session-preflight.sh
 ```

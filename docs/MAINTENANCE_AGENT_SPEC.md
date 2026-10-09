@@ -1,119 +1,34 @@
-# MetaCortex Maintenance Agent Spec
+# Optional maintenance-agent operating policy
 
-This spec defines the isolated admin worker responsible for memory consolidation and deprecation.
+MetaCortex supports an isolated maintenance workflow for consolidation and soft deprecation. The owner must explicitly enable it. The [roadmap](../metacortexplan.md) governs priorities; this guide distinguishes policy from implemented enforcement.
 
-## Purpose
+## Current access
 
-Reduce human review load for routine memory hygiene while keeping destructive authority out of always-on user-facing agents.
+Ordinary agents use dedicated scoped endpoints with save/search/fetch and active-state visibility. Do not give an always-on conversation agent the admin token. Listing is optional and must be granted explicitly.
 
-## Access Model
+Today maintenance uses the admin endpoint in a separate trusted session. This is broad authority: owner identity, a dedicated enforced maintenance role, quotas, and human-correction authorization are planned rather than implemented. Never mistake caller-provided provenance or `initiator` for validated identity.
 
-The maintenance agent uses the admin endpoint only:
+## Authorized behavior
 
-- endpoint: `<FUNCTION_BASE_URL>/mcp`
-- auth: `MCP_ADMIN_TOKEN`
+After explicit owner enablement, maintenance may inspect overlapping memories, consolidate compatible records, and deprecate superseded records. Use an operator-configured small batch and cadence; the current service does not enforce that batch automatically. Start manually, then schedule only if the owner requests it.
 
-It must not run under the same scoped client profile used by OpenClaw day-to-day memory operations.
+1. Inspect candidate topics and fetch full source records.
+2. Separate overlap from contradictions and historical changes.
+3. Propose review when evidence is uncertain, sources conflict, or a correction would retract a fact as never true.
+4. For authorized consolidation, preserve all relevant meaning and verify the replacement before deprecation.
+5. Stop on partial failure. Report IDs and outcomes without claiming the whole batch succeeded.
+6. Emit a private audit summary with topic, source/replacement IDs, reason, and review items.
 
-## Responsibilities
+Only auto-deprecate when overlap is strong, the replacement preserves meaning, no unresolved conflict remains, and the reason can be explained. Exceeding the configured batch stops the pass.
 
-- review recent and high-activity memory areas
-- detect duplicate or overlapping active memories
-- identify records superseded by newer canonical memories
-- create replacement canonical memories when consolidation improves retrieval quality
-- deprecate obsolete records using `deprecate_context`
-- emit a concise maintenance summary after each pass
+## Boundaries
 
-## Non-Goals
+- No permanent deletion, bulk rewrites, or speculative correction.
+- Owner authorization is required for corrections of facts that were never true.
+- No failure-triggered retries that blindly repeat partially completed consolidation.
+- No automatic enablement during setup or baseline integration.
+- No ambient admin authority in ordinary agent sessions.
 
-- no hard deletion
-- no bulk corpus rewrites in one pass
-- no speculative mutation when confidence is low
-- no user-facing conversation duties
+## Implementation gaps
 
-## Execution Model
-
-Recommended trigger modes:
-
-1. scheduled pass, daily or every 2 to 3 days
-2. on-demand run after major architecture changes, migrations, or noisy write bursts
-
-Recommended environment:
-
-- isolated agent session or background worker
-- explicit tool access to admin MCP only
-- no ambient access in normal chat sessions
-
-## Maintenance Pass Algorithm
-
-1. identify candidate topics
-   - recent write-heavy topics
-   - repeated retrieval topics
-   - topics with many active items
-2. inspect active records for semantic overlap or contradiction
-3. classify each cluster:
-   - no action
-   - consolidate
-   - deprecate older duplicate
-   - escalate for manual review
-4. if consolidation is needed:
-   - write a new canonical memory capturing the best current truth
-   - confirm the new record exists and is fetchable
-5. deprecate obsolete records with `superseded_by`
-6. output audit summary
-
-## Auto-Deprecation Threshold
-
-Only auto-deprecate when all are true:
-
-- overlap is strong
-- replacement is clearly newer, more complete, or more precise
-- no meaningful conflict remains unresolved
-- the agent can explain the reason in one sentence
-
-If any condition fails, emit a review item instead of mutating.
-
-## Suggested Summary Output
-
-```text
-MetaCortex maintenance summary
-- scanned topics: auth, memory, deployment
-- consolidated: 2
-- deprecated: 3
-- review-needed: 1
-
-Details
-- topic: auth
-  canonical: abc123
-  deprecated: def456, ghi789
-  reason: newer canonical auth flow supersedes duplicate active memories
-  confidence: high
-```
-
-## Safe Failure Rules
-
-- if replacement write fails, do not deprecate
-- if search results are ambiguous, do not deprecate
-- if a pass would deprecate more than a small batch, stop and summarize
-- keep all actions auditable via event logs and summary output
-
-## Recommended Cadence
-
-Start with one pass every 2 days.
-Increase to daily only if write volume justifies it.
-
-## Relationship To OpenClaw Runtime Client
-
-OpenClaw runtime client:
-
-- endpoint: `<FUNCTION_BASE_URL>/clients/openclaw/mcp`
-- tools: `remember_context`, `search_context`, `fetch_context`
-- state visibility: `active`
-
-Maintenance agent:
-
-- endpoint: `<FUNCTION_BASE_URL>/mcp`
-- token: admin only
-- includes `deprecate_context`
-
-Keep these trust boundaries separate.
+The current consolidation sequence is not atomic. The correction prompt is a convention and is visible even when the profile cannot execute all composed tools. Server-enforced authorization, bounded maintenance, durable operations, and review handling belong to CORE/ACCESS/MANAGE. Until those land, the operator remains responsible for these controls.

@@ -1,16 +1,16 @@
 # MetaCortex — MCP Memory for ChatGPT, Claude & Every Agent
 
-> **Deploy once. Your agents remember everything.**
+> **Durable memory shared by your authorized agents.**
 
-[![Setup Time](https://img.shields.io/badge/setup-~12_minutes-brightgreen)](#quick-start) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/chrishonson/Metacortex/blob/main/LICENSE) [![GitHub](https://img.shields.io/github/stars/chrishonson/Metacortex?style=social)](https://github.com/chrishonson/Metacortex)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/chrishonson/Metacortex/blob/main/LICENSE) [![GitHub](https://img.shields.io/github/stars/chrishonson/Metacortex?style=social)](https://github.com/chrishonson/Metacortex)
 
 **[⭐ Star on GitHub](https://github.com/chrishonson/Metacortex)** · **[Full Source & Docs](https://github.com/chrishonson/Metacortex)**
 
 ---
 
-MetaCortex turns any Firebase project into a production-grade, shared memory layer for every MCP client (ChatGPT web, Claude web, Cursor, Windsurf, etc.).
+MetaCortex provides a shared memory layer in your Firebase project for compatible MCP clients. Validate each client version’s authentication and tool support; this package does not establish universal compatibility.
 
-No custom vector DB. No long-running server. Just deploy once and your agents get durable `remember_context` / `search_context` / `fetch_context` with image-to-text normalization — all over secure, scoped endpoints.
+No custom vector DB. No long-running server. Just deploy once and your agents get durable `save_context` / `search_context` / `fetch_context` with image-to-text normalization — over scoped endpoints with bearer authentication.
 
 > 🧪 **Used daily by the author as their personal MCP memory backend.**
 > Already powers multiple agents across ChatGPT & Claude in production.
@@ -34,7 +34,7 @@ After install, Journey will place the kit files in your workspace, guide you thr
 
 ### 1️⃣ Chat clients use a narrow memory contract
 
-The bundled browser profile exposes `remember_context` so a user can store project facts without opening the full admin surface.
+The bundled browser profile exposes `save_context` so a user can store project facts without opening the full admin surface.
 
 ### 2️⃣ Retrieval stays on the same remote backend
 
@@ -44,7 +44,7 @@ Scoped clients use the same remote memory backend for `search_context` and `fetc
 
 MetaCortex writes canonical text, retrieval metadata, and the vector embedding into Firestore so memory stays durable and searchable without a separate vector database.
 
-### 4️⃣ Scoped client profiles keep browser access safe
+### 4️⃣ Scoped client profiles restrict available tools
 
 The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints with their own token, origin allowlist, and restricted tool list.
 
@@ -61,7 +61,7 @@ The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints wi
 | --- | --- | --- | --- |
 | 🛠️ Packaging & validation agent | `gpt-5.4` | Any comparable agent runtime can follow the workflow, but `gpt-5.4` is the verified model recorded in the kit. | Assemble, validate, and publish the kit workflow. |
 | 🔢 Embeddings | `text-embedding-004` | Treat as pinned unless you are prepared to update the environment and rebuild Firestore indexes for a new vector space. | Convert memory content and search queries into 768-dimensional vectors. |
-| 🖼️ Multimodal normalization | `gemini-3.1-flash-lite-preview` | Replaceable only with code and configuration changes. | Turn image inputs into retrieval-ready text before embedding. |
+| 🖼️ Multimodal normalization | `gemini-3.1-flash-lite` | Replaceable only with code and configuration changes. | Turn image inputs into retrieval-ready text before embedding. |
 
 ### ☁️ Services
 
@@ -81,7 +81,7 @@ The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints wi
 | 💳 Firebase Blaze plan | Required for Cloud Functions 2nd Gen production deploys. |
 
 > [!TIP]
-> **One-click setup:** Copy `functions/.env.example` → `functions/.env.prod`, fill in three secrets (`GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, client tokens), and deploy. The defaults for everything else already match the bundled indexes and code.
+> **Setup:** Select your own Firebase project and alias first. Create `functions/.env.<alias>` from the non-secret settings in `functions/.env.example`; omit the three credential keys entirely. Store `GEMINI_API_KEY`, `MCP_ADMIN_TOKEN`, and `MCP_CLIENT_PROFILES_JSON` in Secret Manager (see `docs/DEPLOYMENT.md`), then deploy. The defaults for everything else already match the bundled indexes and code.
 
 <details>
 <summary><strong>🔧 Advanced Config: Environment Variables</strong></summary>
@@ -126,7 +126,7 @@ The admin endpoint stays separate. ChatGPT and Claude get dedicated endpoints wi
 | Output | Description |
 | --- | --- |
 | 🧠 Remote MCP memory service | A hosted MetaCortex endpoint backed by Firestore vector search. |
-| 🔒 Scoped browser endpoints | Safe ChatGPT and Claude connections limited to memory read/write tools. |
+| 🔒 Scoped browser endpoints | Client-specific endpoints with explicit tool and read-state allowlists. |
 | ✅ Verification evidence | Passing tests, build output, and optional deployed smoke-test results. |
 
 ## Constraints

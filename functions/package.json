@@ -9,6 +9,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "clean": "node -e \"const fs=require('fs'); fs.rmSync('lib',{recursive:true,force:true}); fs.rmSync('coverage',{recursive:true,force:true});\"",
     "backfill:ttl": "node scripts/backfill-firestore-ttl.mjs",
     "backfill:provenance": "node scripts/backfill-firestore-provenance.mjs",
@@ -23,7 +24,12 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "eval:files": "node --import tsx scripts/retrieval-eval.ts",
-    "typecheck:eval": "tsc -p tsconfig.eval.json"
+    "typecheck:eval": "tsc -p tsconfig.eval.json",
+    "backup:memories": "tsx scripts/backup-memories.ts",
+    "backup:firestore-full": "tsx scripts/firestore-full-backup.ts",
+    "restore:memories": "tsx scripts/restore-memories.ts",
+    "restore:firestore-full": "tsx scripts/firestore-full-restore.ts",
+    "gate:firestore-inventory": "tsx scripts/firestore-inventory-gate.ts"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
