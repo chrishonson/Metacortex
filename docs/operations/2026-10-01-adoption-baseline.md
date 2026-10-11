@@ -14,7 +14,7 @@ Started 2026-10-01; continued 2026-10-02. Scope: reconcile documentation, record
 | Card 23 and the secret-migration record | Completed Secret Manager migration retained. Credential rotation was explicitly excluded. |
 | Evaluation worktree `c3d17d2`, card 45 | Separate work preserved with its publication restrictions. Existing retrieval evaluation remains in the baseline. |
 | Partial trace work, card 30 | Historical incomplete work preserved; no new trace feature introduced. |
-| Studies and personal settings committed in `d54ca20` | Preserved in Git; excluded from the distributable Journey allowlist. |
+| Studies and personal settings committed in `d54ca20` | Preserved in Git under the tag `archive/ci-recurrence-data` (the baseline branch was deleted on 2026-10-10); excluded from the distributable Journey allowlist. |
 
 ## Incoming review before pull
 

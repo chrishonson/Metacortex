@@ -265,7 +265,7 @@ All claims must be supported by evidence from the exact release candidate. Passi
 | `docs/superpowers/` plan and spec | Retained as dated records. |
 | `docs/operations/2026-09-09-secret-migration.md` | Retained as historical evidence. |
 | `slides.html` | Corrected. Removed $0 cost, infinite-scaling, near-zero-latency, one-click, "secure", daily-cron, and unverified native-client claims. Tool count now six. Deletion wording now matches soft-deprecation. |
-| `studies/ci-recurrence/` | Retained. Unrelated CI-failure study data with no MetaCortex claims. |
+| `studies/ci-recurrence/` | Archived 2026-10-10 as a dead end, not on `release`. Study code is tag `archive/ci-recurrence-study` and its retained data is tag `archive/ci-recurrence-data`. It has no MetaCortex claims. |
 
 
 ### Disposition of the prior strategic plan
@@ -299,7 +299,7 @@ DOC/BASE/VERIFY retain delivered local evidence and remaining review/CI/deployme
 
 Card 66 landed through PR #12 and is done: production revision `metacortexmcp-00030-zaj`, profile secret version 2, nine scoped clients and admin verified. The [rollout record](docs/operations/2026-10-03-card66-rollout.md) distinguishes endpoint checks from long-running client catalog refreshes. Baseline `9c3feac` is pushed and its hosted typecheck/test/package gates passed. The earlier local-only and undeployed statements in dated records describe the state before this rollout.
 
-The release integration includes the intended roadmap, archive/backup code, verification contract and packaging corrections. Unrelated study data and personal settings remain preserved on `codex/self-hosted-adoption-baseline`; they are not part of the release integration or Journey package. DOC/BASE/VERIFY acceptance precedes CORE #70; remaining cards stay queued until selected.
+The release integration includes the intended roadmap, archive/backup code, verification contract and packaging corrections. Unrelated study data and personal settings were preserved on `codex/self-hosted-adoption-baseline`, which was deleted on 2026-10-10 after its tip was tagged `archive/ci-recurrence-data`. They are not part of the release integration or Journey package. DOC/BASE/VERIFY acceptance precedes CORE #70; remaining cards stay queued until selected.
 
 ### 2026-10-03 UTC foundation acceptance (DOC #67)
 
@@ -315,5 +315,5 @@ Remaining limitations:
 
 - Hosted CI and the clean-clone run use the local gates only and make no live calls. They are not deployed-client evidence. Deployed-client evidence for the rename is in the card 66 rollout record.
 - Production runs revision `metacortexmcp-00030-zaj`, deployed after PR #12 and before PR #13 merged. Code that arrived with PR #13 is not claimed as deployed.
-- `.claude/settings.local.json` is tracked in this public repository. It holds no credentials, but it contains personal absolute paths and an allow rule for the removed `remember_context` tool. Untrack or scrub it before DISTRIBUTE #84.
-- The reconciliation ledger above lists `studies/ci-recurrence/` as retained. The study data is not on `release`. It remains on `codex/self-hosted-adoption-baseline`, which is the intended release exclusion.
+- `.claude/settings.local.json` was tracked in this public repository. It holds no credentials, but it contains personal absolute paths and an allow rule for the removed `remember_context` tool. PR #15 untracked it (`e793016`). Earlier commits, including the archived tag `archive/ci-recurrence-data`, still contain it. Scrub history before DISTRIBUTE #84 if the paths matter.
+- The reconciliation ledger above now lists `studies/ci-recurrence/` as archived. The study is not on `release`. Its code and data are kept only under the tags `archive/ci-recurrence-study` and `archive/ci-recurrence-data`, which replaced the deleted branch `codex/self-hosted-adoption-baseline`.
