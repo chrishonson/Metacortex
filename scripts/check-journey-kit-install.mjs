@@ -23,6 +23,7 @@ try {
   }
   const pkg = JSON.parse(bundle.srcFiles["functions/package.json"]);
   for (const [name, command] of Object.entries(pkg.scripts)) {
+    // S4 offline evaluation tooling is deliberately not part of the Journey kit.
     if (name === "eval:files") continue;
     for (const match of command.matchAll(/\bscripts\/([\w./-]+\.(?:ts|mjs))\b/g)) {
       assert.ok(bundle.srcFiles[`functions/scripts/${match[1]}`], `Missing packaged script: ${match[1]}`);

@@ -41,11 +41,11 @@ to "Run locally". To see what must happen before a decision is possible, read
 ## What works now
 
 `functions/scripts/provider-eval.ts`, run through `npm run eval:files`, works on
-local bundle and comparison files only, reuses `computeRetrievalEvalMetrics`, never
-loads deployment env files or initializes Firebase, and that the existing Firestore
-evaluation commands in `retrieval-eval.ts` are unchanged. Synthetic generated cases
-now correctly use `synthetic_definition`, while observed fetch labels remain
-`implicit_fetch`.
+local bundle and comparison files only. It reuses `computeRetrievalEvalMetrics`, so
+there is no second ranking metric implementation, and it never loads deployment env
+files or initializes Firebase. The existing Firestore evaluation commands in
+`retrieval-eval.ts` are unchanged. Synthetic generated cases now correctly use
+`synthetic_definition`, while observed fetch labels remain `implicit_fetch`.
 
 The checked-in `functions/eval/s4/bundle.json` freezes nine synthetic source
 records, eight behavior specifications and five retrieval queries. It contains
