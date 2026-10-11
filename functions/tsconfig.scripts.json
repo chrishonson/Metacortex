@@ -4,5 +4,11 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "test/providerEvaluation.test.ts",
+    "test/providerEvalCli.test.ts",
+    "test/providerResultAdapters.test.ts"
+  ]
 }

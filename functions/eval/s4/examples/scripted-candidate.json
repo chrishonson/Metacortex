@@ -1,0 +1,229 @@
+{
+  "schema_version": "provider-eval-run.v1",
+  "run_id": "scripted-candidate-contract-demo",
+  "bundle_sha256": "3834dd5643bdb8744e61bda2e404904b07cd05d9233e7e998889cd1fd3125edf",
+  "provider": {
+    "name": "scripted-candidate",
+    "version": "fixture-v1",
+    "mode": "recorded",
+    "config_sha256": "67e727123c88a76b8fc68a8f13bb75274785764637a88ef0264b8831525f80d1",
+    "corpus_sha256": "5b15d138913c6f2065968398819291b6f54ed7f350c66121c6e08febd79c8096"
+  },
+  "protocol": {
+    "kind": "retrieval-only",
+    "repetitions": 3,
+    "cutoffs": [
+      1,
+      5
+    ]
+  },
+  "rows": [
+    {
+      "case_id": "client_identity",
+      "repetition": 1,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "client-auth"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "superseded_memory",
+      "repetition": 1,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "irrelevant",
+          "m4",
+          "project-priority",
+          "m2",
+          "m3"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "retrieved_but_ignored",
+      "repetition": 1,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "m4"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "returned_not_supplied",
+      "repetition": 1,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "required-constraint"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "untrusted_memory_instruction",
+      "repetition": 1,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "project-priority"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "client_identity",
+      "repetition": 2,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "client-auth"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "superseded_memory",
+      "repetition": 2,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "irrelevant",
+          "m4",
+          "project-priority",
+          "m2",
+          "m3"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "retrieved_but_ignored",
+      "repetition": 2,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "m4"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "returned_not_supplied",
+      "repetition": 2,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "required-constraint"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "untrusted_memory_instruction",
+      "repetition": 2,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "project-priority"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "client_identity",
+      "repetition": 3,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "client-auth"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "superseded_memory",
+      "repetition": 3,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "irrelevant",
+          "m4",
+          "project-priority",
+          "m2",
+          "m3"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "retrieved_but_ignored",
+      "repetition": 3,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "m4"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "returned_not_supplied",
+      "repetition": 3,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "required-constraint"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    },
+    {
+      "case_id": "untrusted_memory_instruction",
+      "repetition": 3,
+      "response": {
+        "status": "success",
+        "ranked_source_ids": [
+          "project-priority"
+        ],
+        "synthesized_answer": null,
+        "error_code": null,
+        "latency_ms": null
+      }
+    }
+  ]
+}

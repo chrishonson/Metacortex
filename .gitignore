@@ -5,7 +5,7 @@ lib
 .firebaserc
 .DS_Store
 coverage
-firebase-debug.log
+*-debug.log
 functions/node_modules
 functions/lib
 functions/coverage

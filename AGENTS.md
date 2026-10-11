@@ -175,7 +175,10 @@ See `docs/DEPLOYMENT.md` for the deployment playbook.
 
 - **Project**: `my-brain-88870` (alias: prod) in `.firebaserc`
 - **Emulators**: Functions on port 5001, Firestore on port 8080 (UI enabled)
-- **Firestore indexes**: Three composite indexes on `memory_vectors` — `metadata.module_name` + `embedding`, `metadata.branch_state` + `embedding`, and `metadata.branch_state` + `metadata.module_name` + `embedding` (all 768-dim FLAT)
+- **Firestore indexes**: 8 composite indexes and 3 TTL field overrides defined in `firestore.indexes.json`:
+  - `memory_vectors`: `metadata.module_name` + `embedding` (768 FLAT), `metadata.branch_state` + `embedding` (768 FLAT), `metadata.branch_state` + `metadata.module_name` + `embedding` (768 FLAT), `metadata.branch_state` + `metadata.created_at` (DESC), and `metadata.branch_state` + `metadata.module_name` + `metadata.created_at` (DESC)
+  - `memory_vectors_eval`: `metadata.module_name` + `embedding` (768 FLAT), `metadata.branch_state` + `embedding` (768 FLAT), and `metadata.branch_state` + `metadata.module_name` + `embedding` (768 FLAT)
+  - Field overrides: TTL enabled on `expires_at` for `memory_events`, `memory_vectors_write_fingerprints`, and `retrieval_query_events`
 - **Observability collection**: `memory_events` stores one audit record per tool call and one per ingress rejection request, including `client_id`, `event_type`, `status`, `latency_ms`, and compact request/response or reason metadata
 - **Predeploy hook**: `npm --prefix "$RESOURCE_DIR" run build`
 

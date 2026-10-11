@@ -22,7 +22,7 @@ export interface RetrievalEvalCase {
   limit: number;
   memory_collection: string;
   positive_ids: string[];
-  label_source: "implicit_fetch";
+  label_source: "implicit_fetch" | "synthetic_definition";
   created_at: number;
   updated_at: number;
 }
@@ -137,7 +137,7 @@ export function buildSyntheticEvalCases(input: {
 
       return memoryId;
     }),
-    label_source: "implicit_fetch",
+    label_source: "synthetic_definition",
     created_at: input.timestamp,
     updated_at: input.timestamp
   }));
