@@ -23,6 +23,8 @@
     "inspect:prod": "node scripts/inspect-prod.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "eval:files": "node --import tsx scripts/retrieval-eval.ts",
+    "typecheck:eval": "tsc -p tsconfig.eval.json",
     "backup:memories": "tsx scripts/backup-memories.ts",
     "backup:firestore-full": "tsx scripts/firestore-full-backup.ts",
     "restore:memories": "tsx scripts/restore-memories.ts",

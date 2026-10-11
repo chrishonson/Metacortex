@@ -427,6 +427,11 @@ Retention is handled with Firestore TTL policies:
 
 ## Retrieval evaluation
 
+S4 adds frozen local source/case bundles and provider comparisons to the same
+entry point. These run without Firebase credentials. See
+[the implementation and Onyx preflight](docs/s4/provider-evaluation.md).
+The checked-in examples are scripted contract tests, not live provider results.
+
 The evaluation corpus is stored in `retrieval_eval_cases`; isolated synthetic
 memories are stored separately in `memory_vectors_eval`. Cases have no lifecycle
 field: regeneration replaces the selected source partition and removes obsolete
@@ -447,7 +452,7 @@ npm --prefix functions run eval:run -- --mode production --url "$MCP_BASE_URL"
 ```
 
 Production retrieval events are evidence only. They do not become benchmark cases
-until `eval:import` is run, and a successful fetch is treated as a positive label;
+until `eval:import` is run, and a successful fetch is treated as a weak implicit label;
 the harness does not infer negative relevance judgments.
 
 ## Backup and recovery
