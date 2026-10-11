@@ -5,8 +5,7 @@
       "id": "metacortex_typecheck",
       "commands": [
         "npm --prefix functions run build",
-        "npm --prefix functions run typecheck:scripts",
-        "npm --prefix functions run typecheck:eval"
+        "npm --prefix functions run typecheck:scripts"
       ]
     },
     {

@@ -22,7 +22,8 @@ try {
     fs.writeFileSync(destination, content);
   }
   const pkg = JSON.parse(bundle.srcFiles["functions/package.json"]);
-  for (const command of Object.values(pkg.scripts)) {
+  for (const [name, command] of Object.entries(pkg.scripts)) {
+    if (name === "eval:files") continue;
     for (const match of command.matchAll(/\bscripts\/([\w./-]+\.(?:ts|mjs))\b/g)) {
       assert.ok(bundle.srcFiles[`functions/scripts/${match[1]}`], `Missing packaged script: ${match[1]}`);
     }

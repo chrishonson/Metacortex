@@ -40,12 +40,12 @@ to "Run locally". To see what must happen before a decision is possible, read
 
 ## What works now
 
-The existing `functions/scripts/retrieval-eval.ts` entry point now supports local
-bundles and comparison files. It reuses `computeRetrievalEvalMetrics`; there is no
-second ranking metric implementation. File commands do not load deployment env
-files or initialize Firebase. The existing Firestore commands remain available
-through the legacy implementation. Synthetic generated cases now correctly use
-`synthetic_definition`, while observed fetch labels remain `implicit_fetch`.
+`functions/scripts/provider-eval.ts`, run through `npm run eval:files`, works on
+local bundle and comparison files only, reuses `computeRetrievalEvalMetrics`, never
+loads deployment env files or initializes Firebase, and that the existing Firestore
+evaluation commands in `retrieval-eval.ts` are unchanged. Synthetic generated cases
+now correctly use `synthetic_definition`, while observed fetch labels remain
+`implicit_fetch`.
 
 The checked-in `functions/eval/s4/bundle.json` freezes nine synthetic source
 records, eight behavior specifications and five retrieval queries. It contains
@@ -105,8 +105,8 @@ produce a fixed diagnostic code.
 
 ## Verify the implementation
 
-The new `verification.json` declares the existing build/test commands plus eval
-CLI typechecking. `scripts/run-gate.py` follows the existing program executor
+The existing typecheck gate now also covers the S4 sources and tests through
+`tsconfig.scripts.json`. `scripts/run-gate.py` follows the existing program executor
 contract, copied from control-plane without creating a cross-repository runtime
 dependency:
 

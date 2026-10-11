@@ -57,3 +57,6 @@ export async function runLocalEvaluation(command: string, args: string[]): Promi
     throw new Error("Unknown local evaluation command");
   }
 }
+
+const [command = "", ...args] = process.argv.slice(2);
+await runLocalEvaluation(command, args);

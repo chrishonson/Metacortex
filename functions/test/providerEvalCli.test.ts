@@ -11,7 +11,7 @@ const bundlePath = path.join(root, "eval/s4/bundle.json");
 const bundle = parseBundle(JSON.parse(fs.readFileSync(bundlePath, "utf8")));
 const directory = () => {const d = fs.mkdtempSync(path.join(os.tmpdir(), "s4-cli-")); directories.push(d); return d;};
 function cli(args: string[]) {
-  return spawnSync(process.execPath, ["--import", "tsx", "scripts/retrieval-eval.ts", ...args], {
+  return spawnSync(process.execPath, ["--import", "tsx", "scripts/provider-eval.ts", ...args], {
     cwd: root, encoding: "utf8", timeout: 15000,
     env: {PATH: process.env.PATH, HOME: directory(), GCLOUD_PROJECT: "invalid-no-cloud-access"}
   });
