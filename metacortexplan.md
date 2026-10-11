@@ -317,3 +317,7 @@ Remaining limitations:
 - Production runs revision `metacortexmcp-00030-zaj`, deployed after PR #12 and before PR #13 merged. Code that arrived with PR #13 is not claimed as deployed.
 - `.claude/settings.local.json` is tracked in this public repository. It holds no credentials, but it contains personal absolute paths and an allow rule for the removed `remember_context` tool. Untrack or scrub it before DISTRIBUTE #84.
 - The reconciliation ledger above lists `studies/ci-recurrence/` as retained. The study data is not on `release`. It remains on `codex/self-hosted-adoption-baseline`, which is the intended release exclusion.
+
+### 2026-10-10 UTC CORE #70 acceptance record
+
+PR #14 merged 2026-10-05 and landed six lifecycle correctness fixes in saving, retiring, consolidating, searching and listing (fix commit `b8b09aa57c77307a6e7610793774b50501119a8a`, merge commit `4e2d3371269135436f04d934837235bdc5f28baf`) with 22 new regression tests; on the combined tree the typecheck, 139 tests with coverage and the 70-file clean Journey install passed, and 11 of 11 checks passed against the Firestore emulator; production serves revision `metacortexmcp-00031-dig`, built from that merge commit; card #70 was closed as done on 2026-10-10. Remaining limitations, stated plainly: no check against production after the deploy is recorded, and dependency card #69 (VERIFY) is still open.

@@ -71,8 +71,7 @@ Auth uses timing-safe token comparison. Origin allowlisting supports `"*"` wildc
 | `save_context` | Single write tool for chat and admin clients: save durable memory with optional topic, draft flag or explicit branch state, image input, artifact refs, and provenance metadata |
 | `search_context` | Query → embedding → Firestore vector similarity search (cosine, top-K) with metadata and provenance origin filters |
 | `fetch_context` | Retrieve one stored memory by document ID after search |
-| `list_context` | Enumerate stored memories with filters and pagination |
-| `list_context` | Optional paginated metadata listing; grant explicitly to ordinary clients |
+| `list_context` | Enumerate stored memories with filters and pagination; grant explicitly to ordinary clients |
 | `deprecate_context` | Soft-delete: mark document as deprecated, optionally record the superseding document ID, and record supersession_reason ("changed" sets valid_until, "corrected" does not) |
 | `consolidate_context` | Merge N related memories into one canonical active memory via LLM; deprecates all sources with `superseded_by` pointing to the merged result. Defaults to WIP queue for a topic; accepts explicit `source_ids` for targeted consolidation |
 
