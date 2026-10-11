@@ -5,6 +5,39 @@ compares current MetaCortex with self-hosted open-source Onyx before expanding
 custom retrieval. Unblocked and paid SaaS are excluded. Control-plane dispatch,
 leases and canonical memory writes stay unchanged during the comparison.
 
+## Why this exists
+
+Agent workers need a context source: something they query for the facts,
+decisions and constraints they need before they act. MetaCortex is the first one.
+S4 is the part of the program that collects evidence about how workers use
+context. Before building more custom retrieval (graph extraction, reranking,
+context selection), it asks one question: can a self-hosted, open-source Onyx
+supply enough of that knowledge layer that we do not need to build it? The
+possible answers are keep MetaCortex, adopt Onyx, or build only the narrow gap
+that remains.
+
+The answer has to come from evidence. The plan is to run the same worker on the
+same frozen tasks and sources against each provider, then compare them case by
+case. A better average does not count if any single case got worse. Retrieval
+rank alone also cannot decide adoption, because MetaCortex does more than
+retrieval: it writes, curates, supersedes and retires memories.
+
+## Where this stands
+
+This document describes the first slice only: the measuring instrument. It is
+offline tooling. It does not install Onyx, run a real worker or record a real
+MetaCortex baseline, so it does not answer the question yet. It adds:
+
+- a frozen bundle of test cases and source records that cannot change without
+  changing its hash
+- a small provider interface, with result normalizers for MetaCortex and Onyx
+- a comparator that reports per-case losses and refuses to compare mismatched
+  bundles
+
+Everything after this section is detail about those pieces. To see it work, jump
+to "Run locally". To see what must happen before a decision is possible, read
+"Next card" at the end.
+
 ## What works now
 
 The existing `functions/scripts/retrieval-eval.ts` entry point now supports local
