@@ -162,6 +162,34 @@ Local template: `functions/.env.example` → ignored `functions/.env`. Productio
 
 CI and control-plane software cards use `verification.json` through `python3 scripts/run-gate.py <gate-id>`. Current gates: `metacortex_typecheck`, `metacortex_test`, and `metacortex_package`. The package gate installs locked dependencies in a temporary directory and checks the distributable source without live smoke calls.
 
+## Definition of done
+
+This repository's default branch is `release`, and pull requests target it. Read
+"main" below as `release`.
+
+A change is done only when all three hold:
+
+1. **Merged to `release`.** Nothing for it is left on another branch or checked
+   out locally.
+2. **Deployed and running where it is used**, with the deployed revision
+   recorded.
+3. **Tested.** This repository's gates pass on `release`, and a check against
+   the deployed system exercises the change.
+
+Merged but not deployed, or passing only on a branch, is not done.
+
+Commands in this repository:
+
+| Step | Command |
+|---|---|
+| Merge | `gh pr merge <number> --merge` (base `release`), then `git pull --ff-only` on `release` |
+| Gates | `python3 scripts/run-gate.py metacortex_typecheck`, `python3 scripts/run-gate.py metacortex_test`, `python3 scripts/run-gate.py metacortex_package` |
+| Deploy | `./scripts/deploy-session-preflight.sh`, then `firebase deploy --only firestore:indexes`, then `firebase deploy --only functions` |
+| Deployed revision | `gcloud run services describe metacortexmcp --region us-central1 --project my-brain-88870 --format='value(status.latestReadyRevisionName)'` |
+| Post-deploy check | `npm --prefix functions run smoke` with the production URL and token, plus a call to the changed tool. `npm --prefix functions run inspect:prod` opens MCP Inspector against production. |
+
+Record the merge commit, the revision and the check on the card before closing it.
+
 ## Deployment Workflow
 
 1. Run preflight: `./scripts/deploy-session-preflight.sh` (checks git status, env vars, dimension alignment, tests, build)
