@@ -335,11 +335,6 @@ const SOURCE_FILE_MANIFEST = [
     description: "Bundled metacortexplan.md."
   },
   {
-    path: "NEXT-STEPS.md",
-    role: "documentation",
-    description: "Bundled NEXT-STEPS.md."
-  },
-  {
     path: "docs/DEPLOYMENT.md",
     role: "documentation",
     description: "Bundled docs/DEPLOYMENT.md."
@@ -373,21 +368,6 @@ const SOURCE_FILE_MANIFEST = [
     path: "docs/OPENCLAW_MEMORY_OPS.md",
     role: "documentation",
     description: "Bundled docs/OPENCLAW_MEMORY_OPS.md."
-  },
-  {
-    path: "docs/operations/2026-09-09-secret-migration.md",
-    role: "documentation",
-    description: "Bundled docs/operations/2026-09-09-secret-migration.md."
-  },
-  {
-    path: "docs/operations/2026-10-03-card66-rollout.md",
-    role: "documentation",
-    description: "Card 66 deployed contract and live verification evidence."
-  },
-  {
-    path: "docs/operations/2026-10-01-adoption-baseline.md",
-    role: "documentation",
-    description: "Bundled docs/operations/2026-10-01-adoption-baseline.md."
   },
   {
     path: "journey-kit/examples/browser-client-setup.md",

@@ -7,7 +7,7 @@ This document describes current implementation and accepted policy. Planned cont
 - Dedicated client tokens, tool allowlists, readable-state allowlists, and per-profile origin rules.
 - Separate admin endpoint and three-tool ordinary-agent profiles; `list_context` requires an explicit grant.
 - Firestore rules deny direct client access to memory, audit, fingerprint, and evaluation collections. Admin SDK access uses IAM.
-- Runtime secrets are bound through Secret Manager. The [2026-09-09 migration](operations/2026-09-09-secret-migration.md) is complete; it did not rotate credentials.
+- Runtime secrets are bound through Secret Manager. The 2026-09-09 migration is complete; it did not rotate credentials.
 - Requests have a 1 MB JSON limit, including base64 image input. Raw image assets are not stored.
 - Full retrieval-query telemetry is opt-in. Audit summaries can still include a query preview and error metadata; treat them as private data.
 
