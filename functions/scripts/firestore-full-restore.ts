@@ -1,18 +1,17 @@
-import path from "node:path";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 
+import { loadConfig } from "../src/config.js";
 import { loadEnvironment, readArg } from "./support/cli.js";
 import {
-  assertWritableProject,
-  clearCollection,
-  countDocuments,
-  firestoreProjectId,
-  encodedDocumentIds,
-  loadArchiveCollection,
+  ArchiveValidationError,
+  FirestoreMirrorStore,
+  IncompatibleVectorsError,
   openFirestore,
-  pruneAbsentDocuments,
-  readManifest,
-  writeDocuments
+  restoreArchive,
+  RestoreIncompleteError,
+  RestoreTargetError,
+  RestoreVerificationError
 } from "./support/firestore-full-mirror.js";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -22,15 +21,20 @@ loadEnvironment(functionsDirectory);
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
+const prune = args.includes("--prune");
 const clearTarget = args.includes("--clear-target-collections");
+const acceptUnknownEmbeddingSpace = args.includes("--accept-unknown-embedding-space");
+
 const projectId = readArg(args, "project");
 const archiveDir = readArg(args, "archive-dir") ?? process.env.METACORTEX_ARCHIVE_DIR;
+const targetPrefix = readArg(args, "target-prefix");
+const confirmProject = readArg(args, "confirm-project");
 
 if (!projectId) {
   console.error(
-    "usage: firestore-full-restore --project <id> --archive-dir <path> [--write] [--clear-target-collections]"
+    "usage: firestore-full-restore --project <id> --archive-dir <path> [--write] [--target-prefix <p>] [--prune] [--clear-target-collections] [--confirm-project <id>] [--accept-unknown-embedding-space]"
   );
-  console.error("--write converges by default (upsert + prune). --clear-target-collections is an optional wipe first.");
+  console.error("Dry-run by default. Pass --write to execute upsert. --prune or --clear-target-collections requires --confirm-project <id>.");
   process.exit(1);
 }
 
@@ -39,94 +43,55 @@ if (!archiveDir) {
   process.exit(1);
 }
 
-assertWritableProject(projectId);
-
-const manifest = readManifest(archiveDir);
-const collectionIds = manifest.collection_ids;
-if (
-  collectionIds.length !== manifest.collections.length ||
-  collectionIds.some((id, index) => id !== manifest.collections[index].id)
-) {
-  console.error("manifest collection_ids does not match collections[].id order");
-  process.exit(1);
-}
+const config = loadConfig(process.env);
+const firestore = openFirestore(projectId, "restore-target");
+const store = new FirestoreMirrorStore(firestore);
 
 console.log(`target: ${projectId}`);
 console.log(`archive: ${archiveDir}`);
-console.log(`source_project: ${manifest.source_project}`);
 console.log(`mode: ${write ? "write" : "dry-run"}`);
-console.log("converge: upsert+prune");
-console.log(
-  `clear_target_collections: ${clearTarget}${clearTarget ? " (wipe then upsert; prune skipped)" : ""}`
-);
-console.log("inventory: archive manifest (produced by listCollections() on source)");
-console.log("absent_archive_collections: left on target (not deleted)");
-console.log(`collections: ${JSON.stringify(collectionIds)}`);
-
-const firestore = write ? openFirestore(projectId, "restore-target") : undefined;
-if (firestore) {
-  assertWritableProject(firestoreProjectId(firestore));
+if (targetPrefix) {
+  console.log(`target_prefix: ${targetPrefix}`);
 }
+console.log(`prune: ${prune}`);
+console.log(`clear_target: ${clearTarget}`);
 
-const report: Array<{
-  id: string;
-  archive_count: number;
-  target_count_before: number | null;
-  pruned: number;
-  deleted: number;
-  written: number;
-  target_count_after: number | null;
-}> = [];
+try {
+  const result = await restoreArchive(store, archiveDir, {
+    write,
+    targetPrefix,
+    replace: {
+      prune,
+      clearTarget,
+      confirmProject
+    },
+    targetEmbedding: {
+      model: config.embeddingModel,
+      dimensions: config.embeddingDimensions
+    },
+    acceptUnknownEmbeddingSpace,
+    onProgress: (msg: string) => console.log(msg)
+  });
 
-for (const entry of manifest.collections) {
-  const docs = loadArchiveCollection(archiveDir, entry);
-  const keepIds = encodedDocumentIds(docs);
-  const before = firestore ? await countDocuments(firestore, entry.id) : null;
-  console.log(
-    `plan ${entry.id} archive=${entry.document_count} target_before=${before ?? "n/a"}`
-  );
+  console.log(JSON.stringify(result, null, 2));
 
-  let pruned = 0;
-  let deleted = 0;
-  let written = 0;
-  let after: number | null = null;
-
-  if (write && firestore) {
-    if (clearTarget) {
-      deleted = await clearCollection(firestore, entry.id);
-      console.log(`cleared ${projectId}/${entry.id} deleted=${deleted}`);
-    } else {
-      pruned = await pruneAbsentDocuments(firestore, entry.id, keepIds);
-      deleted = pruned;
-      console.log(`pruned ${projectId}/${entry.id} extra_ids=${pruned}`);
-    }
-    written = await writeDocuments(firestore, entry.id, docs);
-    after = await countDocuments(firestore, entry.id);
-    console.log(`upserted ${projectId}/${entry.id} written=${written} count=${after}`);
-    if (after !== entry.document_count) {
-      console.error(
-        `restore count mismatch for ${entry.id}: target ${after} != archive ${entry.document_count}`
-      );
-      process.exit(1);
-    }
+  if (!write) {
+    console.log("Dry run complete. Re-run with --write to restore.");
+    process.exit(0);
   }
 
-  report.push({
-    id: entry.id,
-    archive_count: entry.document_count,
-    target_count_before: before,
-    pruned,
-    deleted,
-    written,
-    target_count_after: after
-  });
+  console.log(`restore_complete=true collections=${result.collections.length}`);
+} catch (error) {
+  if (
+    error instanceof RestoreIncompleteError ||
+    error instanceof RestoreVerificationError ||
+    error instanceof RestoreTargetError ||
+    error instanceof IncompatibleVectorsError ||
+    error instanceof ArchiveValidationError
+  ) {
+    console.error(error.message);
+  } else {
+    console.error(`Restore error: ${(error as Error).message}`);
+  }
+  process.exit(1);
 }
-
-console.log(JSON.stringify({ converge: "upsert+prune", collections: report }, null, 2));
-
-if (!write) {
-  console.log("Dry run complete. Re-run with --write to restore.");
-  process.exit(0);
-}
-
-console.log(`collections_restored=${report.length}`);

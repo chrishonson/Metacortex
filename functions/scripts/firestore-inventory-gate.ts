@@ -3,10 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadEnvironment, readArg } from "./support/cli.js";
+import { encodeDocument, DOCUMENT_ID_FIELD } from "./support/firestore-codec.js";
 import {
-  countDocuments,
-  listCollectionIds,
-  openFirestore
+  computeSha256,
+  FirestoreMirrorStore,
+  openFirestore,
+  serializeNdjson,
+  type MirrorDocument
 } from "./support/firestore-full-mirror.js";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -29,10 +32,13 @@ if (!sourceProject || !targetProject) {
 const sourceDb = openFirestore(sourceProject, "gate-source");
 const targetDb = openFirestore(targetProject, "gate-target");
 
+const sourceStore = new FirestoreMirrorStore(sourceDb);
+const targetStore = new FirestoreMirrorStore(targetDb);
+
 const measuredAt = new Date().toISOString();
-const sourceIds = await listCollectionIds(sourceDb);
-const targetIds = await listCollectionIds(targetDb);
-const targetIdSet = new Set(targetIds);
+const sourcePaths = await sourceStore.discoverCollectionPaths();
+const targetPaths = await targetStore.discoverCollectionPaths();
+const targetPathSet = new Set(targetPaths);
 
 const collections: Array<{
   id: string;
@@ -40,41 +46,68 @@ const collections: Array<{
   target_count: number | null;
   present_on_target: boolean;
   ok: boolean;
+  source_sha256?: string;
+  target_sha256?: string;
 }> = [];
 
-for (const id of sourceIds) {
-  const sourceCount = await countDocuments(sourceDb, id);
-  const presentOnTarget = targetIdSet.has(id);
-  const targetCount = presentOnTarget ? await countDocuments(targetDb, id) : null;
+for (const colPath of sourcePaths) {
+  const sourceDocs = await sourceStore.readCollection(colPath);
+  const sourceCount = sourceDocs.length;
+  const sourceEncoded = sourceDocs
+    .map((d: MirrorDocument) => encodeDocument(d.id, d.data))
+    .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+      String(a[DOCUMENT_ID_FIELD]).localeCompare(String(b[DOCUMENT_ID_FIELD]))
+    );
+  const sourceSha = computeSha256(serializeNdjson(sourceEncoded));
+
+  const presentOnTarget = targetPathSet.has(colPath);
+  let targetCount: number | null = null;
+  let targetSha: string | undefined;
+
+  if (presentOnTarget) {
+    const targetDocs = await targetStore.readCollection(colPath);
+    targetCount = targetDocs.length;
+    const targetEncoded = targetDocs
+      .map((d: MirrorDocument) => encodeDocument(d.id, d.data))
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+        String(a[DOCUMENT_ID_FIELD]).localeCompare(String(b[DOCUMENT_ID_FIELD]))
+      );
+    targetSha = computeSha256(serializeNdjson(targetEncoded));
+  }
+
+  const ok = presentOnTarget && targetCount === sourceCount && targetSha === sourceSha;
+
   collections.push({
-    id,
+    id: colPath,
     source_count: sourceCount,
     target_count: targetCount,
     present_on_target: presentOnTarget,
-    ok: presentOnTarget && targetCount === sourceCount
+    ok,
+    source_sha256: sourceSha,
+    target_sha256: targetSha
   });
 }
 
-const sourceIdSet = new Set(sourceIds);
-const targetOnly = [];
-for (const id of targetIds) {
-  if (sourceIdSet.has(id)) {
+const sourcePathSet = new Set(sourcePaths);
+const targetOnly: Array<{ id: string; target_count: number }> = [];
+for (const colPath of targetPaths) {
+  if (sourcePathSet.has(colPath)) {
     continue;
   }
   targetOnly.push({
-    id,
-    target_count: await countDocuments(targetDb, id)
+    id: colPath,
+    target_count: await targetStore.countDocuments(colPath)
   });
 }
 
 const failures = collections.filter(entry => !entry.ok);
 const report = {
-  ok: failures.length === 0 && sourceIds.length > 0,
+  ok: failures.length === 0 && sourcePaths.length > 0,
   measured_at: measuredAt,
-  discovery: "listCollections()",
+  discovery: "recursive-listCollections",
   source_project: sourceProject,
   target_project: targetProject,
-  source_collection_count: sourceIds.length,
+  source_collection_count: sourcePaths.length,
   collections,
   target_only: targetOnly,
   failures: failures.map(entry => ({

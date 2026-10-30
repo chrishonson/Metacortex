@@ -1,18 +1,13 @@
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadConfig } from "../src/config.js";
 import { loadEnvironment, readArg } from "./support/cli.js";
 import {
-  countDocuments,
+  backupToArchive,
   firestoreProjectId,
-  dumpCollection,
-  listCollectionIds,
-  MANIFEST_SCHEMA,
-  openFirestore,
-  removeStaleNdjsonFiles,
-  writeManifest,
-  type FullBackupCollectionEntry
+  FirestoreMirrorStore,
+  openFirestore
 } from "./support/firestore-full-mirror.js";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -35,76 +30,42 @@ if (!archiveDir) {
   process.exit(1);
 }
 
+const config = loadConfig(process.env);
 const firestore = openFirestore(projectId, "backup-source");
+const store = new FirestoreMirrorStore(firestore);
 
 console.log(`project: ${firestoreProjectId(firestore)}`);
 console.log(`archive: ${archiveDir}`);
 console.log(`mode: ${dryRun ? "dry-run" : "write"}`);
-console.log("discovery: listCollections()");
+console.log("discovery: recursive-listCollections");
 console.log("snapshot: full rewrite (not incremental)");
 
-const collectionIds = await listCollectionIds(firestore);
-console.log(`collections discovered: ${collectionIds.length}`);
-console.log(JSON.stringify(collectionIds));
+try {
+  const manifest = await backupToArchive(store, archiveDir, {
+    embedding: {
+      model: config.embeddingModel,
+      dimensions: config.embeddingDimensions
+    },
+    dryRun
+  });
 
-if (collectionIds.length === 0) {
-  console.error("listCollections() returned no collections");
-  process.exit(1);
-}
+  console.log(`collections discovered: ${manifest.collection_paths.length}`);
+  console.log(JSON.stringify(manifest.collection_paths));
 
-if (!dryRun) {
-  fs.mkdirSync(archiveDir, { recursive: true });
-}
-
-const collections: FullBackupCollectionEntry[] = [];
-
-for (const collectionId of collectionIds) {
-  const liveCount = await countDocuments(firestore, collectionId);
-  console.log(`count ${projectId}/${collectionId}=${liveCount}`);
+  for (const col of manifest.collections) {
+    console.log(
+      `dumped ${col.path} documents=${col.document_count} bytes=${col.bytes} file=${col.ndjson}`
+    );
+  }
 
   if (dryRun) {
-    collections.push({
-      id: collectionId,
-      document_count: liveCount,
-      ndjson: `${collectionId}.ndjson`,
-      bytes: 0
-    });
-    continue;
+    console.log("Dry run complete. Nothing written.");
+    process.exit(0);
   }
 
-  const entry = await dumpCollection(firestore, collectionId, archiveDir);
-  if (entry.document_count !== liveCount) {
-    console.error(
-      `dump/count mismatch for ${collectionId}: dumped ${entry.document_count} counted ${liveCount}`
-    );
-    process.exit(1);
-  }
-  console.log(
-    `dumped ${collectionId} documents=${entry.document_count} bytes=${entry.bytes} file=${entry.ndjson}`
-  );
-  collections.push(entry);
+  console.log(`wrote ${path.join(archiveDir, "manifest.json")}`);
+  console.log(`collections_backed_up=${manifest.collections.length}`);
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(1);
 }
-
-if (dryRun) {
-  console.log("Dry run complete. Nothing written.");
-  process.exit(0);
-}
-
-const stale = removeStaleNdjsonFiles(archiveDir, collectionIds);
-if (stale.length > 0) {
-  console.log(`removed stale ndjson: ${JSON.stringify(stale)}`);
-}
-
-const generatedAt = new Date();
-writeManifest(archiveDir, {
-  schema: MANIFEST_SCHEMA,
-  source_project: projectId,
-  generated_at: generatedAt.toISOString(),
-  generated_at_ms: generatedAt.getTime(),
-  discovery: "listCollections()",
-  collection_ids: collectionIds,
-  collections
-});
-
-console.log(`wrote ${path.join(archiveDir, "manifest.json")}`);
-console.log(`collections_backed_up=${collections.length}`);

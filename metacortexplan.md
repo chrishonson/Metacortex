@@ -321,3 +321,15 @@ Remaining limitations:
 ### 2026-10-10 UTC CORE #70 acceptance record
 
 PR #14 merged 2026-10-05 and landed six lifecycle correctness fixes in saving, retiring, consolidating, searching and listing (fix commit `b8b09aa57c77307a6e7610793774b50501119a8a`, merge commit `4e2d3371269135436f04d934837235bdc5f28baf`) with 22 new regression tests; on the combined tree the typecheck, 139 tests with coverage and the 70-file clean Journey install passed, and 11 of 11 checks passed against the Firestore emulator; production serves revision `metacortexmcp-00031-dig`, built from that merge commit; card #70 was closed as done on 2026-10-10. Remaining limitations, stated plainly: no check against production after the deploy is recorded, and dependency card #69 (VERIFY) is still open.
+
+### 2026-10-29 UTC RECOVERY #71 local verification record
+
+- Branch: `agent/card-71-recovery-fidelity`
+- Final commit sha: `50a3907`
+- Local checks:
+  - `metacortex_typecheck`: clean TypeScript build (`tsc -p tsconfig.json`) and clean operator scripts typecheck (`tsc -p tsconfig.scripts.json`).
+  - `metacortex_test`: 175 passed tests across 15 test files (1 test file skipped when emulator host is not set), 79.2% statement coverage.
+  - `metacortex_package`: verified clean Journey installation of 70 files with 123 tests passing.
+  - Emulator run: `firebase emulators:exec --only firestore --project demo-recovery "npm --prefix functions test -- test/recovery.emulator.test.ts"` passed (1 test exercising recursive discovery including phantom parents, backup, restore, real Firestore types, content corruption detection, and vector search without re-embedding).
+- Deployed or release evidence: none. No production restore was performed or authorized; nothing was deployed.
+- Remaining limitations: Firestore integer vs double distinction is not preserved by the Admin SDK read path; DocumentReference values are restored with their original absolute paths and are not remapped by --target-prefix; field transforms, indexes, rules, TTL policies and security rules are not part of the archive; the verification covers documents, not Storage objects or auth users; restore is not atomic across collections (resume by re-running); live production restore was not exercised.

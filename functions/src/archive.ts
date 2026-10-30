@@ -223,6 +223,99 @@ export function describeEmbeddingMismatch(
   );
 }
 
+export function validatePortableArchive(
+  memories: readonly ArchivedMemory[],
+  manifest: ArchiveManifest
+): string[] {
+  const problems: string[] = [];
+
+  if (manifest.schema_version !== ARCHIVE_SCHEMA_VERSION) {
+    problems.push(
+      `schema_version mismatch: expected ${ARCHIVE_SCHEMA_VERSION}, got ${manifest.schema_version}`
+    );
+  }
+
+  if (memories.length !== manifest.document_count) {
+    problems.push(
+      `document count mismatch: archive has ${memories.length} documents, manifest records ${manifest.document_count}`
+    );
+  }
+
+  const seenIds = new Set<string>();
+  for (let index = 0; index < memories.length; index += 1) {
+    const memory = memories[index];
+    if (typeof memory.id !== "string" || memory.id.trim().length === 0) {
+      problems.push(`memory at index ${index} has empty or missing id`);
+    } else if (seenIds.has(memory.id)) {
+      problems.push(`duplicate id in archive: ${memory.id}`);
+    } else {
+      seenIds.add(memory.id);
+    }
+
+    if (typeof memory.content !== "string" || memory.content.length === 0) {
+      problems.push(`memory ${memory.id ?? index} has empty or missing content`);
+    }
+
+    if (
+      typeof memory.retrieval_text !== "string" ||
+      memory.retrieval_text.length === 0
+    ) {
+      problems.push(
+        `memory ${memory.id ?? index} has empty or missing retrieval_text`
+      );
+    }
+
+    if (!memory.metadata || typeof memory.metadata !== "object") {
+      problems.push(`memory ${memory.id ?? index} is missing metadata object`);
+    } else {
+      if (
+        typeof memory.metadata.module_name !== "string" ||
+        memory.metadata.module_name.length === 0
+      ) {
+        problems.push(
+          `memory ${memory.id ?? index} metadata.module_name must be a non-empty string`
+        );
+      }
+      if (
+        typeof memory.metadata.branch_state !== "string" ||
+        memory.metadata.branch_state.length === 0
+      ) {
+        problems.push(
+          `memory ${memory.id ?? index} metadata.branch_state must be a string`
+        );
+      }
+      if (
+        typeof memory.metadata.created_at !== "number" ||
+        !Number.isFinite(memory.metadata.created_at)
+      ) {
+        problems.push(
+          `memory ${memory.id ?? index} metadata.created_at must be a finite number`
+        );
+      }
+      if (
+        typeof memory.metadata.updated_at !== "number" ||
+        !Number.isFinite(memory.metadata.updated_at)
+      ) {
+        problems.push(
+          `memory ${memory.id ?? index} metadata.updated_at must be a finite number`
+        );
+      }
+    }
+  }
+
+  for (const memory of memories) {
+    if (memory.metadata?.superseded_by) {
+      if (!seenIds.has(memory.metadata.superseded_by)) {
+        problems.push(
+          `memory ${memory.id} has dangling superseded_by reference to ${memory.metadata.superseded_by}`
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
 export interface RestoreTarget {
   writeMemory(memory: ArchivedMemory, embedding: number[]): Promise<void>;
 }
@@ -231,6 +324,7 @@ export interface RestoreParams {
   memories: readonly ArchivedMemory[];
   embeddings: EmbeddingClient;
   target: RestoreTarget;
+  manifest?: ArchiveManifest;
 }
 
 export interface RestoreResult {
@@ -240,6 +334,13 @@ export interface RestoreResult {
 export async function restoreMemories(
   params: RestoreParams
 ): Promise<RestoreResult> {
+  if (params.manifest) {
+    const problems = validatePortableArchive(params.memories, params.manifest);
+    if (problems.length > 0) {
+      throw new Error(`archive failed validation: ${problems.join("; ")}`);
+    }
+  }
+
   let restored = 0;
 
   for (const memory of params.memories) {
