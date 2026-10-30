@@ -1,4 +1,4 @@
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, GeoPoint, Timestamp } from "firebase-admin/firestore";
 
 interface EncodedTimestamp {
   __fs: "timestamp";
@@ -11,6 +11,27 @@ interface EncodedVector {
   values: number[];
 }
 
+interface EncodedGeoPoint {
+  __fs: "geopoint";
+  latitude: number;
+  longitude: number;
+}
+
+interface EncodedBytes {
+  __fs: "bytes";
+  base64: string;
+}
+
+interface EncodedReference {
+  __fs: "reference";
+  path: string;
+}
+
+interface EncodedNumber {
+  __fs: "number";
+  value: "NaN" | "Infinity" | "-Infinity";
+}
+
 interface TimestampLike {
   seconds: number;
   nanoseconds: number;
@@ -19,6 +40,16 @@ interface TimestampLike {
 
 interface VectorLike {
   toArray: () => number[];
+}
+
+export interface GeoPointLike {
+  latitude: number;
+  longitude: number;
+}
+
+export interface DocumentReferenceLike {
+  path: string;
+  firestore: object;
 }
 
 export const DOCUMENT_ID_FIELD = "_id";
@@ -44,8 +75,61 @@ export function isVectorValue(value: unknown): value is VectorLike {
   );
 }
 
-export function encodeValue(value: unknown): unknown {
+export function isGeoPoint(value: unknown): value is GeoPointLike {
+  return (
+    value instanceof GeoPoint ||
+    (typeof value === "object" &&
+      value !== null &&
+      value.constructor?.name === "GeoPoint" &&
+      typeof (value as GeoPointLike).latitude === "number" &&
+      typeof (value as GeoPointLike).longitude === "number")
+  );
+}
+
+export function isBytes(value: unknown): value is Buffer | Uint8Array {
+  return Buffer.isBuffer(value) || value instanceof Uint8Array;
+}
+
+export function isDocumentReference(value: unknown): value is DocumentReferenceLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as DocumentReferenceLike).path === "string" &&
+    typeof (value as DocumentReferenceLike).firestore === "object" &&
+    value.constructor?.name === "DocumentReference"
+  );
+}
+
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+export function encodeValue(value: unknown, currentPath = ""): unknown {
   if (value === null || typeof value === "undefined") {
+    return value;
+  }
+
+  if (typeof value === "string" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    if (Number.isNaN(value)) {
+      const encoded: EncodedNumber = { __fs: "number", value: "NaN" };
+      return encoded;
+    }
+    if (value === Infinity) {
+      const encoded: EncodedNumber = { __fs: "number", value: "Infinity" };
+      return encoded;
+    }
+    if (value === -Infinity) {
+      const encoded: EncodedNumber = { __fs: "number", value: "-Infinity" };
+      return encoded;
+    }
     return value;
   }
 
@@ -76,41 +160,138 @@ export function encodeValue(value: unknown): unknown {
     return encoded;
   }
 
-  if (Array.isArray(value)) {
-    return value.map(encodeValue);
+  if (isGeoPoint(value)) {
+    const encoded: EncodedGeoPoint = {
+      __fs: "geopoint",
+      latitude: value.latitude,
+      longitude: value.longitude
+    };
+    return encoded;
   }
 
-  if (typeof value === "object") {
+  if (isBytes(value)) {
+    const encoded: EncodedBytes = {
+      __fs: "bytes",
+      base64: Buffer.from(value).toString("base64")
+    };
+    return encoded;
+  }
+
+  if (isDocumentReference(value)) {
+    const encoded: EncodedReference = {
+      __fs: "reference",
+      path: value.path
+    };
+    return encoded;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      encodeValue(item, currentPath ? `${currentPath}.${index}` : `${index}`)
+    );
+  }
+
+  if (isPlainObject(value)) {
+    if (Object.prototype.hasOwnProperty.call(value, "__fs")) {
+      const fsPath = currentPath ? `${currentPath}.__fs` : "__fs";
+      throw new Error(`reserved key "__fs" in field ${fsPath}`);
+    }
     const encoded: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      encoded[key] = encodeValue(nested);
+    for (const [key, nested] of Object.entries(value)) {
+      const nextPath = currentPath ? `${currentPath}.${key}` : key;
+      encoded[key] = encodeValue(nested, nextPath);
     }
     return encoded;
   }
 
-  return value;
+  const typeName = (value as object).constructor?.name || typeof value;
+  throw new Error(`cannot encode value of type ${typeName} at ${currentPath || "root"}`);
 }
 
-export function decodeValue(value: unknown): unknown {
+export function decodeValue(
+  value: unknown,
+  resolveReference?: (path: string) => unknown
+): unknown {
   if (value === null || typeof value === "undefined") {
     return value;
   }
 
   if (Array.isArray(value)) {
-    return value.map(decodeValue);
+    return value.map(item => decodeValue(item, resolveReference));
   }
 
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    if (obj.__fs === "timestamp") {
-      return new Timestamp(Number(obj.seconds), Number(obj.nanoseconds));
+    if (typeof obj.__fs === "string") {
+      switch (obj.__fs) {
+        case "timestamp": {
+          if (
+            typeof obj.seconds !== "number" ||
+            typeof obj.nanoseconds !== "number" ||
+            !Number.isFinite(obj.seconds) ||
+            !Number.isFinite(obj.nanoseconds)
+          ) {
+            throw new Error("malformed timestamp tag");
+          }
+          return new Timestamp(obj.seconds, obj.nanoseconds);
+        }
+        case "vector": {
+          if (
+            !Array.isArray(obj.values) ||
+            obj.values.some(v => typeof v !== "number" || !Number.isFinite(v))
+          ) {
+            throw new Error("malformed vector tag");
+          }
+          return FieldValue.vector(obj.values as number[]);
+        }
+        case "geopoint": {
+          if (
+            typeof obj.latitude !== "number" ||
+            typeof obj.longitude !== "number" ||
+            !Number.isFinite(obj.latitude) ||
+            !Number.isFinite(obj.longitude)
+          ) {
+            throw new Error("malformed geopoint tag");
+          }
+          return new GeoPoint(obj.latitude, obj.longitude);
+        }
+        case "bytes": {
+          if (typeof obj.base64 !== "string") {
+            throw new Error("malformed bytes tag");
+          }
+          return Buffer.from(obj.base64, "base64");
+        }
+        case "reference": {
+          if (typeof obj.path !== "string" || obj.path.trim().length === 0) {
+            throw new Error("malformed reference tag");
+          }
+          if (!resolveReference) {
+            throw new Error(
+              `cannot decode reference without resolver for path ${obj.path}`
+            );
+          }
+          return resolveReference(obj.path);
+        }
+        case "number": {
+          if (obj.value === "NaN") {
+            return Number.NaN;
+          }
+          if (obj.value === "Infinity") {
+            return Number.POSITIVE_INFINITY;
+          }
+          if (obj.value === "-Infinity") {
+            return Number.NEGATIVE_INFINITY;
+          }
+          throw new Error(`malformed number tag: ${String(obj.value)}`);
+        }
+        default:
+          throw new Error(`unknown __fs tag: ${String(obj.__fs)}`);
+      }
     }
-    if (obj.__fs === "vector") {
-      return FieldValue.vector(obj.values as number[]);
-    }
+
     const decoded: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(obj)) {
-      decoded[key] = decodeValue(nested);
+      decoded[key] = decodeValue(nested, resolveReference);
     }
     return decoded;
   }
@@ -128,7 +309,10 @@ export function encodeDocument(
   };
 }
 
-export function decodeDocument(doc: Record<string, unknown>): {
+export function decodeDocument(
+  doc: Record<string, unknown>,
+  resolveReference?: (path: string) => unknown
+): {
   id: string;
   data: Record<string, unknown>;
 } {
@@ -137,6 +321,28 @@ export function decodeDocument(doc: Record<string, unknown>): {
   delete fields[DOCUMENT_ID_FIELD];
   return {
     id,
-    data: decodeValue(fields) as Record<string, unknown>
+    data: decodeValue(fields, resolveReference) as Record<string, unknown>
   };
+}
+
+export function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    const items = value.map(item => (item === undefined ? "null" : stableStringify(item)));
+    return `[${items.join(",")}]`;
+  }
+
+  const entries: string[] = [];
+  const keys = Object.keys(value as Record<string, unknown>).sort((a, b) => a.localeCompare(b));
+  for (const key of keys) {
+    const val = (value as Record<string, unknown>)[key];
+    if (typeof val === "undefined") {
+      continue;
+    }
+    entries.push(`${JSON.stringify(key)}:${stableStringify(val)}`);
+  }
+  return `{${entries.join(",")}}`;
 }

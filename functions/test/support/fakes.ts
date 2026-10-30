@@ -191,6 +191,31 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     return [...this.records];
   }
 
+  seed(
+    records: Array<{
+      id: string;
+      content: string;
+      retrieval_text: string;
+      embedding: number[] | { toArray: () => number[] };
+      metadata: MemoryMetadata;
+      media?: MemoryMedia;
+    }>
+  ): void {
+    for (const record of records) {
+      const vector = Array.isArray(record.embedding)
+        ? [...record.embedding]
+        : record.embedding.toArray();
+      this.records.push({
+        id: record.id,
+        content: record.content,
+        retrieval_text: record.retrieval_text,
+        embedding: vector,
+        metadata: record.metadata,
+        media: record.media
+      });
+    }
+  }
+
   async deprecate(
     documentId: string,
     supersedingDocumentId: string | undefined,

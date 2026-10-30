@@ -23,6 +23,7 @@
     "inspect:prod": "node scripts/inspect-prod.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:emulator": "cd .. && firebase emulators:exec --only firestore --project demo-recovery \"npm --prefix functions test -- test/recovery.emulator.test.ts\"",
     "eval:files": "tsx scripts/provider-eval.ts",
     "backup:memories": "tsx scripts/backup-memories.ts",
     "backup:firestore-full": "tsx scripts/firestore-full-backup.ts",
