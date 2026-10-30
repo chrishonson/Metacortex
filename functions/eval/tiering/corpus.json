@@ -1,0 +1,302 @@
+{
+  "schema_version": "tiering-eval-corpus.v1",
+  "corpus_id": "tiering-frozen-v1",
+  "frozen_at": "2026-10-30",
+  "provenance": "Synthetic. First eight memories and six queries copied from functions/scripts/retrieval-eval.ts SYNTHETIC_MEMORIES/SYNTHETIC_CASES; remainder written for this study. No live or production data.",
+  "oracle_summary_note": "oracle_summary is hand-written, an optimistic stand-in for an LLM-generated summary. No model generated it.",
+  "memories": [
+    {
+      "key": "ktor-darwin",
+      "topic": "eval-networking",
+      "content": "The shared Kotlin networking layer uses Ktor HttpClient with the Darwin engine on iOS and the OkHttp engine on Android.",
+      "oracle_summary": "Shared Kotlin client: Ktor with Darwin engine on iOS, OkHttp on Android."
+    },
+    {
+      "key": "retrofit-legacy",
+      "topic": "eval-networking",
+      "content": "The retired Android-only client used Retrofit with Gson and had no iOS implementation.",
+      "oracle_summary": "Retired Android client used Retrofit and Gson, no iOS."
+    },
+    {
+      "key": "vector-dimensions",
+      "topic": "eval-firestore",
+      "content": "Firestore vector indexes and GEMINI_EMBEDDING_DIMENSIONS must both use 768 dimensions with cosine distance.",
+      "oracle_summary": "Vector index and GEMINI_EMBEDDING_DIMENSIONS both 768, cosine distance."
+    },
+    {
+      "key": "firestore-mode",
+      "topic": "eval-firestore",
+      "content": "The MetaCortex database must use Firestore Native mode rather than Datastore mode.",
+      "oracle_summary": "Database must be Firestore Native mode, not Datastore mode."
+    },
+    {
+      "key": "client-scoping",
+      "topic": "eval-security",
+      "content": "Each custom MCP client profile has its own bearer token, tool allowlist, branch-state allowlist, and browser origin allowlist.",
+      "oracle_summary": "MCP client profiles are restricted by token, tool allowlist, branch-state allowlist and origin allowlist."
+    },
+    {
+      "key": "cors-default",
+      "topic": "eval-security",
+      "content": "MCP_ALLOWED_ORIGINS applies only to the default admin endpoint and defaults to denying browser origins.",
+      "oracle_summary": "MCP_ALLOWED_ORIGINS covers only the admin endpoint and denies browser origins by default."
+    },
+    {
+      "key": "write-fingerprint",
+      "topic": "eval-writes",
+      "content": "A write fingerprint suppresses duplicate memory writes for fifteen minutes while the fingerprint document is retained for thirty days.",
+      "oracle_summary": "Duplicate writes are deduplicated for fifteen minutes; fingerprints kept thirty days."
+    },
+    {
+      "key": "consolidation",
+      "topic": "eval-lifecycle",
+      "content": "Consolidation merges at least two source memories into one active record and deprecates each source with superseded_by set to the merged id.",
+      "oracle_summary": "Consolidation deprecates source records and sets superseded_by to the merged id."
+    },
+    {
+      "key": "deploy-region",
+      "topic": "eval-deploy",
+      "content": "Deployment notes from the October release window. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. The decisive fact: Cloud Functions are deployed to us-central1 because the Firestore database lives in nam5 and cross-region calls added latency.",
+      "oracle_summary": "Functions deploy to us-central1 to stay near the nam5 Firestore database."
+    },
+    {
+      "key": "backup-schedule",
+      "topic": "eval-recovery",
+      "content": "Recovery runbook revision three. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. Full Firestore backups run nightly at 03:00 UTC and portable archives are pushed weekly on Sundays.",
+      "oracle_summary": "Nightly full backups at 03:00 UTC, weekly portable archives on Sundays."
+    },
+    {
+      "key": "restore-prune",
+      "topic": "eval-recovery",
+      "content": "Restore tooling notes. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. Write-mode restore can prune documents that are absent from the archive, so always run a dry run first.",
+      "oracle_summary": "Write-mode restore may prune absent documents; dry run first."
+    },
+    {
+      "key": "ttl-policy",
+      "topic": "eval-lifecycle",
+      "content": "Lifecycle policy discussion. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. Deprecated memories receive an expires_at timestamp and the Firestore TTL policy deletes them after ninety days.",
+      "oracle_summary": "Deprecated memories expire via Firestore TTL after ninety days."
+    },
+    {
+      "key": "oauth-transition",
+      "topic": "eval-security",
+      "content": "Authentication migration log. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. Legacy URL-embedded credentials remain accepted during the transition, but new clients must send bearer tokens in the Authorization header.",
+      "oracle_summary": "New clients must use Authorization bearer tokens; URL credentials are legacy."
+    },
+    {
+      "key": "embedding-model",
+      "topic": "eval-models",
+      "content": "Model selection meeting notes. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. The embedding model is gemini-embedding-001, chosen over text-embedding-004 for multilingual quality.",
+      "oracle_summary": "Embedding model is gemini-embedding-001, chosen for multilingual quality."
+    },
+    {
+      "key": "merge-model",
+      "topic": "eval-models",
+      "content": "Merge pipeline notes. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. The LLM merge step uses a flash-tier Gemini model with temperature zero so consolidations are reproducible.",
+      "oracle_summary": "Merge uses a flash Gemini model at temperature zero for reproducibility."
+    },
+    {
+      "key": "search-payload",
+      "topic": "eval-retrieval",
+      "content": "Search response design. Background: this note was recorded during routine maintenance and also mentions unrelated housekeeping such as log rotation, dependency bumps, lint fixes, and reviewer assignments that do not change behavior. search_context returns only a 220 character summary per hit and clients call fetch_context for full content.",
+      "oracle_summary": "Search returns 220-char summaries; fetch_context returns full content."
+    },
+    {
+      "key": "compose-ui",
+      "topic": "eval-ui",
+      "content": "The Android app UI is built with Jetpack Compose and Material 3 theming.",
+      "oracle_summary": "Android UI uses Jetpack Compose and Material 3."
+    },
+    {
+      "key": "swiftui-ios",
+      "topic": "eval-ui",
+      "content": "The iOS shell uses SwiftUI and embeds the shared Kotlin module as an XCFramework.",
+      "oracle_summary": "iOS uses SwiftUI with the shared Kotlin XCFramework."
+    },
+    {
+      "key": "ci-node",
+      "topic": "eval-deploy",
+      "content": "CI runs the verification gates on Node 22 to match the Functions engine.",
+      "oracle_summary": "CI gates run on Node 22."
+    },
+    {
+      "key": "rate-limit",
+      "topic": "eval-security",
+      "content": "Each client is rate limited to sixty search requests per minute.",
+      "oracle_summary": "Clients are limited to sixty searches per minute."
+    },
+    {
+      "key": "datastore-history",
+      "topic": "eval-firestore",
+      "content": "An early prototype stored memories in Datastore mode before the vector search migration.",
+      "oracle_summary": "Early prototype used Datastore mode before vector search."
+    },
+    {
+      "key": "cost-cap",
+      "topic": "eval-deploy",
+      "content": "Monthly Gemini spend is capped by a budget alert at twenty dollars.",
+      "oracle_summary": "Gemini spend has a twenty dollar monthly budget alert."
+    },
+    {
+      "key": "archive-format",
+      "topic": "eval-recovery",
+      "content": "Portable archives are newline-delimited JSON files grouped by topic.",
+      "oracle_summary": "Portable archives are NDJSON grouped by topic."
+    },
+    {
+      "key": "fetch-audit",
+      "topic": "eval-retrieval",
+      "content": "Every fetch_context call writes a retrieval event used for implicit relevance labels.",
+      "oracle_summary": "fetch_context writes retrieval events for implicit labels."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "networking-ios-engine",
+      "query": "Which HTTP engine does the shared mobile client use on iOS?",
+      "positive_keys": [
+        "ktor-darwin"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "firestore-vector-dimensions",
+      "query": "GEMINI_EMBEDDING_DIMENSIONS cosine index size",
+      "positive_keys": [
+        "vector-dimensions"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "firestore-native-mode",
+      "query": "Which Firestore database mode is required?",
+      "positive_keys": [
+        "firestore-mode"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "scoped-client-controls",
+      "query": "How are individual MCP clients restricted?",
+      "positive_keys": [
+        "client-scoping"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "duplicate-write-window",
+      "query": "How long are repeated memory writes deduplicated?",
+      "positive_keys": [
+        "write-fingerprint"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "consolidation-effects",
+      "query": "What happens to source records after consolidation?",
+      "positive_keys": [
+        "consolidation"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "deploy-region",
+      "query": "Which region are the functions deployed to?",
+      "positive_keys": [
+        "deploy-region"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "backup-time",
+      "query": "When do full Firestore backups run?",
+      "positive_keys": [
+        "backup-schedule"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "restore-safety",
+      "query": "Can restore delete documents missing from the archive?",
+      "positive_keys": [
+        "restore-prune"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "deprecated-expiry",
+      "query": "How long until deprecated memories are deleted?",
+      "positive_keys": [
+        "ttl-policy"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "auth-header",
+      "query": "How should new clients send credentials?",
+      "positive_keys": [
+        "oauth-transition"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "which-embedding",
+      "query": "Which embedding model is used?",
+      "positive_keys": [
+        "embedding-model"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "merge-temperature",
+      "query": "What temperature does the merge model use?",
+      "positive_keys": [
+        "merge-model"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "search-vs-fetch",
+      "query": "Does search return full memory content?",
+      "positive_keys": [
+        "search-payload"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "cors-admin",
+      "query": "Which endpoint does MCP_ALLOWED_ORIGINS govern?",
+      "positive_keys": [
+        "cors-default"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "mobile-stack",
+      "query": "What does the shared Kotlin code use for networking and how does iOS consume it?",
+      "positive_keys": [
+        "ktor-darwin",
+        "swiftui-ios"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "recovery-overview",
+      "query": "What are the backup cadence and restore risks?",
+      "positive_keys": [
+        "backup-schedule",
+        "restore-prune"
+      ],
+      "limit": 5
+    },
+    {
+      "case_id": "model-choices",
+      "query": "Which Gemini models handle embeddings and merging?",
+      "positive_keys": [
+        "embedding-model",
+        "merge-model"
+      ],
+      "limit": 5
+    }
+  ]
+}

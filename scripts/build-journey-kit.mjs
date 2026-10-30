@@ -215,6 +215,11 @@ const SOURCE_FILE_MANIFEST = [
     description: "MetaCortex source: retrievalEvaluation."
   },
   {
+    path: "functions/src/tieringEvaluation.ts",
+    role: "source",
+    description: "MetaCortex source: tieringEvaluation."
+  },
+  {
     path: "functions/scripts/backfill-firestore-provenance.mjs",
     role: "script",
     description: "MetaCortex script: backfill-firestore-provenance."
@@ -265,6 +270,11 @@ const SOURCE_FILE_MANIFEST = [
     description: "MetaCortex script: retrieval-eval."
   },
   {
+    path: "functions/scripts/tiering-eval.ts",
+    role: "script",
+    description: "MetaCortex script: tiering-eval."
+  },
+  {
     path: "functions/scripts/support/cli.ts",
     role: "script",
     description: "MetaCortex script: cli."
@@ -308,6 +318,16 @@ const SOURCE_FILE_MANIFEST = [
     path: "functions/test/retrievalEvaluation.test.ts",
     role: "test",
     description: "MetaCortex test: retrievalEvaluation.test."
+  },
+  {
+    path: "functions/test/tieringEvaluation.test.ts",
+    role: "test",
+    description: "MetaCortex test: tieringEvaluation.test."
+  },
+  {
+    path: "functions/eval/tiering/corpus.json",
+    role: "test",
+    description: "Frozen synthetic tiering evaluation corpus."
   },
   {
     path: ".gitignore",
