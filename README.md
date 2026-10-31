@@ -4,7 +4,7 @@ MetaCortex is a serverless MCP memory service backed by Firestore vector search 
 
 ## Status and roadmap
 
-MetaCortex is already released (repository tag `v0.3.0`). This checkout contains a reconciled local baseline; publication and production deployment are separate operations. See the [baseline record](docs/operations/2026-10-01-adoption-baseline.md), [unified roadmap](metacortexplan.md), and [immediate next steps](NEXT-STEPS.md).
+MetaCortex is already released (repository tag `v0.3.0`). This checkout contains a reconciled local baseline; publication and production deployment are separate operations. See the [unified roadmap](metacortexplan.md).
 
 The browser setup wizard, owner login/OAuth, management dashboard, and ChatGPT extension are planned, not available in this baseline. Software is MIT-licensed; owners pay their own Firebase/model usage and agent subscriptions. One installation holds one owner's shared corpus; profiles do not provide tenant isolation.
 

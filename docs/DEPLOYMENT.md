@@ -1,6 +1,6 @@
 # Deployment and operator playbook
 
-This guide describes the current local baseline, not the planned browser installer. See the [unified roadmap](../metacortexplan.md), [baseline evidence](operations/2026-10-01-adoption-baseline.md), and [security boundaries](SECURITY.md). MetaCortex is already released. Card 66 subsequently deployed on 2026-10-03 UTC; see the [rollout record](operations/2026-10-03-card66-rollout.md).
+This guide describes the current local baseline, not the planned browser installer. See the [unified roadmap](../metacortexplan.md) and [security boundaries](SECURITY.md). MetaCortex is already released.
 
 ## Current contract
 
@@ -82,7 +82,7 @@ firebase deploy --project <alias> --only functions
 
 The Functions predeploy hook builds the source. The alias selects `.env.<alias>`; passing a raw project ID may load a different dotenv file. Always verify effective non-secret settings.
 
-Existing production Secret Manager migration is complete: [card-23 record](operations/2026-09-09-secret-migration.md). Do not repeat the plaintext migration or rotate credentials merely because deployment docs changed.
+Existing production Secret Manager migration completed on 2026-09-09. Do not repeat the plaintext migration or rotate credentials merely because deployment docs changed.
 
 ## TTL and retention
 

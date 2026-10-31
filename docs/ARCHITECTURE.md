@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-MetaCortex is an already-released, serverless user-memory service: Express and the MCP SDK run in Firebase Cloud Functions 2nd Gen; Firestore stores canonical memories and vectors. The [roadmap](../metacortexplan.md) is authoritative for future work. The [baseline record](operations/2026-10-01-adoption-baseline.md) distinguishes local integration from deployment evidence.
+MetaCortex is an already-released, serverless user-memory service: Express and the MCP SDK run in Firebase Cloud Functions 2nd Gen; Firestore stores canonical memories and vectors. The [roadmap](../metacortexplan.md) is authoritative for future work.
 
 ```mermaid
 flowchart TD

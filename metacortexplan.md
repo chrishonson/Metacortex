@@ -8,7 +8,7 @@ Extend the already-released MetaCortex into a free, approachable, self-hosted me
 
 The target experience includes browser-based installation into the owner’s Firebase project, secure agent connections, a memory-management web UI, and a ChatGPT extension. Do not assign “1.0” or another release number before assessing the actual compatibility changes.
 
-**Status (2026-10-02):** planning and supporting-document reconciliation complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`), followed by review and fast-forward of upstream documentation through `82cb302`. Local verification and distribution checks are established; see the [baseline evidence](docs/operations/2026-10-01-adoption-baseline.md). All 19 cards are posted with verified dependencies: 18 in backlog and DISTRIBUTE review-blocked automatically by the control plane. No ready/claimed work was created. Card 66 is now merged and deployed; see the [rollout evidence](docs/operations/2026-10-03-card66-rollout.md). Product milestones B–F remain unimplemented.
+**Status (2026-10-02):** planning and supporting-document reconciliation complete. Baseline integrated on `codex/self-hosted-adoption-baseline` (`save_context` rename in `dde9099`, backup/archive/restore in `d54ca20`), followed by review and fast-forward of upstream documentation through `82cb302`. Local verification and distribution checks are established. All 19 cards are posted with verified dependencies: 18 in backlog and DISTRIBUTE review-blocked automatically by the control plane. No ready/claimed work was created. Card 66 is now merged and deployed. Product milestones B–F remain unimplemented.
 
 ### One canonical plan
 
@@ -25,7 +25,6 @@ Supporting documents retain distinct roles:
 
 | Document | Role |
 |---|---|
-| `NEXT-STEPS.md` | Short, dated view of immediate roadmap priorities and verified blockers. No independent backlog. |
 | `README.md` | Released capabilities, setup entry point, costs, limitations, and links to the roadmap and runbooks. |
 | Architecture guide | Current components, data flow, and trust boundaries; clearly distinguish proposed changes. |
 | Deployment guide | Installation, configuration, verification, upgrades, rollback, and recovery procedures. Separate reusable instructions from maintainer-specific operations. |
@@ -229,7 +228,7 @@ Use the version-neutral initiative **MetaCortex self-hosted adoption**. Planning
 - Use `software` cards for implementation and `task` cards for reconciliation, external acceptance, publication, and operational handoff.
 - Preserve unrelated queue ordering. Leave placement unspecified unless a verified gate requires it.
 - Read the board back to verify backlog state (or mandatory policy review block), dependencies, gate references, and duplicate absence.
-- Write actual card numbers into the canonical roadmap and derive `NEXT-STEPS.md` from the immediate prerequisites.
+- Write actual card numbers into the canonical roadmap.
 
 ## 5. Verification and completion
 
@@ -262,8 +261,6 @@ All claims must be supported by evidence from the exact release candidate. Passi
 | `README.md` | Retained. States six tools and legacy URL-token status. |
 | `CLAUDE.md`, `AGENTS.md` | Corrected tool count to six. |
 | `journey-kit/` (`kit.md`, `README.md`, `examples/browser-client-setup.md`) | Corrected. Secrets moved from `.env.prod` to Secret Manager, tokenized ChatGPT URL no longer the recommended path, "secure" and "one-click" claims removed, model name matched to code default. Kit version number not changed. |
-| `docs/superpowers/` plan and spec | Retained as dated records. |
-| `docs/operations/2026-09-09-secret-migration.md` | Retained as historical evidence. |
 | `slides.html` | Corrected. Removed $0 cost, infinite-scaling, near-zero-latency, one-click, "secure", daily-cron, and unverified native-client claims. Tool count now six. Deletion wording now matches soft-deprecation. |
 | `studies/ci-recurrence/` | Archived 2026-10-10 as a dead end, not on `release`. Study code is tag `archive/ci-recurrence-study` and its retained data is tag `archive/ci-recurrence-data`. It has no MetaCortex claims. |
 
@@ -287,7 +284,7 @@ The strategic plan at `08d144f:metacortexplan.md` is preserved in Git. Its subst
 | Competitive matrix and reliability claims about other products | Removed from the active roadmap as unsupported and unnecessary for self-hosted acceptance. Historical text remains in Git. |
 | Old scouting suggestions to prune/discard/publish work | Superseded by the preservation inventory and per-card evidence in the baseline record. No age-based deletion or publication. |
 
-The prior NEXT-STEPS material was not tracked at release commit `08d144f`; its current replacement is a dated view of this roadmap. Dated archive designs retain their historical role. Screenshots and presentation assets are explanatory material, not release acceptance evidence.
+Screenshots and presentation assets are explanatory material, not release acceptance evidence.
 
 ### Board reconciliation, 2026-10-02
 
@@ -297,7 +294,7 @@ DOC/BASE/VERIFY retain delivered local evidence and remaining review/CI/deployme
 
 ### 2026-10-03 UTC execution update
 
-Card 66 landed through PR #12 and is done: production revision `metacortexmcp-00030-zaj`, profile secret version 2, nine scoped clients and admin verified. The [rollout record](docs/operations/2026-10-03-card66-rollout.md) distinguishes endpoint checks from long-running client catalog refreshes. Baseline `9c3feac` is pushed and its hosted typecheck/test/package gates passed. The earlier local-only and undeployed statements in dated records describe the state before this rollout.
+Card 66 landed through PR #12 and is done: production revision `metacortexmcp-00030-zaj`, profile secret version 2, nine scoped clients and admin verified. Baseline `9c3feac` is pushed and its hosted typecheck/test/package gates passed. The earlier local-only and undeployed statements in dated records describe the state before this rollout.
 
 The release integration includes the intended roadmap, archive/backup code, verification contract and packaging corrections. Unrelated study data and personal settings were preserved on `codex/self-hosted-adoption-baseline`, which was deleted on 2026-10-10 after its tip was tagged `archive/ci-recurrence-data`. They are not part of the release integration or Journey package. DOC/BASE/VERIFY acceptance precedes CORE #70; remaining cards stay queued until selected.
 
