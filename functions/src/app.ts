@@ -57,7 +57,7 @@ function registerMcpRoutes(
 ): void {
   const router = express.Router({ mergeParams: true });
 
-  router.use((req, res, next) => {
+  router.use(async (req, res, next) => {
     const startedAt = Date.now();
     res.locals.requestStartedAt = startedAt;
     let config: AppConfig;
@@ -77,7 +77,7 @@ function registerMcpRoutes(
     }
 
     if (!applyCorsHeaders(req, res, profile)) {
-      void recordRequestEvent(
+      await recordRequestEvent(
         options,
         profile.id,
         req,
@@ -96,7 +96,7 @@ function registerMcpRoutes(
     }
 
     if (!isAuthorized(req, profile.authToken)) {
-      void recordRequestEvent(
+      await recordRequestEvent(
         options,
         profile.id,
         req,
