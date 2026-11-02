@@ -338,3 +338,12 @@ Hypotheses and frozen corpus committed first in `fe05c41` (`docs/research/2026-1
 Result: L0 first-sentence index is a no-go (recall@5 1.000 to 0.722). Summary-index and dual-index variants are a no-go for now: MRR gains of 0.093 and 0.065 rest on hand-written summaries with recall already at ceiling. A generated summary as the search payload is a provisional go: answerability 0.444 to 1.000 and payload tokens down 55%, pending a confirmation run with real generated summaries. No tiering ships from this card.
 
 Local checks at `fadddef`: `metacortex_typecheck` passed, `metacortex_test` passed (181 passed, 1 skipped, 17 files; one of three runs hit an unrelated intermittent failure in `app.test.ts` "blocks browser origins that are not allowlisted", which passed on rerun), `metacortex_package` passed (129 tests in the extracted kit). No deployed or release evidence exists. Limits: local hashed embedder instead of Gemini, oracle summaries, 18 synthetic queries, analytical write-cost estimate, and no live Firestore or observed cases.
+
+### TIERING #128, 2026-11-02
+
+Offline generation run using production model `gemini-3.5-flash` through Vertex AI (`global`, temperature 0) on frozen corpus `tiering-frozen-v1` (sha256 `1547197f...08d132e9`). Fixture committed in `functions/eval/tiering/generated-summaries.json`, evaluated in `functions/scripts/tiering-eval.ts`, and pinned in `functions/test/tieringEvaluation.test.ts`. Full results in `docs/research/2026-11-02-tiering-generated-summaries-results.md`.
+
+Result: V4 generated summary as search payload is a confirmed go. Answerability reached 1.0000 (gain of +0.5556 over B0 baseline 0.4444), recall@5 held at 1.0000 (no regression), and search payload tokens per query were 121.6111 (down 20.7% from B0 153.3889). Zero shortfalls out of 24 memories. Measured generation tokens averaged 70.0 prompt, 22.3 candidate output, and 513.8 thought tokens per memory. Estimated generation cost per write is approximately $0.000332 ($0.33 per 1,000 writes) under Vertex AI list pricing. Nothing is deployed from this card.
+
+Limits: ranking uses the local hashed embedder rather than Gemini embeddings, 24 synthetic memories, 18 synthetic queries, a single offline generation run at temperature 0, token pricing derived from Vertex AI list price assumptions rather than direct billing, and no live Firestore.
+
