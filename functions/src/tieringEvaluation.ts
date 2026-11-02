@@ -109,9 +109,17 @@ export interface TieringVariantResult {
   };
 }
 
-export function evaluateVariant(corpus: TieringCorpus, variant: TieringVariantId): TieringVariantResult {
+export function evaluateVariant(
+  corpus: TieringCorpus,
+  variant: TieringVariantId,
+  summaries?: Record<string, string>
+): TieringVariantResult {
   const spec = TIERING_VARIANTS[variant];
   const byKey = new Map(corpus.memories.map(memory => [memory.key, memory]));
+  const getPayload = (memory: TieringMemory): string =>
+    variant === "V4" && summaries && memory.key in summaries
+      ? summaries[memory.key]!
+      : spec.payload(memory);
   const index = corpus.memories.map(memory => ({
     memory,
     vectors: spec.indexTexts(memory).map(hashedEmbedding)
@@ -143,12 +151,12 @@ export function evaluateVariant(corpus: TieringCorpus, variant: TieringVariantId
         return false;
       }
       const memory = byKey.get(key)!;
-      return isAnswerable(spec.payload(memory), memory);
+      return isAnswerable(getPayload(memory), memory);
     })
   ).length;
   const payloadTokens = observations.reduce(
     (total, observation) =>
-      total + observation.returned_ids.reduce((sum, key) => sum + estimateTokens(spec.payload(byKey.get(key)!)), 0),
+      total + observation.returned_ids.reduce((sum, key) => sum + estimateTokens(getPayload(byKey.get(key)!)), 0),
     0
   );
   const indexTokens = corpus.memories.reduce(

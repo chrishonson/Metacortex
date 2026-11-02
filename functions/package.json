@@ -17,6 +17,7 @@
     "eval:import": "tsx scripts/retrieval-eval.ts import-production",
     "eval:run": "tsx scripts/retrieval-eval.ts run",
     "eval:tiering": "tsx scripts/tiering-eval.ts",
+    "eval:tiering:generate": "tsx scripts/tiering-generate.ts",
     "serve": "cd .. && firebase emulators:start --only functions,firestore",
     "shell": "firebase functions:shell",
     "smoke": "node scripts/mcp-smoke-test.mjs",
