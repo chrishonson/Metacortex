@@ -69,4 +69,79 @@ describe("tiering evaluation", () => {
     const inflated = { ...baseline, variant: "V2" as const, cost: { ...baseline.cost, payload_tokens_per_query: baseline.cost.payload_tokens_per_query * 2 } };
     expect(decide(baseline, inflated)).toMatchObject({ regression: true, go: false, reason: "payload tokens grew over 10%" });
   });
+
+  it("pins the generated summaries fixture and reproduces v4_generated results", () => {
+    const fixtureRaw = readFileSync(new URL("../eval/tiering/generated-summaries.json", import.meta.url));
+    const fixture = JSON.parse(fixtureRaw.toString("utf8")) as {
+      schema_version: string;
+      corpus_id: string;
+      corpus_sha256: string;
+      model: string;
+      location: string;
+      generated_at: string;
+      prompt: string;
+      temperature: number;
+      summaries: Array<{
+        key: string;
+        summary: string;
+        prompt_tokens: number;
+        output_tokens: number;
+        thought_tokens: number;
+      }>;
+      totals: {
+        prompt_tokens: number;
+        output_tokens: number;
+        thought_tokens: number;
+        total_tokens: number;
+      };
+    };
+
+    const corpusSha256 = createHash("sha256").update(raw).digest("hex");
+    expect(fixture.corpus_sha256).toBe(corpusSha256);
+    expect(fixture.corpus_id).toBe(corpus.corpus_id);
+    expect(fixture.model).toBe("gemini-3.5-flash");
+    expect(fixture.location).toBe("global");
+    expect(fixture.temperature).toBe(0);
+    expect(fixture.summaries).toHaveLength(24);
+
+    const corpusKeys = new Set(corpus.memories.map(m => m.key));
+    const fixtureKeys = new Set(fixture.summaries.map(s => s.key));
+    expect(fixtureKeys.size).toBe(24);
+    for (const key of corpusKeys) {
+      expect(fixtureKeys.has(key)).toBe(true);
+    }
+
+    for (const item of fixture.summaries) {
+      expect(item.summary.trim().length).toBeGreaterThan(0);
+      expect(item.prompt_tokens).toBeGreaterThan(0);
+      expect(item.output_tokens).toBeGreaterThan(0);
+    }
+
+    const summaryMap: Record<string, string> = {};
+    for (const item of fixture.summaries) {
+      summaryMap[item.key] = item.summary;
+    }
+
+    const baseline = evaluateVariant(corpus, "B0");
+    const v4Generated = evaluateVariant(corpus, "V4", summaryMap);
+
+    expect(v4Generated.metrics.hit_at_k["1"]).toBeCloseTo(0.8333, 4);
+    expect(v4Generated.metrics.recall_at_k["5"]).toBe(1);
+    expect(v4Generated.metrics.mrr).toBeCloseTo(0.9074, 4);
+    expect(v4Generated.answerability).toBe(1);
+    expect(v4Generated.cost.payload_tokens_per_query).toBeCloseTo(121.6111, 4);
+
+    const decision = decide(baseline, v4Generated);
+    expect(decision).toEqual({
+      variant: "V4",
+      regression: false,
+      go: true,
+      reason: "answerability +0.5556"
+    });
+
+    const shortfalls = corpus.memories
+      .filter(memory => !isAnswerable(summaryMap[memory.key] ?? "", memory))
+      .map(memory => memory.key);
+    expect(shortfalls).toEqual([]);
+  });
 });

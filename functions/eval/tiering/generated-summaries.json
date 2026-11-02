@@ -1,0 +1,186 @@
+{
+  "schema_version": "tiering-generated-summaries.v1",
+  "corpus_id": "tiering-frozen-v1",
+  "corpus_sha256": "1547197f75825f18ec33c26955d0175e6d2e28f2b06f9a8d80fee92c08d132e9",
+  "model": "gemini-3.5-flash",
+  "location": "global",
+  "generated_at": "2026-11-02T12:40:45.841Z",
+  "prompt": "Write a search-result summary of the memory content below that keeps the decisive fact, in at most 220 characters. Return only the summary text without preamble or quotes.",
+  "temperature": 0,
+  "summaries": [
+    {
+      "key": "ktor-darwin",
+      "summary": "The shared Kotlin networking layer uses Ktor HttpClient with the Darwin engine on iOS and the OkHttp engine on Android.",
+      "prompt_tokens": 60,
+      "output_tokens": 23,
+      "thought_tokens": 479
+    },
+    {
+      "key": "retrofit-legacy",
+      "summary": "The retired Android-only client used Retrofit with Gson and had no iOS implementation.",
+      "prompt_tokens": 54,
+      "output_tokens": 17,
+      "thought_tokens": 350
+    },
+    {
+      "key": "vector-dimensions",
+      "summary": "Firestore vector indexes and GEMINI_EMBEDDING_DIMENSIONS must both use 768 dimensions with cosine distance.",
+      "prompt_tokens": 62,
+      "output_tokens": 25,
+      "thought_tokens": 588
+    },
+    {
+      "key": "firestore-mode",
+      "summary": "The MetaCortex database must be configured to use Firestore Native mode instead of Datastore mode.",
+      "prompt_tokens": 53,
+      "output_tokens": 19,
+      "thought_tokens": 381
+    },
+    {
+      "key": "client-scoping",
+      "summary": "Each custom MCP client profile has its own unique bearer token, tool allowlist, branch-state allowlist, and browser origin allowlist.",
+      "prompt_tokens": 64,
+      "output_tokens": 28,
+      "thought_tokens": 623
+    },
+    {
+      "key": "cors-default",
+      "summary": "MCP_ALLOWED_ORIGINS applies only to the default admin endpoint and defaults to denying browser origins.",
+      "prompt_tokens": 57,
+      "output_tokens": 20,
+      "thought_tokens": 435
+    },
+    {
+      "key": "write-fingerprint",
+      "summary": "Write fingerprints suppress duplicate memory writes for 15 minutes, while the fingerprint document is retained for 30 days.",
+      "prompt_tokens": 57,
+      "output_tokens": 24,
+      "thought_tokens": 571
+    },
+    {
+      "key": "consolidation",
+      "summary": "Consolidation merges multiple source memories into one active record, deprecating the sources by setting their \"superseded_by\" field to the merged ID.",
+      "prompt_tokens": 65,
+      "output_tokens": 31,
+      "thought_tokens": 494
+    },
+    {
+      "key": "deploy-region",
+      "summary": "October deployment notes: Cloud Functions are deployed to us-central1 because the Firestore database lives in nam5 and cross-region calls added latency. Routine housekeeping was also performed.",
+      "prompt_tokens": 108,
+      "output_tokens": 35,
+      "thought_tokens": 1153
+    },
+    {
+      "key": "backup-schedule",
+      "summary": "Recovery runbook revision three: Full Firestore backups run nightly at 03:00 UTC, and portable archives are pushed weekly on Sundays.",
+      "prompt_tokens": 99,
+      "output_tokens": 29,
+      "thought_tokens": 649
+    },
+    {
+      "key": "restore-prune",
+      "summary": "Restore tooling notes: Always run a dry run first because write-mode restore can prune documents that are absent from the archive.",
+      "prompt_tokens": 97,
+      "output_tokens": 25,
+      "thought_tokens": 595
+    },
+    {
+      "key": "ttl-policy",
+      "summary": "Deprecated memories receive an expires_at timestamp and are deleted by the Firestore TTL policy after ninety days.",
+      "prompt_tokens": 95,
+      "output_tokens": 20,
+      "thought_tokens": 473
+    },
+    {
+      "key": "oauth-transition",
+      "summary": "Authentication migration log: Legacy URL-embedded credentials remain accepted during transition, but new clients must send bearer tokens in the Authorization header.",
+      "prompt_tokens": 98,
+      "output_tokens": 26,
+      "thought_tokens": 548
+    },
+    {
+      "key": "embedding-model",
+      "summary": "Model selection notes: gemini-embedding-001 was chosen over text-embedding-004 as the embedding model due to its superior multilingual quality.",
+      "prompt_tokens": 102,
+      "output_tokens": 33,
+      "thought_tokens": 616
+    },
+    {
+      "key": "merge-model",
+      "summary": "Merge pipeline notes: The LLM merge step uses a flash-tier Gemini model with temperature zero to ensure consolidations are reproducible.",
+      "prompt_tokens": 96,
+      "output_tokens": 26,
+      "thought_tokens": 550
+    },
+    {
+      "key": "search-payload",
+      "summary": "Search response design: search_context returns only a 220-character summary per hit, and clients must call fetch_context to retrieve the full content.",
+      "prompt_tokens": 99,
+      "output_tokens": 33,
+      "thought_tokens": 524
+    },
+    {
+      "key": "compose-ui",
+      "summary": "The Android app UI is built using Jetpack Compose and Material 3 theming.",
+      "prompt_tokens": 54,
+      "output_tokens": 17,
+      "thought_tokens": 401
+    },
+    {
+      "key": "swiftui-ios",
+      "summary": "The iOS shell is built with SwiftUI and embeds the shared Kotlin module as an XCFramework.",
+      "prompt_tokens": 54,
+      "output_tokens": 19,
+      "thought_tokens": 439
+    },
+    {
+      "key": "ci-node",
+      "summary": "CI runs verification gates on Node 22 to match the Functions engine.",
+      "prompt_tokens": 53,
+      "output_tokens": 15,
+      "thought_tokens": 414
+    },
+    {
+      "key": "rate-limit",
+      "summary": "Each client is rate limited to 60 search requests per minute.",
+      "prompt_tokens": 49,
+      "output_tokens": 13,
+      "thought_tokens": 451
+    },
+    {
+      "key": "datastore-history",
+      "summary": "An early prototype stored memories in Datastore mode before migrating to vector search.",
+      "prompt_tokens": 52,
+      "output_tokens": 15,
+      "thought_tokens": 395
+    },
+    {
+      "key": "cost-cap",
+      "summary": "Monthly Gemini spend is capped at $20 by a budget alert.",
+      "prompt_tokens": 50,
+      "output_tokens": 14,
+      "thought_tokens": 356
+    },
+    {
+      "key": "archive-format",
+      "summary": "Portable archives are newline-delimited JSON files grouped by topic.",
+      "prompt_tokens": 50,
+      "output_tokens": 13,
+      "thought_tokens": 368
+    },
+    {
+      "key": "fetch-audit",
+      "summary": "Every fetch_context call writes a retrieval event used for implicit relevance labels.",
+      "prompt_tokens": 52,
+      "output_tokens": 15,
+      "thought_tokens": 479
+    }
+  ],
+  "totals": {
+    "prompt_tokens": 1680,
+    "output_tokens": 535,
+    "thought_tokens": 12332,
+    "total_tokens": 14547
+  }
+}
