@@ -275,6 +275,11 @@ const SOURCE_FILE_MANIFEST = [
     description: "MetaCortex script: tiering-eval."
   },
   {
+    path: "functions/scripts/tiering-generate.ts",
+    role: "script",
+    description: "MetaCortex script: tiering-generate."
+  },
+  {
     path: "functions/scripts/support/cli.ts",
     role: "script",
     description: "MetaCortex script: cli."
@@ -328,6 +333,11 @@ const SOURCE_FILE_MANIFEST = [
     path: "functions/eval/tiering/corpus.json",
     role: "test",
     description: "Frozen synthetic tiering evaluation corpus."
+  },
+  {
+    path: "functions/eval/tiering/generated-summaries.json",
+    role: "test",
+    description: "Generated search-result summaries for frozen tiering corpus."
   },
   {
     path: ".gitignore",
